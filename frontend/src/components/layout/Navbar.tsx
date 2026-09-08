@@ -33,18 +33,17 @@ export function Navbar() {
               <Link
                 key={item.name}
                 href={item.href}
-                className={`text-sm font-semibold transition-colors pb-1 ${
-                  item.current
-                    ? 'text-neutral-700 border-b-2 border-accent-blue'
-                    : 'text-neutral-500 hover:text-neutral-700'
-                }`}
+                className={`text-sm font-semibold transition-colors pb-1 ${item.current
+                  ? 'text-neutral-700 border-b-2 border-accent-blue'
+                  : 'text-neutral-500 hover:text-neutral-700'
+                  }`}
               >
                 {item.name}
               </Link>
             ))}
-            <button className="bg-accent-blue text-white px-5 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity ml-4">
+            <Link href="/login" className="bg-accent-blue text-white px-5 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity ml-4">
               Login
-            </button>
+            </Link>
           </div>
 
           {/* Mobile menu button */}
@@ -80,19 +79,18 @@ export function Navbar() {
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`text-base font-medium px-2 py-1 transition-colors ${
-                    item.current 
-                      ? 'text-accent-blue' 
-                      : 'text-neutral-600 hover:text-primary-600'
-                  }`}
+                  className={`text-base font-medium px-2 py-1 transition-colors ${item.current
+                    ? 'text-accent-blue'
+                    : 'text-neutral-600 hover:text-primary-600'
+                    }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {item.name}
                 </Link>
               ))}
-              <button className="bg-accent-blue text-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity w-fit mt-2 mx-2">
+              <Link href="/login" className="bg-accent-blue text-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity w-fit mt-2 mx-2" onClick={() => setIsMobileMenuOpen(false)}>
                 Login
-              </button>
+              </Link>
             </div>
           </div>
         )}
