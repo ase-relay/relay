@@ -348,7 +348,7 @@ export default function Home() {
         className="pointer-events-none absolute top-0 left-0 z-0 h-auto w-125 max-w-none sm:w-175"
         priority
       />
-      <div className="relative z-10 pt-5">
+      <div className="relative z-10">
         <Navbar />
         <HeroSection />
         <PrioritySection />
