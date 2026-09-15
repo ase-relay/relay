@@ -40,6 +40,9 @@
   --color-accent-green: #10b981;
   --color-accent-blue: #3b82f6;
   --color-accent-amber: #f59e0b;
+
+  /* Custom Shadow Color */
+  --shadow-blue: #3366FF;
 }
 
 html,
