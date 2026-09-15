@@ -43,6 +43,7 @@ export default function LoginPage() {
                         alt=""
                         fill
                         className="object-cover object-bottom opacity-100"
+                        sizes="(max-width: 1024px) 0vw, 50vw"
                     />
                 </div>
 
@@ -100,6 +101,7 @@ export default function LoginPage() {
                                 alt=""
                                 fill
                                 className="object-contain"
+                                sizes="(max-width: 640px) 30vw, 15vw"
                             />
                         </div>
 
