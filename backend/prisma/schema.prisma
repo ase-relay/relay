@@ -6,11 +6,123 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Model User
+// 1. Model User & Autentikasi (FR-REG-01, FR-LGN-01)
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
   id        Int      @id @default(autoincrement())
   username  String   @unique
   email     String   @unique
   password  String
+  role      Role     @default(USER)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  searchHistories SearchHistory[]
+}
+
+// 2. Model Moda Transportasi (FR-ADM-04)
+// Contoh: Bus (TMB/TMP), Angkot, Kereta (KRD), Ojol
+model ModaTransportasi {
+  id        Int      @id @default(autoincrement())
+  namaModa  String   @unique // Bus, Angkot, Kereta, Ojek Online
+  tipeModa  String?  // BRT, FEEDEER, COMMUTER_TRAIN, RIDE_HAILING
+  ikon      String?  // URL atau nama identifier icon SVG
+  deskripsi String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rutes     Rute[]
+  tarifs    Tarif[]
+}
+
+// 3. Model Halte / Titik Pemberhentian (FR-ADM-03, FR-USR-04)
+// Titik transit dan halte di wilayah Bandung & Cimahi
+model Halte {
+  id        Int      @id @default(autoincrement())
+  namaHalte String
+  latitude  Float
+  longitude Float
+  alamat    String?
+  kota      String   @default("Bandung") // Bandung, Cimahi, Kab. Bandung, dll
+  isTransit Boolean  @default(false)     // Apakah titik hubung transit antar moda
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ruteStops RuteStop[]
+}
+
+// 4. Model Rute Transportasi (FR-ADM-02, FR-USR-02)
+model Rute {
+  id        Int      @id @default(autoincrement())
+  namaRute  String   // Contoh: "Koridor 1: Cibiru - Elang" atau "Stasiun Hall - Cimahi"
+  kodeRute  String?  // Contoh: "K1", "KRD-BDG-CMH"
+  deskripsi String?
+  modaId    Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  moda      ModaTransportasi @relation(fields: [modaId], references: [id], onDelete: Cascade)
+  stops     RuteStop[]
+  tarifs    Tarif[]
+}
+
+// 5. Junction Model: Urutan Halte dalam Rute (FR-USR-04, FR-USR-05)
+model RuteStop {
+  id              Int      @id @default(autoincrement())
+  ruteId          Int
+  halteId         Int
+  urutan          Int      // Urutan stop: 1, 2, 3, dst.
+  estimasiMenit   Int?     // Estimasi menit ke stop berikutnya
+  jarakMeter      Int?     // Estimasi jarak meter ke stop berikutnya
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  rute            Rute     @relation(fields: [ruteId], references: [id], onDelete: Cascade)
+  halte           Halte    @relation(fields: [halteId], references: [id], onDelete: Cascade)
+
+  @@unique([ruteId, urutan])
+  @@unique([ruteId, halteId])
+}
+
+// 6. Model Tarif Transportasi (FR-ADM-01, FR-USR-03)
+enum TipeTarif {
+  FLAT        // Tarif tetap jauh-dekat (Contoh: Bus Rp 4.900, Angkot Rp 5.000)
+  PER_KM      // Tarif berbasis jarak (Contoh: Ojol Rp 2.500 / km)
+  PER_STASIUN // Tarif berbasis jumlah halte/stasiun yang dilewati
+}
+
+model Tarif {
+  id           Int              @id @default(autoincrement())
+  modaId       Int
+  ruteId       Int?             // Opsional jika tarif berlaku khusus pada rute tertentu
+  tipeTarif    TipeTarif        @default(FLAT)
+  nominalDasar Float            @default(0) // Base fare
+  nominalPerKm Float?           @default(0) // Biaya per km jika tipe PER_KM
+  keterangan   String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  moda         ModaTransportasi @relation(fields: [modaId], references: [id], onDelete: Cascade)
+  rute         Rute?            @relation(fields: [ruteId], references: [id], onDelete: SetNull)
+}
+
+// 7. Model Riwayat Pencarian Pengguna (FR-USR-01)
+model SearchHistory {
+  id            Int      @id @default(autoincrement())
+  userId        Int?
+  originName    String
+  originLat     Float?
+  originLng     Float?
+  destName      String
+  destLat       Float?
+  destLng       Float?
+  selectedRuteId Int?
+  createdAt     DateTime @default(now())
+
+  user          User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
