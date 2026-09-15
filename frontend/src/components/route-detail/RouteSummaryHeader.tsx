@@ -1,9 +1,8 @@
 'use client';
 
-import React from 'react';
 import { RouteOption } from '@/lib/types/route';
 import { formatDuration, formatCurrency } from '@/lib/utils';
-import { RouteTagBadge } from '@/components/route-search/RouteTagBadge';
+import { VehicleIcon } from '@/components/icons/vehicle/VehicleIcon';
 
 interface RouteSummaryHeaderProps {
   route: RouteOption;
@@ -11,9 +10,13 @@ interface RouteSummaryHeaderProps {
 }
 
 export function RouteSummaryHeader({ route, onBack }: RouteSummaryHeaderProps) {
+  const walkingMinutes = route.segments.reduce(
+    (total, segment) => total + (segment.walkingDurationMinutes ?? 0),
+    0,
+  );
+
   return (
     <div className="space-y-4">
-      {/* Header with back button */}
       <div className="flex items-center gap-3">
         <button
           onClick={onBack}
@@ -35,36 +38,37 @@ export function RouteSummaryHeader({ route, onBack }: RouteSummaryHeaderProps) {
         <h1 className="text-xl font-bold text-neutral-900">Detail Rute</h1>
       </div>
 
-      {/* Route summary card */}
-      <div className="bg-white rounded-xl shadow-sm p-6 border border-neutral-200">
-        {/* Route label and tag */}
-        <div className="flex justify-between items-start mb-6">
-          <h2 className="text-2xl font-bold text-neutral-900">{route.label}</h2>
-          <RouteTagBadge tag={route.tag} />
-        </div>
+      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm" aria-label="Ringkasan rute">
+        <div className="grid gap-6 xl:grid-cols-[minmax(270px,1.2fr)_minmax(390px,1fr)] xl:items-center">
+          <div className="flex items-center gap-4">
+            <VehicleIcon type="bus" />
+            <div className="min-w-0">
+              <h2 className="text-base font-bold leading-snug text-neutral-900">
+                {route.originStopName} <span aria-hidden="true">→</span> {route.destinationStopName}
+              </h2>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-purple-700 px-2.5 py-0.5 text-xs font-semibold text-white">3D</span>
+                <span className="text-sm text-neutral-500">Metro Jabar Trans</span>
+              </div>
+            </div>
+          </div>
 
-        {/* Large info cards */}
-        <div className="grid grid-cols-3 gap-6">
-          <div className="text-center">
-            <div className="text-3xl font-bold text-primary-900 mb-1">
-              {formatDuration(route.totalDurationMinutes)}
+          <dl className="grid grid-cols-1 gap-5 sm:grid-cols-3 sm:gap-6">
+            <div>
+              <dt className="text-sm text-neutral-500">Estimasi Biaya</dt>
+              <dd className="mt-1 font-bold text-neutral-900">{formatCurrency(route.totalCost)}</dd>
             </div>
-            <div className="text-sm text-neutral-600 font-medium">Durasi</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-primary-900 mb-1">
-              {formatCurrency(route.totalCost)}
+            <div>
+              <dt className="text-sm text-neutral-500">Estimasi Waktu</dt>
+              <dd className="mt-1 font-bold text-neutral-900">{formatDuration(route.totalDurationMinutes)}</dd>
             </div>
-            <div className="text-sm text-neutral-600 font-medium">Estimasi Biaya</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-primary-900 mb-1">
-              {route.transitCount}
+            <div>
+              <dt className="text-sm text-neutral-500">Transit &amp; Jalan Kaki</dt>
+              <dd className="mt-1 font-bold text-neutral-900">{route.transitCount} transit, {walkingMinutes} menit</dd>
             </div>
-            <div className="text-sm text-neutral-600 font-medium">Jumlah Transit</div>
-          </div>
+          </dl>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
