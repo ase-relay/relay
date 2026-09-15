@@ -1,6 +1,6 @@
-export default function DotGridBlueIcon() {
+export default function DotGridBlueIcon({ className }: { className?: string }) {
     return (
-        <svg width="140" height="274" viewBox="0 0 140 274" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="140" height="274" viewBox="0 0 140 274" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
             <g filter="url(#filter0_d_190_2888)">
                 <path d="M121.322 23.2695C121.296 24.9238 122.598 26.2847 124.211 26.3114C125.825 26.338 127.153 25.0039 127.179 23.3495C127.205 21.6952 125.903 20.3344 124.29 20.3078C122.65 20.2811 121.322 21.6152 121.322 23.2695Z" fill="#215FF6" />
                 <path d="M94.9798 22.9494C94.9537 24.6038 96.2552 25.9646 97.869 25.9913C99.4829 26.018 100.81 24.6838 100.837 23.0295C100.863 21.3752 99.5611 20.0144 97.9472 19.9877C96.3073 19.961 95.0058 21.2951 94.9798 22.9494Z" fill="#215FF6" />
@@ -44,8 +44,8 @@ export default function DotGridBlueIcon() {
                 <path d="M14.0004 189.929C13.9744 191.584 15.2759 192.944 16.8898 192.971C18.5036 192.998 19.8311 191.664 19.8571 190.009C19.8832 188.355 18.5817 186.994 16.9678 186.967C15.354 186.941 14.0264 188.275 14.0004 189.929Z" fill="#215FF6" />
             </g>
             <defs>
-                <filter id="filter0_d_190_2888" x="0" y="0" width="367.182" height="273.227" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-                    <feFlood flood-opacity="0" result="BackgroundImageFix" />
+                <filter id="filter0_d_190_2888" x="0" y="0" width="367.182" height="273.227" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+                    <feFlood floodOpacity="0" result="BackgroundImageFix" />
                     <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
                     <feOffset dx="34" dy="29" />
                     <feGaussianBlur stdDeviation="24" />

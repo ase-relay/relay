@@ -52,8 +52,8 @@ export default function DotGridOrangeIcon() {
                 <path d="M-2.33995 191.557C-2.36598 193.211 -1.06436 194.572 0.549502 194.599C2.16336 194.625 3.49077 193.291 3.5168 191.637C3.54283 189.983 2.24137 188.622 0.62751 188.595C-0.98635 188.568 -2.31392 189.903 -2.33995 191.557Z" fill="#F58220" />
             </g>
             <defs>
-                <filter id="filter0_d_190_3034" x="-148" y="0" width="367.181" height="273.227" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-                    <feFlood flood-opacity="0" result="BackgroundImageFix" />
+                <filter id="filter0_d_190_3034" x="-148" y="0" width="367.181" height="273.227" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+                    <feFlood floodOpacity="0" result="BackgroundImageFix" />
                     <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
                     <feOffset dx="34" dy="29" />
                     <feGaussianBlur stdDeviation="24" />
