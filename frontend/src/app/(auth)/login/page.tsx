@@ -3,265 +3,71 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import {
-    HiOutlineUser,
-    HiOutlineLockClosed,
-    HiOutlineEye,
-    HiOutlineEyeSlash,
-    HiChevronLeft,
-    HiChevronRight,
-} from "react-icons/hi2";
 import { FcGoogle } from "react-icons/fc";
+import { HiOutlineEye, HiOutlineEyeSlash, HiOutlineLockClosed, HiOutlineUser } from "react-icons/hi2";
+import { AuthSlideBudget } from "@/components/auth/AuthSlideBudget";
+import { AuthSlideRoute } from "@/components/auth/AuthSlideRoute";
+import { AuthSlideTransport } from "@/components/auth/AuthSlideTransport";
+import { CarouselNavButton } from "@/components/ui/CarouselNavButton";
 
-const CAROUSEL_SLIDES = [
-    {
-        title: "Hemat Ongkos, Tetap Otewe",
-        description: "Cari pilihan rute yang pas dengan budget perjalananmu.",
-        image: "/images/Login_Card1.png",
-    },
-];
+const slides = [AuthSlideBudget, AuthSlideTransport, AuthSlideRoute];
 
 export default function LoginPage() {
-    const [showPassword, setShowPassword] = useState(false);
     const [activeSlide, setActiveSlide] = useState(0);
+    const [showPassword, setShowPassword] = useState(false);
     const [form, setForm] = useState({ identifier: "", password: "" });
+    const [error, setError] = useState("");
+    const ActiveSlide = slides[activeSlide];
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        // TODO: sambungkan ke API login
-        console.log(form);
-    };
+    function moveSlide(direction: number) {
+        setActiveSlide((current) => (current + direction + slides.length) % slides.length);
+    }
+
+    function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setError(!form.identifier || !form.password ? "Email/username dan kata sandi wajib diisi" : "");
+    }
 
     return (
-        <div className="grid min-h-screen bg-white lg:grid-cols-2">
-            {/* Kiri - Ilustrasi & branding */}
-            <div className="relative hidden flex-col overflow-hidden bg-gradient-to-b from-white to-primary-50 px-16 py-12 lg:flex h-full">
-                {/* Background illustration - absolute, di belakang konten */}
-                <div className="absolute inset-0 z-0">
-                    <Image
-                        src="/images/Login_Onboard.png"
-                        alt=""
-                        fill
-                        className="object-cover object-bottom opacity-100"
-                        sizes="(max-width: 1024px) 0vw, 50vw"
-                    />
+        <main className="grid min-h-screen bg-white lg:grid-cols-[3fr_2fr]">
+            <section className="relative hidden min-h-screen overflow-hidden border-r border-neutral-200 bg-[linear-gradient(180deg,#fff_0%,#edf6ff_100%)] px-10 py-10 lg:block xl:px-14">
+                <Image src="/logo/logo.png" alt="Otewe" width={160} height={48} priority className="relative z-10 h-auto w-36" />
+                <div className="relative z-10 mt-18 max-w-md">
+                    <h1 className="text-4xl leading-tight font-extrabold tracking-tight text-black">Selamat datang di<br />otewe!</h1>
+                    <p className="mt-4 max-w-sm text-base leading-relaxed text-neutral-600">Temukan rute transportasi terbaik untuk perjalananmu dengan mudah, cepat, dan hemat.</p>
+                </div>
+                <div className="pointer-events-none absolute top-[30%] right-0 left-0 h-[46%]">
+                    <Image src="/images/Login_Onboard.png" alt="Ilustrasi bus Otewe" fill priority className="object-contain object-center" sizes="60vw" />
                 </div>
 
-                {/* Konten - relative + z-10 supaya di atas gambar */}
-                <div className="relative z-10 flex h-full flex-col">
-                    <Image
-                        src="/logo/logo.png"
-                        alt="otewe"
-                        width={160}
-                        height={48}
-                        className="h-auto w-40"
-                        priority
-                    />
-
-                    <div className="mt-16 max-w-md">
-                        <h1 className="text-4xl leading-tight font-extrabold text-neutral-900">
-                            Selamat datang di otewe!
-                        </h1>
-                        <p className="mt-4 text-lg text-neutral-500">
-                            Temukan rute transportasi terbaik untuk perjalananmu dengan mudah,
-                            cepat, dan hemat.
-                        </p>
+                <div className="absolute right-0 bottom-8 left-0 z-10 px-20">
+                    <div className="relative mx-auto max-w-3xl rounded-2xl bg-white shadow-[0_8px_20px_rgba(15,23,42,0.12)]">
+                        <div className="h-48 overflow-hidden rounded-2xl"><ActiveSlide /></div>
+                        <CarouselNavButton direction="previous" size="sm" onClick={() => moveSlide(-1)} className="absolute top-1/2 -left-9 -translate-y-1/2" />
+                        <CarouselNavButton direction="next" size="sm" onClick={() => moveSlide(1)} className="absolute top-1/2 -right-9 -translate-y-1/2" />
                     </div>
-
-                    <div className="flex-1" />
-
-                    {/* Card carousel */}
-                    <div className="relative -mb-4 flex items-center gap-6 rounded-2xl bg-white p-6 shadow-xl">
-                        <button
-                            type="button"
-                            aria-label="Slide sebelumnya"
-                            onClick={() =>
-                                setActiveSlide(
-                                    (prev) =>
-                                        (prev - 1 + CAROUSEL_SLIDES.length) % CAROUSEL_SLIDES.length
-                                )
-                            }
-                            className="absolute top-1/2 -left-5 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-primary-600 text-white shadow-md hover:bg-primary-700"
-                        >
-                            <HiChevronLeft className="h-5 w-5" />
-                        </button>
-
-                        <div className="flex-1">
-                            <h3 className="text-lg font-bold text-neutral-900">
-                                {CAROUSEL_SLIDES[activeSlide].title}
-                            </h3>
-                            <p className="mt-2 text-sm text-neutral-500">
-                                {CAROUSEL_SLIDES[activeSlide].description}
-                            </p>
-                        </div>
-
-                        <div className="relative h-24 w-32 shrink-0">
-                            <Image
-                                src={CAROUSEL_SLIDES[activeSlide].image}
-                                alt=""
-                                fill
-                                className="object-contain"
-                                sizes="(max-width: 640px) 30vw, 15vw"
-                            />
-                        </div>
-
-                        <button
-                            type="button"
-                            aria-label="Slide berikutnya"
-                            onClick={() =>
-                                setActiveSlide((prev) => (prev + 1) % CAROUSEL_SLIDES.length)
-                            }
-                            className="absolute top-1/2 -right-5 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-primary-600 text-white shadow-md hover:bg-primary-700"
-                        >
-                            <HiChevronRight className="h-5 w-5" />
-                        </button>
-                    </div>
-
-                    <div className="mt-8 flex justify-center gap-2">
-                        {CAROUSEL_SLIDES.map((_, index) => (
-                            <button
-                                key={index}
-                                type="button"
-                                aria-label={`Ke slide ${index + 1}`}
-                                onClick={() => setActiveSlide(index)}
-                                className={`h-2.5 rounded-full transition-all ${index === activeSlide
-                                    ? "w-6 bg-primary-600"
-                                    : "w-2.5 bg-neutral-200"
-                                    }`}
-                            />
-                        ))}
-                    </div>
+                    <div className="mt-4 flex justify-center gap-3">{slides.map((_, index) => <button key={index} type="button" aria-label={`Pilih slide ${index + 1}`} onClick={() => setActiveSlide(index)} className={`h-2.5 w-2.5 rounded-full transition ${index === activeSlide ? "bg-primary-600" : "bg-neutral-300"}`} />)}</div>
                 </div>
-            </div>
+            </section>
 
-            {/* Kanan - Form login */}
-            <div className="flex items-center justify-center px-6 py-12 sm:px-12">
-                <div className="w-full max-w-md">
-                    <div className="mb-8 lg:hidden">
-                        <Image
-                            src="/logo/logo.png"
-                            alt="otewe"
-                            width={140}
-                            height={42}
-                            className="h-auto w-36"
-                            priority
-                        />
-                    </div>
+            <section className="flex items-center justify-center px-6 py-10 sm:px-12 lg:px-16 xl:px-18">
+                <div className="w-full max-w-lg">
+                    <Image src="/logo/logo.png" alt="Otewe" width={160} height={48} priority className="mb-12 h-auto w-40 lg:hidden" />
+                    <h2 className="text-2xl font-extrabold tracking-tight text-black">Mau Otewe kemana?</h2>
+                    <p className="mt-2 text-sm text-neutral-600">Ongkos, Transportasi, Waktu, kita cari yang pas!</p>
+                    {error && <p role="alert" className="mt-8 text-sm text-red-600">{error}</p>}
 
-                    <h2 className="text-3xl font-extrabold text-neutral-900">
-                        Mau Otewe kemana?
-                    </h2>
-                    <p className="mt-2 text-neutral-500">
-                        Ongkos, Transportasi, Waktu, kita cari yang pas!
-                    </p>
-
-                    <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-                        <div>
-                            <label
-                                htmlFor="identifier"
-                                className="block text-sm font-semibold text-neutral-800"
-                            >
-                                Email atau username
-                            </label>
-                            <div className="relative mt-2">
-                                <HiOutlineUser className="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-neutral-400" />
-                                <input
-                                    id="identifier"
-                                    name="identifier"
-                                    type="text"
-                                    autoComplete="username"
-                                    placeholder="Masukkan email atau username"
-                                    value={form.identifier}
-                                    onChange={(e) =>
-                                        setForm((prev) => ({ ...prev, identifier: e.target.value }))
-                                    }
-                                    required
-                                    className="w-full rounded-xl border border-neutral-200 py-3.5 pr-4 pl-11 text-neutral-900 placeholder:text-neutral-400 focus:border-transparent focus:ring-2 focus:ring-primary-500 focus:outline-none"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label
-                                htmlFor="password"
-                                className="block text-sm font-semibold text-neutral-800"
-                            >
-                                Kata Sandi
-                            </label>
-                            <div className="relative mt-2">
-                                <HiOutlineLockClosed className="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-neutral-400" />
-                                <input
-                                    id="password"
-                                    name="password"
-                                    type={showPassword ? "text" : "password"}
-                                    autoComplete="current-password"
-                                    placeholder="Masukkan kata sandi"
-                                    value={form.password}
-                                    onChange={(e) =>
-                                        setForm((prev) => ({ ...prev, password: e.target.value }))
-                                    }
-                                    required
-                                    className="w-full rounded-xl border border-neutral-200 py-3.5 pr-11 pl-11 text-neutral-900 placeholder:text-neutral-400 focus:border-transparent focus:ring-2 focus:ring-primary-500 focus:outline-none"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword((prev) => !prev)}
-                                    aria-label={
-                                        showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"
-                                    }
-                                    className="absolute top-1/2 right-4 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
-                                >
-                                    {showPassword ? (
-                                        <HiOutlineEyeSlash className="h-5 w-5" />
-                                    ) : (
-                                        <HiOutlineEye className="h-5 w-5" />
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end">
-                            <Link
-                                href="/forgot-password"
-                                className="text-sm font-medium text-primary-600 hover:text-primary-700"
-                            >
-                                Lupa kata sandi?
-                            </Link>
-                        </div>
-
-                        <button
-                            type="submit"
-                            className="w-full rounded-xl bg-primary-600 py-3.5 text-base font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
-                        >
-                            Masuk
-                        </button>
+                    <form onSubmit={handleSubmit} className="mt-7 space-y-5">
+                        <div><label htmlFor="identifier" className="text-sm font-semibold text-black">Email atau username</label><div className="relative mt-2"><HiOutlineUser className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-neutral-400" /><input id="identifier" type="text" autoComplete="username" value={form.identifier} onChange={(event) => setForm({ ...form, identifier: event.target.value })} placeholder="Masukkan email atau username" className="w-full rounded-xl border border-neutral-300 py-3 pr-4 pl-11 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-primary-600 focus:ring-1 focus:ring-primary-600" /></div></div>
+                        <div><label htmlFor="password" className="text-sm font-semibold text-black">Kata Sandi</label><div className="relative mt-2"><HiOutlineLockClosed className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-neutral-400" /><input id="password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Masukkan kata sandi" className="w-full rounded-xl border border-neutral-300 py-3 pr-11 pl-11 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-primary-600 focus:ring-1 focus:ring-primary-600" /><button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"} className="absolute top-1/2 right-4 -translate-y-1/2 cursor-pointer text-neutral-400">{showPassword ? <HiOutlineEyeSlash className="h-4 w-4" /> : <HiOutlineEye className="h-4 w-4" />}</button></div></div>
+                        <div className="flex justify-end"><Link href="/lupa-password" className="text-sm font-medium text-primary-600 hover:underline">Lupa kata sandi?</Link></div>
+                        <button type="submit" className="w-full cursor-pointer rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white transition hover:bg-primary-700">Masuk</button>
                     </form>
-
-                    <div className="mt-8 flex items-center gap-4">
-                        <div className="h-px flex-1 bg-neutral-200" />
-                        <span className="text-sm text-neutral-400">atau</span>
-                        <div className="h-px flex-1 bg-neutral-200" />
-                    </div>
-
-                    <button
-                        type="button"
-                        className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl border border-neutral-200 py-3.5 text-base font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
-                    >
-                        <FcGoogle className="h-5 w-5" />
-                        Masuk dengan akun Google
-                    </button>
-
-                    <p className="mt-6 text-center text-sm text-neutral-500">
-                        Belum memiliki akun?{" "}
-                        <Link
-                            href="/register"
-                            className="font-semibold text-primary-600 hover:text-primary-700"
-                        >
-                            Daftar
-                        </Link>
-                    </p>
+                    <div className="my-6 flex items-center gap-4"><span className="h-px flex-1 bg-neutral-400" /><span className="text-sm text-neutral-500">atau</span><span className="h-px flex-1 bg-neutral-400" /></div>
+                    <button type="button" className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-neutral-300 py-3 text-sm font-medium text-black transition hover:bg-neutral-50"><FcGoogle className="h-5 w-5" />Masuk dengan akun Google</button>
+                    <p className="mt-6 text-center text-sm text-neutral-500">Belum memiliki akun? <Link href="/register" className="font-medium text-primary-600 underline">Daftar</Link></p>
                 </div>
-            </div>
-        </div>
+            </section>
+        </main>
     );
 }
