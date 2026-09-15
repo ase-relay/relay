@@ -1,100 +1,78 @@
 'use client';
 
-import { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
-import { TrainIcon } from '@/components/icons/TrainIcon'; // Sesuaikan path import jika berbeda
+import { useState } from 'react';
 
-// Kamu bisa memindahkan ini kembali ke '@/constants/navigation' 
-const navigationItems = [
-  { name: 'Beranda', href: '/', current: true },
-  { name: 'Cari Rute', href: '/cari-rute', current: false },
-  { name: 'Tentang', href: '/tentang', current: false },
-  { name: 'Bantuan', href: '/bantuan', current: false },
+const navLinks = [
+  { href: '/beranda', label: 'Beranda' },
+  { href: '/cara-kerja', label: 'Cara Kerja' },
+  { href: '/tentang', label: 'Tentang' },
 ];
 
 export function Navbar() {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // TODO: Replace with actual auth state
+  const [user] = useState<{ username: string } | null>(null);
 
   return (
-    <nav className="sticky top-0 z-50 bg-white border-b border-neutral-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <div className="flex-shrink-0">
-            <Link href="/" className="flex items-center gap-2 text-2xl font-bold text-primary-900">
-              <TrainIcon className="text-accent-blue text-3xl" />
-              <span>TransitGo</span>
-            </Link>
-          </div>
+    <header className="relative z-20 px-4 pt-3 sm:px-8 sm:pt-4">
+      <nav className="mx-auto flex h-19.5 max-w-6xl items-center justify-between rounded-[20px] border border-neutral-200/80 bg-white px-7 shadow-[0_10px_25px_rgba(15,23,42,0.10)] sm:px-11">
+        <Link href="/beranda" aria-label="Otewe Beranda">
+          <Image
+            src="/logo/logo.png"
+            alt="Otewe"
+            width={120}
+            height={36}
+            priority
+            className="h-auto w-28"
+          />
+        </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            {navigationItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`text-sm font-semibold transition-colors pb-1 ${item.current
-                  ? 'text-neutral-700 border-b-2 border-accent-blue'
-                  : 'text-neutral-500 hover:text-neutral-700'
-                  }`}
-              >
-                {item.name}
-              </Link>
-            ))}
-            <Link href="/login" className="bg-accent-blue text-white px-5 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity ml-4">
-              Login
-            </Link>
-          </div>
-
-          {/* Mobile menu button */}
-          <div className="md:hidden">
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="text-neutral-600 hover:text-primary-600 focus:outline-none"
+        <div className="hidden items-center gap-16 md:flex">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`text-sm transition-colors hover:text-primary-600 ${link.href === '/beranda' ? 'font-semibold text-neutral-900' : 'text-neutral-900'
+                }`}
             >
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                {isMobileMenuOpen ? (
-                  <path d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
-            </button>
-          </div>
+              {link.label}
+            </Link>
+          ))}
         </div>
 
-        {/* Mobile Navigation */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden pb-4 pt-2">
-            <div className="flex flex-col space-y-3">
-              {navigationItems.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`text-base font-medium px-2 py-1 transition-colors ${item.current
-                    ? 'text-accent-blue'
-                    : 'text-neutral-600 hover:text-primary-600'
-                    }`}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {item.name}
-                </Link>
-              ))}
-              <Link href="/login" className="bg-accent-blue text-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity w-fit mt-2 mx-2" onClick={() => setIsMobileMenuOpen(false)}>
-                Login
-              </Link>
-            </div>
+        {!user ? (
+          <div className="flex shrink-0 items-center gap-6">
+            <Link
+              href="/login"
+              className="text-base font-medium text-primary-600 transition-colors hover:text-primary-700"
+            >
+              Masuk
+            </Link>
+            <Link
+              href="/register"
+              className="rounded-full bg-primary-600 px-10 py-2.5 font-semibold text-white transition-colors hover:bg-primary-700"
+            >
+              Daftar
+            </Link>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-sm font-medium text-neutral-900">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
+              <circle cx="12" cy="8" r="3.5" />
+              <path d="M4 20c0-3.5 3.6-5.5 8-5.5s8 2 8 5.5" strokeLinecap="round" />
+            </svg>
+            <span className="hidden sm:inline">{user.username}</span>
           </div>
         )}
-      </div>
-    </nav>
+      </nav>
+    </header>
   );
 }
