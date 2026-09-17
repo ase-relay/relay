@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AuthNavButtons } from './AuthNavButtons';
 import { UserDropdown } from './UserDropdown';
+import { useAuth } from '@/context/AuthContext';
 
 const navLinks = [
   { href: '/beranda', label: 'Beranda' },
@@ -13,8 +14,8 @@ const navLinks = [
 ];
 
 export function Navbar() {
+  const { user } = useAuth();
   const pathname = usePathname();
-  const isLandingPage = pathname === '/';
 
   return (
     <header className="relative z-20 px-4 pt-8 sm:px-8 sm:pt-8">
@@ -43,7 +44,7 @@ export function Navbar() {
           ))}
         </div>
 
-        {isLandingPage ? <AuthNavButtons /> : <UserDropdown />}
+        {user ? <UserDropdown /> : <AuthNavButtons />}
       </nav>
     </header>
   );

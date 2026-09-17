@@ -1,11 +1,17 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import cors from 'cors';
 import apiRoutes from './routes/api.routes';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8000;
+
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true,
+}));
 
 app.use(express.json());
 

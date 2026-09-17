@@ -2,13 +2,16 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { HiOutlineEye, HiOutlineEyeSlash, HiOutlineLockClosed, HiOutlineUser } from "react-icons/hi2";
+import axios from "axios";
 import { AuthSlideBudget } from "@/components/auth/AuthSlideBudget";
 import { AuthSlideRoute } from "@/components/auth/AuthSlideRoute";
 import { AuthSlideTransport } from "@/components/auth/AuthSlideTransport";
 import { CarouselNavButton } from "@/components/ui/CarouselNavButton";
+import { useAuth } from "@/context/AuthContext";
 
 const slides = [AuthSlideBudget, AuthSlideTransport, AuthSlideRoute];
 
@@ -17,15 +20,44 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [form, setForm] = useState({ identifier: "", password: "" });
     const [error, setError] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const { login } = useAuth();
+    const router = useRouter();
     const ActiveSlide = slides[activeSlide];
 
     function moveSlide(direction: number) {
         setActiveSlide((current) => (current + direction + slides.length) % slides.length);
     }
 
-    function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        setError(!form.identifier || !form.password ? "Email/username dan kata sandi wajib diisi" : "");
+
+        if (!form.identifier || !form.password) {
+            setError("Email/username dan kata sandi wajib diisi");
+            return;
+        }
+
+        setError("");
+        setIsSubmitting(true);
+
+        try {
+            await login(form);
+            router.push('/beranda');
+        } catch (err) {
+            if (axios.isAxiosError(err)) {
+                if (err.response?.status === 401) {
+                    setError(err.response.data.message || "Email/username atau password salah");
+                } else if (err.response?.status === 400) {
+                    setError(err.response.data.message || "Data yang dimasukkan tidak valid");
+                } else {
+                    setError("Terjadi kesalahan, silakan coba lagi");
+                }
+            } else {
+                setError("Terjadi kesalahan, silakan coba lagi");
+            }
+        } finally {
+            setIsSubmitting(false);
+        }
     }
 
     return (
@@ -61,7 +93,7 @@ export default function LoginPage() {
                         <div><label htmlFor="identifier" className="text-sm font-semibold text-black">Email atau username</label><div className="relative mt-2"><HiOutlineUser className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-neutral-400" /><input id="identifier" type="text" autoComplete="username" value={form.identifier} onChange={(event) => setForm({ ...form, identifier: event.target.value })} placeholder="Masukkan email atau username" className="w-full rounded-xl border border-neutral-300 py-3 pr-4 pl-11 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-primary-600 focus:ring-1 focus:ring-primary-600" /></div></div>
                         <div><label htmlFor="password" className="text-sm font-semibold text-black">Kata Sandi</label><div className="relative mt-2"><HiOutlineLockClosed className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-neutral-400" /><input id="password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Masukkan kata sandi" className="w-full rounded-xl border border-neutral-300 py-3 pr-11 pl-11 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-primary-600 focus:ring-1 focus:ring-primary-600" /><button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"} className="absolute top-1/2 right-4 -translate-y-1/2 cursor-pointer text-neutral-400">{showPassword ? <HiOutlineEyeSlash className="h-4 w-4" /> : <HiOutlineEye className="h-4 w-4" />}</button></div></div>
                         <div className="flex justify-end"><Link href="/lupa-password" className="text-sm font-medium text-primary-600 hover:underline">Lupa kata sandi?</Link></div>
-                        <button type="submit" className="w-full cursor-pointer rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white transition hover:bg-primary-700">Masuk</button>
+                        <button type="submit" disabled={isSubmitting} className="w-full cursor-pointer rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">{isSubmitting ? "Memproses..." : "Masuk"}</button>
                     </form>
                     <div className="my-6 flex items-center gap-4"><span className="h-px flex-1 bg-neutral-400" /><span className="text-sm text-neutral-500">atau</span><span className="h-px flex-1 bg-neutral-400" /></div>
                     <button type="button" className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-neutral-300 py-3 text-sm font-medium text-black transition hover:bg-neutral-50"><FcGoogle className="h-5 w-5" />Masuk dengan akun Google</button>
