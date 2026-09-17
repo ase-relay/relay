@@ -1,0 +1,48 @@
+# Dependencies
+node_modules
+npm-debug.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode
+.idea
+.claude
+.windsurf
+.agents
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Documentation
+README.md
+*.md
+
+# Build output
+dist
+
+# Database files (development)
+*.db
+*.db-shm
+*.db-wal
+
+# Prisma
+# Keep schema.prisma and migrations - needed for production
+# Only ignore dev database files
+
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
