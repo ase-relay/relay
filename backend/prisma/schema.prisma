@@ -1,9 +1,11 @@
-datasource db {
-  provider = "sqlite"
-}
-
 generator client {
   provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // 1. Model User & Autentikasi (FR-REG-01, FR-LGN-01)
@@ -29,14 +31,14 @@ model User {
 model ModaTransportasi {
   id        Int      @id @default(autoincrement())
   namaModa  String   @unique // Bus, Angkot, Kereta, Ojek Online
-  tipeModa  String?  // BRT, FEEDEER, COMMUTER_TRAIN, RIDE_HAILING
-  ikon      String?  // URL atau nama identifier icon SVG
+  tipeModa  String? // BRT, FEEDEER, COMMUTER_TRAIN, RIDE_HAILING
+  ikon      String? // URL atau nama identifier icon SVG
   deskripsi String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  rutes     Rute[]
-  tarifs    Tarif[]
+  rutes  Rute[]
+  tarifs Tarif[]
 }
 
 // 3. Model Halte / Titik Pemberhentian (FR-ADM-03, FR-USR-04)
@@ -48,7 +50,7 @@ model Halte {
   longitude Float
   alamat    String?
   kota      String   @default("Bandung") // Bandung, Cimahi, Kab. Bandung, dll
-  isTransit Boolean  @default(false)     // Apakah titik hubung transit antar moda
+  isTransit Boolean  @default(false) // Apakah titik hubung transit antar moda
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -58,32 +60,32 @@ model Halte {
 // 4. Model Rute Transportasi (FR-ADM-02, FR-USR-02)
 model Rute {
   id        Int      @id @default(autoincrement())
-  namaRute  String   // Contoh: "Koridor 1: Cibiru - Elang" atau "Stasiun Hall - Cimahi"
-  kodeRute  String?  // Contoh: "K1", "KRD-BDG-CMH"
+  namaRute  String // Contoh: "Koridor 1: Cibiru - Elang" atau "Stasiun Hall - Cimahi"
+  kodeRute  String? // Contoh: "K1", "KRD-BDG-CMH"
   deskripsi String?
   modaId    Int
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  moda      ModaTransportasi @relation(fields: [modaId], references: [id], onDelete: Cascade)
-  stops     RuteStop[]
-  tarifs    Tarif[]
+  moda   ModaTransportasi @relation(fields: [modaId], references: [id], onDelete: Cascade)
+  stops  RuteStop[]
+  tarifs Tarif[]
 }
 
 // 5. Junction Model: Urutan Halte dalam Rute (FR-USR-04, FR-USR-05)
 model RuteStop {
-  id              Int      @id @default(autoincrement())
-  ruteId          Int
-  halteId         Int
-  urutan          Int      // Urutan stop: 1, 2, 3, dst.
-  estimasiMenit   Int?     // Estimasi menit ke stop berikutnya
-  jarakMeter      Int?     // Estimasi jarak meter ke stop berikutnya
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  ruteId        Int
+  halteId       Int
+  urutan        Int // Urutan stop: 1, 2, 3, dst.
+  estimasiMenit Int? // Estimasi menit ke stop berikutnya
+  jarakMeter    Int? // Estimasi jarak meter ke stop berikutnya
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  rute            Rute     @relation(fields: [ruteId], references: [id], onDelete: Cascade)
-  halte           Halte    @relation(fields: [halteId], references: [id], onDelete: Cascade)
+  rute  Rute  @relation(fields: [ruteId], references: [id], onDelete: Cascade)
+  halte Halte @relation(fields: [halteId], references: [id], onDelete: Cascade)
 
   @@unique([ruteId, urutan])
   @@unique([ruteId, halteId])
@@ -91,38 +93,38 @@ model RuteStop {
 
 // 6. Model Tarif Transportasi (FR-ADM-01, FR-USR-03)
 enum TipeTarif {
-  FLAT        // Tarif tetap jauh-dekat (Contoh: Bus Rp 4.900, Angkot Rp 5.000)
-  PER_KM      // Tarif berbasis jarak (Contoh: Ojol Rp 2.500 / km)
+  FLAT // Tarif tetap jauh-dekat (Contoh: Bus Rp 4.900, Angkot Rp 5.000)
+  PER_KM // Tarif berbasis jarak (Contoh: Ojol Rp 2.500 / km)
   PER_STASIUN // Tarif berbasis jumlah halte/stasiun yang dilewati
 }
 
 model Tarif {
-  id           Int              @id @default(autoincrement())
+  id           Int       @id @default(autoincrement())
   modaId       Int
-  ruteId       Int?             // Opsional jika tarif berlaku khusus pada rute tertentu
-  tipeTarif    TipeTarif        @default(FLAT)
-  nominalDasar Float            @default(0) // Base fare
-  nominalPerKm Float?           @default(0) // Biaya per km jika tipe PER_KM
+  ruteId       Int? // Opsional jika tarif berlaku khusus pada rute tertentu
+  tipeTarif    TipeTarif @default(FLAT)
+  nominalDasar Float     @default(0) // Base fare
+  nominalPerKm Float?    @default(0) // Biaya per km jika tipe PER_KM
   keterangan   String?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  moda         ModaTransportasi @relation(fields: [modaId], references: [id], onDelete: Cascade)
-  rute         Rute?            @relation(fields: [ruteId], references: [id], onDelete: SetNull)
+  moda ModaTransportasi @relation(fields: [modaId], references: [id], onDelete: Cascade)
+  rute Rute?            @relation(fields: [ruteId], references: [id], onDelete: SetNull)
 }
 
 // 7. Model Riwayat Pencarian Pengguna (FR-USR-01)
 model SearchHistory {
-  id            Int      @id @default(autoincrement())
-  userId        Int?
-  originName    String
-  originLat     Float?
-  originLng     Float?
-  destName      String
-  destLat       Float?
-  destLng       Float?
+  id             Int      @id @default(autoincrement())
+  userId         Int?
+  originName     String
+  originLat      Float?
+  originLng      Float?
+  destName       String
+  destLat        Float?
+  destLng        Float?
   selectedRuteId Int?
-  createdAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
 
-  user          User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

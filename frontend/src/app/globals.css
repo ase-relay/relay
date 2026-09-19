@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+/* eslint-disable css/no-at-rules -- @theme is valid Tailwind CSS v4 syntax */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter);
+
+  /* Primary - Navy Blue Palette */
+  --color-primary-50: #f0f4f8;
+  --color-primary-100: #d9e2ec;
+  --color-primary-200: #bcccdc;
+  --color-primary-300: #9fb3c8;
+  --color-primary-400: #829ab1;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #004BDC;
+  --color-primary-700: #1447c9;
+  --color-primary-800: #243b53;
+  --color-primary-900: #1e3a5f;
+
+  /* Neutral Palette */
+  --color-neutral-white: #ffffff;
+  --color-neutral-50: #f8fafc;
+  --color-neutral-100: #f1f5f9;
+  --color-neutral-200: #e2e8f0;
+  --color-neutral-300: #cbd5e1;
+  --color-neutral-400: #94a3b8;
+  --color-neutral-500: #64748b;
+  --color-neutral-600: #475569;
+  --color-neutral-700: #334155;
+  --color-neutral-800: #1e293b;
+  --color-neutral-900: #0f172a;
+
+  /* Accent Colors */
+  --color-accent-green: #10b981;
+  --color-accent-blue: #3b82f6;
+  --color-accent-amber: #f59e0b;
+
+  /* Custom Shadow Color */
+  --shadow-blue: #3366FF;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  color: var(--foreground);
+  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+}
