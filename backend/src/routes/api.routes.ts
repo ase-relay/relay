@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getHealthCheck, getModaList } from '../controllers/general.controller';
 import authRoutes from './auth.routes';
+import transportRoutes from './transport.routes';
 
 const router = Router();
 
@@ -10,5 +11,8 @@ router.get('/moda', getModaList);
 
 // Auth Routes (FR-REG-01, FR-LGN-01)
 router.use('/auth', authRoutes);
+
+// Transport Routes (Halte, Rute, Stops)
+router.use('/', transportRoutes);
 
 export default router;
