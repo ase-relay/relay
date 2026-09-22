@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { AuthNavButtons } from './AuthNavButtons';
 import { UserDropdown } from './UserDropdown';
 import { useAuth } from '@/context/AuthContext';
@@ -17,10 +18,29 @@ export function Navbar() {
   const { user } = useAuth();
   const pathname = usePathname();
 
+  // Scroll-aware: transparan saat di puncak halaman agar efek glow landing page tetap terlihat,
+  // diberi background frosted saat di-scroll agar konten tidak bocor terlihat di sekitar pill navbar.
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 8);
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
-    <header className="relative z-20 px-4 pt-8 sm:px-8 sm:pt-8">
-      <nav className="mx-auto flex h-19.5 max-w-[1170px] items-center justify-between rounded-[20px] border border-neutral-200/80 bg-white px-7 shadow-[0_10px_25px_rgba(15,23,42,0.10)] sm:px-11">
-        <Link href="/beranda" aria-label="Otewe Beranda">
+    <header className="sticky top-0 z-40 px-4 pt-8 sm:px-8 sm:pt-8">
+      {/* Layer frosted di belakang navbar: muncul saat di-scroll, dengan mask memudar di tepi
+          bawah supaya tidak ada garis pemisah antara blur navbar dan background halaman. */}
+      <div
+        aria-hidden
+        className={`pointer-events-none absolute inset-0 -z-10 bg-white/85 backdrop-blur-md transition-opacity duration-300 ${
+          scrolled ? 'opacity-100' : 'opacity-0'
+        } [mask-image:linear-gradient(to_bottom,black_75%,transparent)] [-webkit-mask-image:linear-gradient(to_bottom,black_75%,transparent)]`}
+      />
+      <nav className="mx-auto flex h-19.5 max-w-292.5 items-center justify-between rounded-[20px] border border-neutral-200/80 bg-white px-7 shadow-[0_10px_25px_rgba(15,23,42,0.10)] sm:px-11">
+        <Link href="/" aria-label="Otewe Beranda">
           <Image
             src="/logo/logo.png"
             alt="Otewe"
