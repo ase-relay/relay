@@ -1,5 +1,7 @@
 /* eslint-disable tailwindcss/no-arbitrary-value -- Specific dimensions needed for glow background effects */
+"use client";
 import Image from "next/image";
+import Link from "next/link";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import WalletIcon from "@/components/icons/home/WalletIcon";
@@ -7,10 +9,6 @@ import TransportIcon from "@/components/icons/home/TransportIcon";
 import ClockIcon from "@/components/icons/home/ClockIcon";
 import LineIcon from "@/components/icons/home/LineIcon";
 import ArrowIcon from "@/components/icons/home/ArrowIcon";
-import TentukanTujuan from "@/components/icons/cara-kerja/TentukanTujuan.svg";
-import LihatPilihan from "@/components/icons/cara-kerja/LihatPilihan.svg";
-import Bandingkan from "@/components/icons/cara-kerja/Bandingkan.svg";
-import GasBerangkat from "@/components/icons/cara-kerja/GasBerangkat.svg";
 import PlayCircleIcon from "@/components/icons/home/PlayCircleIcon";
 import DotGridBlueIcon from "@/components/icons/home/DotGridBlueIcon";
 import DotGridOrangeIcon from "@/components/icons/home/DotGridOrangeIcon";
@@ -40,21 +38,21 @@ function HeroSection() {
           </p>
 
           <div className="mt-8 flex items-center gap-6">
-            <button
-              type="button"
-              className="rounded-[20px] bg-primary-600 px-6 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
+            <Link
+              href="/beranda"
+              className="rounded-[20px] bg-primary-600 px-6 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-primary-700 cursor-pointer"
             >
               Mulai Otewe
-            </button>
-            <button
-              type="button"
-              className="flex items-center gap-2 font-medium text-neutral-700 hover:text-primary-600"
+            </Link>
+            <Link
+              href="/cara-kerja"
+              className="flex items-center gap-2 font-medium text-neutral-700 hover:text-primary-600 cursor-pointer"
             >
               <span className="h-10 w-10 [&>svg]:h-10 [&>svg]:w-10">
                 <PlayCircleIcon />
               </span>
               Pelajari Laman
-            </button>
+            </Link>
           </div>
         </div>
 
@@ -170,28 +168,28 @@ function HowItWorksSection() {
       title: "Tentukan tujuan",
       description: "Masukkan lokasi awal dan tujuan perjalananmu.",
       badgeColorClass: "bg-primary-600",
-      illustration: TentukanTujuan,
+      illustration: "/images/cara-kerja/TentukanTujuan.svg",
       illustrationPositionClass: "translate-x-8",
     },
     {
       title: "Lihat Pilihan",
       description: "Otewe kasih beberapa rekomendasi perjalanan.",
       badgeColorClass: "bg-accent-amber",
-      illustration: LihatPilihan,
+      illustration: "/images/cara-kerja/LihatPilihan.svg",
       illustrationPositionClass: "translate-x-8",
     },
     {
       title: "Bandingkan",
       description: "Pilih yang paling pas sesuai kondisimu.",
       badgeColorClass: "bg-accent-green",
-      illustration: Bandingkan,
+      illustration: "/images/cara-kerja/Bandingkan.svg",
       illustrationPositionClass: "translate-x-8",
     },
     {
       title: "Gas berangkat",
       description: "Lihat detail perjalanan dan rutenya di peta.",
       badgeColorClass: "bg-primary-600",
-      illustration: GasBerangkat,
+      illustration: "/images/cara-kerja/GasBerangkat.svg",
       illustrationPositionClass: "translate-x-3",
     },
   ];
@@ -325,12 +323,12 @@ function CTASection() {
         <h2 className="text-3xl font-bold text-neutral-900">
           Siap menemukan perjalanan yang pas untukmu?
         </h2>
-        <button
-          type="button"
-          className="mt-8 rounded-[20px] bg-primary-600 px-8 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
+        <Link
+          href="/beranda"
+          className="mt-8 inline-block rounded-[20px] bg-primary-600 px-8 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-primary-700 cursor-pointer"
         >
           Mulai Otewe
-        </button>
+        </Link>
       </div>
     </section>
   );
