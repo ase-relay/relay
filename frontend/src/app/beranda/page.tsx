@@ -25,7 +25,7 @@ export default function BerandaPage() {
           </div>
         </section>
       </main>
-      <Footer className="bg-[#f7fbff]" />
+      <Footer />
     </div>
   );
 }

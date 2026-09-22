@@ -1,83 +1,118 @@
-import { RouteOption } from '../types/route';
-import { stops } from '../mock/stops';
 import { transportModes } from '../mock/transportModes';
 import { MapViewerMarker, MapViewerPolyline } from '@/components/map/MapViewer';
+import type { ApiRoute, ApiRouteLeg } from '@/types/api/routing';
+import { mapModaNamaToVehicleType } from '@/lib/mappers/routeMapper';
+
+// ---------------------------------------------------------------------------
+// Transform data peta — berbasis kontrak BE `ApiRoute` (Task 2.3 & 3.3)
+// ---------------------------------------------------------------------------
+
+/** Warna polyline untuk leg WALK (selaras warna moda walking di transportModes). */
+const WALK_COLOR = '#64748B';
+
+/** Warna polyline leg TRANSIT mengikuti colorHex moda FE (dari moda.nama BE). */
+function getLegColorHex(leg: ApiRouteLeg): string {
+  if (leg.legType === 'WALK') return WALK_COLOR;
+
+  const vehicleType = mapModaNamaToVehicleType(leg.moda?.nama);
+  return transportModes.find((mode) => mode.id === vehicleType)?.colorHex ?? '#004BDC';
+}
 
 /**
- * Transform RouteOption ke MapViewerMarker[]
- * Mengembalikan array marker untuk origin, destination, dan transit points
+ * Transform `ApiRoute` (response BE) ke `MapViewerMarker[]`.
+ *
+ * Koordinat diambil **langsung** dari `leg.from`/`leg.to`/`leg.fromHalte`/
+ * `leg.toHalte` — tidak ada lagi lookup manual ke data stops mock terpisah,
+ * karena response BE sudah membawa lat/lng lengkap.
+ *
+ * Klasifikasi marker: titik awal leg pertama = origin, titik akhir leg terakhir
+ * = destination, titik keberangkatan leg berikutnya = transit point.
  */
-export function transformRouteToMapMarkers(route: RouteOption): MapViewerMarker[] {
+export function transformApiRouteToMapMarkers(route: ApiRoute): MapViewerMarker[] {
   const markers: MapViewerMarker[] = [];
-  
-  // Cari koordinat untuk origin dan destination
-  const originStop = stops.find(s => s.name === route.originStopName);
-  const destinationStop = stops.find(s => s.name === route.destinationStopName);
-  
-  if (originStop) {
-    markers.push({
-      id: 'origin',
-      position: [originStop.latitude, originStop.longitude],
-      label: route.originStopName,
-      type: 'origin'
-    });
+  const legs = route.legs;
+
+  if (legs.length === 0) return markers;
+
+  const pushMarker = (
+    id: string,
+    position: [number, number],
+    label: string,
+    type: MapViewerMarker['type'],
+  ) => {
+    // Hindari marker duplikat di titik yang persis sama (mis. akhir leg A = awal leg B).
+    const isDuplicate = markers.some(
+      (marker) =>
+        marker.type === type &&
+        marker.position[0] === position[0] &&
+        marker.position[1] === position[1],
+    );
+    if (!isDuplicate) markers.push({ id, position, label, type });
+  };
+
+  // Titik awal leg pertama = origin (koordinat dari leg.from, fallback summary tidak punya koordinat).
+  const firstLeg = legs[0];
+  const originPoint = firstLeg.from ?? firstLeg.fromHalte ?? firstLeg.to ?? firstLeg.toHalte;
+  if (originPoint) {
+    pushMarker('origin', [originPoint.lat, originPoint.lng], originPoint.name, 'origin');
   }
-  
-  if (destinationStop) {
-    markers.push({
-      id: 'destination',
-      position: [destinationStop.latitude, destinationStop.longitude],
-      label: route.destinationStopName,
-      type: 'destination'
-    });
-  }
-  
-  // Process segments untuk transit points
-  route.segments.forEach((segment, index) => {
-    const mode = transportModes.find(m => m.id === segment.modeId);
-    const fromStop = stops.find(s => s.name === segment.fromStopName);
-    
-    if (fromStop && mode) {
-      // Tambahkan transit point (kecuali origin dan destination yang sudah ditambah)
-      if (index > 0 && index < route.segments.length) {
-        markers.push({
-          id: `transit-${segment.id}`,
-          position: [fromStop.latitude, fromStop.longitude],
-          label: segment.fromStopName,
-          type: 'transit',
-          colorHex: mode.colorHex
-        });
+
+  legs.forEach((leg, index) => {
+    const isLast = index === legs.length - 1;
+
+    if (isLast) {
+      // Titik akhir leg terakhir = destination.
+      const destinationPoint = leg.to ?? leg.toHalte ?? leg.from ?? leg.fromHalte;
+      if (destinationPoint) {
+        pushMarker(
+          'destination',
+          [destinationPoint.lat, destinationPoint.lng],
+          destinationPoint.name,
+          'destination',
+        );
       }
+      return;
+    }
+
+    // Leg bukan terakhir: titik keberangkatannya adalah transit point
+    // (akhir leg sebelumnya sudah otomatis jadi transit point di iterasi berikutnya).
+    const transitPoint = leg.to ?? leg.toHalte;
+    if (transitPoint) {
+      pushMarker(`transit-${leg.step ?? index + 1}`, [transitPoint.lat, transitPoint.lng], transitPoint.name, 'transit');
     }
   });
-  
+
   return markers;
 }
 
 /**
- * Transform RouteOption ke MapViewerPolyline[]
- * Mengembalikan array polyline untuk setiap segment rute
+ * Transform `ApiRoute` (response BE) ke `MapViewerPolyline[]` — satu polyline
+ * per leg, koordinat dari `leg.from`/`to` (WALK) atau `leg.fromHalte`/`toHalte`
+ * (TRANSIT). Leg TRANSIT berhenti di titik Transit (BTT) dan *belum* menggambar
+ * jalur sepanjang rute kendaraan (butuh geometry per rute dari BE).
+ *
+ * ❓ Follow-up ke tim BE: apakah akan ada field geometry (daftar koordinat
+ * polyline rute kendaraan) di kontrak response agar jalur transit bisa digambar
+ * mengikuti jalan? Sementara ini digambar garis lurus antar halte.
  */
-export function transformRouteToMapPolylines(route: RouteOption): MapViewerPolyline[] {
+export function transformApiRouteToMapPolylines(route: ApiRoute): MapViewerPolyline[] {
   const polylines: MapViewerPolyline[] = [];
-  
-  // Process segments untuk polylines
-  route.segments.forEach((segment) => {
-    const mode = transportModes.find(m => m.id === segment.modeId);
-    const fromStop = stops.find(s => s.name === segment.fromStopName);
-    const toStop = stops.find(s => s.name === segment.toStopName);
-    
-    if (fromStop && toStop && mode) {
-      polylines.push({
-        id: `polyline-${segment.id}`,
-        positions: [
-          [fromStop.latitude, fromStop.longitude],
-          [toStop.latitude, toStop.longitude]
-        ],
-        colorHex: mode.colorHex
-      });
-    }
+
+  route.legs.forEach((leg, index) => {
+    const startPoint = leg.from ?? leg.fromHalte;
+    const endPoint = leg.to ?? leg.toHalte;
+
+    if (!startPoint || !endPoint) return;
+
+    polylines.push({
+      id: `polyline-${leg.step ?? index + 1}`,
+      positions: [
+        [startPoint.lat, startPoint.lng],
+        [endPoint.lat, endPoint.lng],
+      ],
+      colorHex: getLegColorHex(leg),
+    });
   });
-  
+
   return polylines;
 }

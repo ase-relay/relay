@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { HiOutlineMagnifyingGlass } from "react-icons/hi2";
 import { useRouteSearchInput } from "@/hooks/useRouteSearchInput";
+import { useCurrentLocation } from "@/hooks/useCurrentLocation";
+import { saveRouteSearchLocations } from "@/lib/routeSearchTransfer";
 import type { LocationSuggestion } from "@/services/mock/locationSearch";
 import { LocationInput } from "./LocationInput";
 import { SwapLocationsButton } from "./SwapLocationsButton";
@@ -12,17 +14,33 @@ export function RouteSearchForm() {
   const router = useRouter();
   const [error, setError] = useState("");
   const { originQuery, destinationQuery, originSuggestions, destinationSuggestions, activeField, isLoadingOrigin, isLoadingDestination, selectedOrigin, selectedDestination, setOriginQuery, setDestinationQuery, setActiveField, setSelectedOrigin, setSelectedDestination, handleSelectSuggestion, handleSwap } = useRouteSearchInput();
-  const currentLocation: LocationSuggestion = { id: "current-location", name: "Lokasi saya", district: "Lokasi saat ini" };
+  const { isLocating, getCurrentLocation } = useCurrentLocation();
 
   function select(suggestion: LocationSuggestion, field: "origin" | "destination") {
     handleSelectSuggestion(suggestion, field);
     setError("");
   }
-  function setCurrentLocation(field: "origin" | "destination") { select(currentLocation, field); }
+
+  // Koordinat ASLI perangkat via navigator.geolocation — bukan lagi placeholder (0,0).
+  // Lihat "⚠️ Catatan Tambahan" di TODO-integrasi-routing-search.md.
+  async function setCurrentLocation(field: "origin" | "destination") {
+    setError("");
+    try {
+      const location = await getCurrentLocation();
+      select(location, field);
+    } catch (locationError) {
+      setError(locationError instanceof Error ? locationError.message : "Lokasi perangkat tidak dapat dideteksi.");
+    }
+  }
+
   function search() {
     if (!selectedOrigin || !selectedDestination) { setError("Pilih lokasi awal dan tujuan dari daftar saran."); return; }
     if (selectedOrigin.id === selectedDestination.id) { setError("Lokasi awal dan tujuan tidak boleh sama."); return; }
-    router.push(`/cari-rute?origin=${encodeURIComponent(selectedOrigin.id)}&destination=${encodeURIComponent(selectedDestination.id)}`);
+    // Bawa objek lokasi lengkap (name + lat + lng) via sessionStorage agar halaman cari-rute
+    // punya data koordinat yang dibutuhkan kontrak request BE. Nama lokasi ikut di query string
+    // sebagai fallback tampilan bila storage tidak tersedia.
+    saveRouteSearchLocations(selectedOrigin, selectedDestination);
+    router.push(`/cari-rute?origin=${encodeURIComponent(selectedOrigin.name)}&destination=${encodeURIComponent(selectedDestination.name)}`);
   }
 
   return <div className="w-full max-w-[652px] rounded-3xl bg-white p-7 shadow-[0_8px_22px_rgba(15,23,42,0.12)] sm:p-14">

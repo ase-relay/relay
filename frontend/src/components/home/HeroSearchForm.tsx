@@ -1,10 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { useRouteSearchInput } from '@/hooks/useRouteSearchInput';
+import { saveRouteSearchLocations } from '@/lib/routeSearchTransfer';
 
 export function HeroSearchForm() {
   const router = useRouter();
+  const [error, setError] = useState('');
   const {
     originQuery,
     destinationQuery,
@@ -18,14 +21,26 @@ export function HeroSearchForm() {
     setOriginQuery,
     setDestinationQuery,
     setActiveField,
+    setSelectedOrigin,
+    setSelectedDestination,
     handleSelectSuggestion,
     handleSwap,
   } = useRouteSearchInput();
 
   const handleSearch = () => {
-    if (selectedOrigin && selectedDestination) {
-      router.push(`/cari-rute?origin=${selectedOrigin.id}&destination=${selectedDestination.id}`);
+    if (!selectedOrigin || !selectedDestination) {
+      setError('Pilih lokasi awal dan tujuan dari daftar saran.');
+      return;
     }
+    if (selectedOrigin.id === selectedDestination.id) {
+      setError('Lokasi awal dan tujuan tidak boleh sama.');
+      return;
+    }
+    // Bawa objek lokasi lengkap (name + lat + lng) via sessionStorage agar halaman cari-rute
+    // punya data koordinat yang dibutuhkan kontrak request BE. Nama lokasi ikut di query string
+    // sebagai fallback tampilan bila storage tidak tersedia.
+    saveRouteSearchLocations(selectedOrigin, selectedDestination);
+    router.push(`/cari-rute?origin=${encodeURIComponent(selectedOrigin.name)}&destination=${encodeURIComponent(selectedDestination.name)}`);
   };
 
   const isSearchDisabled = !selectedOrigin || !selectedDestination;
@@ -43,7 +58,7 @@ export function HeroSearchForm() {
             type="text"
             placeholder="Pilih lokasi awal ..."
             value={originQuery}
-            onChange={(e) => setOriginQuery(e.target.value)}
+            onChange={(e) => { setOriginQuery(e.target.value); setSelectedOrigin(null); setError(''); }}
             onFocus={() => setActiveField('origin')}
             onBlur={() => setTimeout(() => setActiveField(null), 200)}
             className="w-full pl-9 pr-4 py-3.5 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
@@ -74,7 +89,7 @@ export function HeroSearchForm() {
         {/* Tombol tukar lokasi */}
         <button
           type="button"
-          onClick={handleSwap}
+          onClick={() => { handleSwap(); setError(''); }}
           aria-label="Tukar lokasi"
           className="absolute right-0 top-1/2 -translate-y-1/2 p-1.5 rounded-full hover:bg-neutral-100 transition-colors"
         >
@@ -92,7 +107,7 @@ export function HeroSearchForm() {
             type="text"
             placeholder="Pilih tujuan ..."
             value={destinationQuery}
-            onChange={(e) => setDestinationQuery(e.target.value)}
+            onChange={(e) => { setDestinationQuery(e.target.value); setSelectedDestination(null); setError(''); }}
             onFocus={() => setActiveField('destination')}
             onBlur={() => setTimeout(() => setActiveField(null), 200)}
             className="w-full pl-9 pr-4 py-3.5 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
@@ -120,6 +135,8 @@ export function HeroSearchForm() {
           )}
         </div>
       </div>
+
+      {error && <p role="alert" className="mt-4 text-sm font-medium text-red-600">{error}</p>}
 
       <button
         onClick={handleSearch}

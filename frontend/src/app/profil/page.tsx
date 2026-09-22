@@ -153,7 +153,7 @@ export default function ProfilPage() {
                     </div>
                 </section>
             </main>
-            <Footer className="bg-[#f6faff]" />
+            <Footer />
         </div>
     );
 }

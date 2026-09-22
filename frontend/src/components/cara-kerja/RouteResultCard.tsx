@@ -9,6 +9,8 @@ interface RouteResultCardProps {
 }
 
 const chevronColor: Record<VehicleType, string> = {
+  walking: "#64748B",
+  angkot: "#F59E0B",
   bus: "#004BDC",
   train: "#00B14F",
   motorcycle: "#F58220",
