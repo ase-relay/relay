@@ -60,7 +60,7 @@ export default function RouteDetailPage() {
   // Handle route not found
   if (!selectedRoute) {
     return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="bg-white rounded-xl shadow-sm p-8 max-w-md text-center">
           <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg
@@ -91,7 +91,7 @@ export default function RouteDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 py-6">
         <RouteSummaryHeader route={selectedRoute} onBack={handleBack} />
 

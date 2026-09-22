@@ -38,7 +38,7 @@ export default function CariRutePage() {
   const sortedRoutes = useMemo(() => [...routeRecommendations].sort((first, second) => sortBy === 'termurah' ? first.price - second.price : first.duration - second.duration), [sortBy]);
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-12 text-neutral-900">
+    <div className="min-h-screen pb-12 text-neutral-900">
       <Navbar />
 
       <main className="mx-auto max-w-6xl px-4 pb-10 pt-10 sm:px-6 lg:px-8">
