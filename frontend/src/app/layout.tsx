@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "TransitGo - Rekomendasi Rute Transportasi Umum Bandung-Cimahi",
+  title: "Otewe - Rekomendasi Rute Transportasi Umum Bandung-Cimahi",
   description: "Aplikasi rekomendasi rute transportasi umum wilayah Bandung-Cimahi",
 };
 

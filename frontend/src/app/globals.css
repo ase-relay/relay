@@ -3,6 +3,7 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --page-bg: #ffffff;
 }
 
 /* eslint-disable css/no-at-rules -- @theme is valid Tailwind CSS v4 syntax */
@@ -43,6 +44,15 @@
 
   /* Custom Shadow Color */
   --shadow-blue: #3366FF;
+
+  /* Status Colors */
+  --color-status-info: #004BDC;
+  --color-status-warning: #F58220;
+  --color-status-error: #FF0000;
+  --color-status-success: #00B14F;
+
+  /* Background Colors */
+  --color-bg-secondary: #f4f9fe;
 }
 
 html,
@@ -54,4 +64,63 @@ body {
 body {
   color: var(--foreground);
   font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-shimmer::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 55%), transparent);
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer::after {
+    animation: none;
+  }
+}
+
+.alert-toast {
+  animation: alert-toast-enter 250ms ease-out both;
+}
+
+.alert-toast-exit {
+  animation: alert-toast-exit 250ms ease-in both;
+}
+
+@keyframes alert-toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-1.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes alert-toast-exit {
+  to {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alert-toast,
+  .alert-toast-exit {
+    animation: none;
+  }
 }
