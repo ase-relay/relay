@@ -114,6 +114,7 @@ export interface ApiRouteLeg {
   rute?: ApiRute;
   passedStopsCount?: number;
   passedStops?: ApiPassedStop[];
+  geometry?: [number, number][]; // Array of [lat, lng] coordinates following actual road network for Leaflet <Polyline>
 }
 
 export interface ApiRoute {
