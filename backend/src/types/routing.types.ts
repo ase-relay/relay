@@ -72,6 +72,7 @@ export interface RouteLeg {
   };
   passedStopsCount?: number;
   passedStops?: PassedStopInfo[];
+  geometry?: [number, number][]; // Array of [lat, lng] coordinates following actual road network for Leaflet <Polyline>
 }
 
 export interface RouteOptionSummary {

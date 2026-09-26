@@ -1,6 +1,7 @@
 import { prisma } from '../config/db';
 import { calculateHaversineDistance } from './halte.service';
 import { FareService } from './fare.service';
+import { GeometryService, CoordinatePoint } from './geometry.service';
 import {
   RoutingSearchRequestDTO,
   RoutingSearchResponseData,
@@ -170,6 +171,31 @@ export class RoutingService {
               longitude: s.halte.longitude,
             }));
 
+            // Ambil geometry jalan raya (OSRM) secara paralel untuk walkOrigin, transitLeg, dan walkDest
+            const [walkOriginGeom, transitGeom, walkDestGeom] = await Promise.all([
+              GeometryService.getRouteGeometry(
+                [
+                  { lat: origin.lat, lng: origin.lng },
+                  { lat: orig.halte.latitude, lng: orig.halte.longitude },
+                ],
+                'foot'
+              ),
+              GeometryService.getRouteGeometry(
+                passedStopsSlice.map((s) => ({
+                  lat: s.halte.latitude,
+                  lng: s.halte.longitude,
+                })),
+                'driving'
+              ),
+              GeometryService.getRouteGeometry(
+                [
+                  { lat: dest.halte.latitude, lng: dest.halte.longitude },
+                  { lat: destination.lat, lng: destination.lng },
+                ],
+                'foot'
+              ),
+            ]);
+
             const legs: RouteLeg[] = [
               {
                 step: 1,
@@ -185,6 +211,7 @@ export class RoutingService {
                   lat: orig.halte.latitude,
                   lng: orig.halte.longitude,
                 },
+                geometry: walkOriginGeom,
               },
               {
                 step: 2,
@@ -218,6 +245,7 @@ export class RoutingService {
                 },
                 passedStopsCount: passedStopsSlice.length,
                 passedStops: passedStopsInfo,
+                geometry: transitGeom,
                 from: {
                   id: orig.halte.id,
                   name: orig.halte.namaHalte,
@@ -245,6 +273,7 @@ export class RoutingService {
                   lng: dest.halte.longitude,
                 },
                 to: { name: destination.name, lat: destination.lat, lng: destination.lng },
+                geometry: walkDestGeom,
               },
             ];
 
@@ -334,7 +363,46 @@ export class RoutingService {
                 const walkOriginDur = this.calculateWalkingMinutes(walkOriginDist);
 
                 const walkDestDist = dest.distance;
-                const walkDestDur = this.calculateWalkingMinutes(walkDestDist);
+                const walkDestDur = this.calculateWalkingMinutes(walkDestDur);
+
+                // Ambil geometry jalan raya (OSRM) secara paralel untuk ke-5 legs transit
+                const [walkOriginGeom, leg1Geom, walkTransferGeom, leg2Geom, walkDestGeom] = await Promise.all([
+                  GeometryService.getRouteGeometry(
+                    [
+                      { lat: origin.lat, lng: origin.lng },
+                      { lat: orig.halte.latitude, lng: orig.halte.longitude },
+                    ],
+                    'foot'
+                  ),
+                  GeometryService.getRouteGeometry(
+                    slice1.map((s) => ({
+                      lat: s.halte.latitude,
+                      lng: s.halte.longitude,
+                    })),
+                    'driving'
+                  ),
+                  GeometryService.getRouteGeometry(
+                    [
+                      { lat: transitHalte.latitude, lng: transitHalte.longitude },
+                      { lat: transitHalte.latitude, lng: transitHalte.longitude },
+                    ],
+                    'foot'
+                  ),
+                  GeometryService.getRouteGeometry(
+                    slice2.map((s) => ({
+                      lat: s.halte.latitude,
+                      lng: s.halte.longitude,
+                    })),
+                    'driving'
+                  ),
+                  GeometryService.getRouteGeometry(
+                    [
+                      { lat: dest.halte.latitude, lng: dest.halte.longitude },
+                      { lat: destination.lat, lng: destination.lng },
+                    ],
+                    'foot'
+                  ),
+                ]);
 
                 const legs: RouteLeg[] = [
                   {
@@ -351,6 +419,7 @@ export class RoutingService {
                       lat: orig.halte.latitude,
                       lng: orig.halte.longitude,
                     },
+                    geometry: walkOriginGeom,
                   },
                   {
                     step: 2,
@@ -390,6 +459,7 @@ export class RoutingService {
                       latitude: s.halte.latitude,
                       longitude: s.halte.longitude,
                     })),
+                    geometry: leg1Geom,
                     from: {
                       id: orig.halte.id,
                       name: orig.halte.namaHalte,
@@ -422,6 +492,7 @@ export class RoutingService {
                       lat: transitHalte.latitude,
                       lng: transitHalte.longitude,
                     },
+                    geometry: walkTransferGeom,
                   },
                   {
                     step: 4,
@@ -461,6 +532,7 @@ export class RoutingService {
                       latitude: s.halte.latitude,
                       longitude: s.halte.longitude,
                     })),
+                    geometry: leg2Geom,
                     from: {
                       id: transitHalte.id,
                       name: transitHalte.namaHalte,
@@ -488,6 +560,7 @@ export class RoutingService {
                       lng: dest.halte.longitude,
                     },
                     to: { name: destination.name, lat: destination.lat, lng: destination.lng },
+                    geometry: walkDestGeom,
                   },
                 ];
 
