@@ -121,14 +121,14 @@ export default function ProfilPage() {
         <div className="space-y-4 sm:grid sm:grid-cols-[minmax(120px,.8fr)_minmax(0,1fr)_auto] sm:items-center sm:gap-x-6 sm:gap-y-0">
             <div className="sm:contents">
                 <p className="py-4 sm:py-8 flex items-center gap-3 sm:gap-4 text-sm sm:text-base font-medium text-neutral-400"><IconWrapper className="h-5 w-5 sm:h-6 sm:w-6"><EmailIcon /></IconWrapper>Email</p>
-                <Skeleton variant="text" className="py-3 h-6 w-full sm:w-64 sm:py-8" />
+                <Skeleton variant="text" className="py-3 h-6 w-full sm:w-64 sm:py-3" />
                 <div className="py-4 sm:py-8 flex items-center justify-end sm:hidden"><span aria-hidden="true" /></div>
             </div>
 
             <div className="sm:contents">
                 <div className="border-t border-neutral-300 sm:col-span-full" />
                 <p className="py-4 sm:py-8 flex items-center gap-3 sm:gap-4 text-sm sm:text-base font-medium text-neutral-400"><IconWrapper className="h-5 w-5 sm:h-6 sm:w-6"><UserIcon /></IconWrapper>Username</p>
-                <Skeleton variant="text" className="py-3 h-6 w-full sm:w-48 sm:py-8" />
+                <Skeleton variant="text" className="py-3 h-6 w-full sm:w-48 sm:py-3" />
                 <div className="py-4 sm:py-8 flex items-center justify-end">
                     <Skeleton variant="rounded" className="h-9 w-20 sm:h-10" />
                 </div>
@@ -137,7 +137,7 @@ export default function ProfilPage() {
             <div className="sm:contents">
                 <div className="border-t border-neutral-300 sm:col-span-full" />
                 <p className="py-4 sm:py-8 flex items-center gap-3 sm:gap-4 text-sm sm:text-base font-medium text-neutral-400"><IconWrapper className="h-5 w-5 sm:h-6 sm:w-6"><PadlockIcon /></IconWrapper>Kata Sandi</p>
-                <Skeleton variant="text" className="py-3 h-6 w-full sm:w-32 sm:py-8" />
+                <Skeleton variant="text" className="py-3 h-6 w-full sm:w-32 sm:py-3" />
                 <div className="py-4 sm:py-8 flex items-center justify-end">
                     <Skeleton variant="rounded" className="h-9 w-20 sm:h-10" />
                 </div>
@@ -197,9 +197,9 @@ export default function ProfilPage() {
         <div className="flex min-h-screen flex-col text-neutral-900">
             <Navbar />
             {alert && <Alert status="success" title={alert.title} description={alert.description} onClose={() => setAlert(null)} autoDismissMs={3000} className="fixed top-28 left-1/2 z-40 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 shadow-[0_10px_25px_rgba(15,23,42,0.14)] sm:top-30" />}
-            <main className="mx-auto w-full max-w-292.5 flex-1 px-4 py-6 sm:px-8 sm:py-8 lg:py-12">
+            <main className="mx-auto w-full max-w-292.5 flex-1 py-6 sm:py-8 lg:py-12">
                 <div className={`space-y-6 ${changingPassword ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(480px,.82fr)] lg:gap-7 lg:space-y-0' : ''}`}>
-                    <section className="rounded-[20px] border border-neutral-200 bg-white px-5 py-6 shadow-[0_8px_12px_rgba(15,23,42,0.10)] sm:px-8 sm:py-8 lg:px-12 lg:py-10">
+                    <section className="rounded-[20px] border border-neutral-200 bg-white px-5 pt-6 shadow-[0_8px_12px_rgba(15,23,42,0.10)] sm:px-8 sm:pt-8 lg:px-12 lg:pt-10">
                         <h1 className="text-lg sm:text-xl font-bold tracking-tight text-black">Informasi Profil</h1>
                         <div className="mt-6">{profileRows}</div>
                     </section>

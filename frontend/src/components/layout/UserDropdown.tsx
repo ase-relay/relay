@@ -40,7 +40,7 @@ export function UserDropdown() {
         type="button"
         onClick={() => setIsOpen((current) => !current)}
         aria-expanded={isOpen}
-        className="flex shrink-0 items-center gap-4 rounded-lg px-2 py-2 text-base font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-primary-600"
+        className="flex shrink-0 items-center gap-4 rounded-lg px-2 py-2 text-base font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-primary-600 cursor-pointer"
         aria-label={`Menu pengguna ${user.username}`}
       >
         <HiOutlineUser aria-hidden="true" className="h-6 w-6" strokeWidth={1.25} />
@@ -69,7 +69,7 @@ export function UserDropdown() {
           <button
             type="button"
             onClick={handleLogout}
-            className="flex w-full items-center gap-3 py-2 text-sm font-medium text-red-600 hover:text-red-700"
+            className="flex w-full items-center gap-3 py-2 text-sm font-medium text-red-600 hover:text-red-700 cursor-pointer"
           >
             <HiOutlineArrowRightOnRectangle className="h-5 w-5" />
             Keluar
