@@ -34,7 +34,10 @@ export const updateProfileSchema = z.object({
 
 export const changePasswordSchema = z.object({
   oldPassword: z.string().min(1, 'Password lama wajib diisi'),
-  newPassword: z.string().min(6, 'Password baru minimal 6 karakter'),
+  newPassword: z
+    .string()
+    .min(8, 'Password baru minimal 8 karakter')
+    .regex(/^(?=.*[A-Za-z])(?=.*\d).+$/, 'Password baru harus mengandung kombinasi huruf dan angka'),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

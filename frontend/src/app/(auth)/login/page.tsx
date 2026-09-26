@@ -12,6 +12,9 @@ import { AuthSlideRoute } from "@/components/auth/AuthSlideRoute";
 import { AuthSlideTransport } from "@/components/auth/AuthSlideTransport";
 import { CarouselNavButton } from "@/components/ui/CarouselNavButton";
 import { useAuth } from "@/context/AuthContext";
+import { GoogleLogin } from "@react-oauth/google";
+import { jwtDecode } from "jwt-decode";
+import Alert from "@/components/ui/Alert";
 
 const slides = [AuthSlideBudget, AuthSlideTransport, AuthSlideRoute];
 
@@ -21,7 +24,9 @@ export default function LoginPage() {
     const [form, setForm] = useState({ identifier: "", password: "" });
     const [error, setError] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const { login } = useAuth();
+    const [isGoogleLogin, setIsGoogleLogin] = useState(false);
+    const [googleError, setGoogleError] = useState("");
+    const { login, googleLogin } = useAuth();
     const router = useRouter();
     const ActiveSlide = slides[activeSlide];
 
@@ -60,6 +65,21 @@ export default function LoginPage() {
         }
     }
 
+    async function handleGoogleLogin(credentialResponse: any) {
+        try {
+            setIsGoogleLogin(true);
+            setGoogleError("");
+            const credential = jwtDecode(credentialResponse.credential);
+            const { email, name } = credential as { email: string; name: string };
+            await googleLogin(email, name);
+            router.push('/beranda');
+        } catch (err: any) {
+            setGoogleError(err.message || "Gagal login dengan Google. Silakan coba lagi.");
+        } finally {
+            setIsGoogleLogin(false);
+        }
+    }
+
     return (
         <main className="grid min-h-screen bg-white lg:grid-cols-[3fr_2fr]">
             <section className="relative hidden min-h-screen overflow-hidden border-r border-neutral-200 bg-[linear-gradient(180deg,#fff_0%,#edf6ff_100%)] px-10 py-10 lg:block xl:px-14">
@@ -88,6 +108,7 @@ export default function LoginPage() {
                     <h2 className="text-2xl font-extrabold tracking-tight text-black">Mau Otewe kemana?</h2>
                     <p className="mt-2 text-sm text-neutral-600">Ongkos, Transportasi, Waktu, kita cari yang pas!</p>
                     {error && <p role="alert" className="mt-8 text-sm text-red-600">{error}</p>}
+                    {googleError && <Alert status="error" title="Login Google Gagal" description={googleError} onClose={() => setGoogleError("")} className="mt-8" />}
 
                     <form onSubmit={handleSubmit} className="mt-7 space-y-5">
                         <div><label htmlFor="identifier" className="text-sm font-semibold text-black">Email atau username</label><div className="relative mt-2"><HiOutlineUser className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-neutral-400" /><input id="identifier" type="text" autoComplete="username" value={form.identifier} onChange={(event) => setForm({ ...form, identifier: event.target.value })} placeholder="Masukkan email atau username" className="w-full rounded-xl border border-neutral-300 py-3 pr-4 pl-11 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-primary-600 focus:ring-1 focus:ring-primary-600" /></div></div>
@@ -96,7 +117,23 @@ export default function LoginPage() {
                         <button type="submit" disabled={isSubmitting} className="w-full cursor-pointer rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">{isSubmitting ? "Memproses..." : "Masuk"}</button>
                     </form>
                     <div className="my-6 flex items-center gap-4"><span className="h-px flex-1 bg-neutral-400" /><span className="text-sm text-neutral-500">atau</span><span className="h-px flex-1 bg-neutral-400" /></div>
-                    <button type="button" className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-neutral-300 py-3 text-sm font-medium text-black transition hover:bg-neutral-50"><FcGoogle className="h-5 w-5" />Masuk dengan akun Google</button>
+                    <div className="flex items-center justify-center">
+                        {!isGoogleLogin ? (
+                            <GoogleLogin
+                                onSuccess={handleGoogleLogin}
+                                onError={() => setGoogleError("Login dengan Google dibatalkan. Silakan coba lagi.")}
+                                theme="outline"
+                                shape="pill"
+                                size="large"
+                                text="signin_with"
+                                width="400"
+                            />
+                        ) : (
+                            <div className="flex w-full items-center justify-center gap-3 rounded-xl border border-neutral-300 py-3 text-sm font-medium text-neutral-400">
+                                <span>Memproses...</span>
+                            </div>
+                        )}
+                    </div>
                     <p className="mt-6 text-center text-sm text-neutral-500">Belum memiliki akun? <Link href="/register" className="font-medium text-primary-600 underline">Daftar</Link></p>
                 </div>
             </section>

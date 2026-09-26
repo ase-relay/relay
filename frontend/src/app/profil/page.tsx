@@ -17,8 +17,9 @@ import {
     HiOutlineEyeSlash,
     HiXMark,
 } from 'react-icons/hi2';
+import { updateProfile, changePassword } from '@/lib/api';
 
-const usernamePattern = /^[A-Za-z0-9_]{3,20}$/;
+const usernamePattern = /^[A-Za-z0-9_]{3,30}$/;
 const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
 
 function IconButton({ children, className = '', ...props }: React.ComponentProps<'button'>) {
@@ -38,13 +39,17 @@ function IconWrapper({ children, className = '' }: { children: React.ReactNode; 
 }
 
 export default function ProfilPage() {
-    const { user, checkingAuth } = useAuth();
+    const { user, checkingAuth, setUser } = useAuth();
     const [editingUsername, setEditingUsername] = useState(false);
     const [changingPassword, setChangingPassword] = useState(false);
     const [username, setUsername] = useState('');
     const [usernameSubmitted, setUsernameSubmitted] = useState(false);
+    const [isSavingUsername, setIsSavingUsername] = useState(false);
+    const [usernameError, setUsernameError] = useState('');
     const [passwords, setPasswords] = useState({ current: '', next: '', confirmation: '' });
     const [passwordSubmitted, setPasswordSubmitted] = useState(false);
+    const [isSavingPassword, setIsSavingPassword] = useState(false);
+    const [passwordError, setPasswordError] = useState('');
     const [shownPasswords, setShownPasswords] = useState<Record<string, boolean>>({});
     const [alert, setAlert] = useState<{ title: string; description: string } | null>(null);
 
@@ -59,22 +64,51 @@ export default function ProfilPage() {
         setEditingUsername(true);
     }
 
-    function saveUsername(event: FormEvent<HTMLFormElement>) {
+    async function saveUsername(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         setUsernameSubmitted(true);
-        if (usernameValid) {
+        setUsernameError('');
+
+        if (!usernameValid) {
+            return;
+        }
+
+        setIsSavingUsername(true);
+        try {
+            const updatedUser = await updateProfile({ username });
+            setUser(updatedUser);
             setEditingUsername(false);
             setAlert({ title: 'Username Berhasil Diubah!', description: 'Username kamu berhasil diperbarui' });
+        } catch (error: any) {
+            if (error.response?.data?.message) {
+                setUsernameError(error.response.data.message);
+            } else {
+                setUsernameError('Terjadi kesalahan, silakan coba lagi');
+            }
+        } finally {
+            setIsSavingUsername(false);
         }
     }
 
-    function savePassword(event: FormEvent<HTMLFormElement>) {
+    async function savePassword(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         setPasswordSubmitted(true);
-        if (passwords.current && passwordValid && passwordsMatch) {
+        setPasswordError('');
+
+        if (!passwords.current || !passwordValid || !passwordsMatch) {
+            return;
+        }
+
+        setIsSavingPassword(true);
+        try {
+            await changePassword({ oldPassword: passwords.current, newPassword: passwords.next });
             setChangingPassword(false);
             setPasswords({ current: '', next: '', confirmation: '' });
             setAlert({ title: 'Kata Sandi Berhasil Diubah!', description: 'Kata sandi kamu berhasil diperbarui' });
+        } catch (error: any) {
+            setPasswordError(error.message || 'Terjadi kesalahan, silakan coba lagi');
+        } finally {
+            setIsSavingPassword(false);
         }
     }
 
@@ -126,10 +160,11 @@ export default function ProfilPage() {
                                 placeholder="Masukkan username baru"
                                 className={`w-full rounded-[20px] border bg-white px-4 py-3 sm:px-5 sm:py-3.5 text-sm sm:text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-primary-600 focus:ring-1 focus:ring-primary-600 ${usernameSubmitted && !usernameValid ? 'border-red-500' : 'border-neutral-300'}`}
                             />
-                            <p className={`mt-2 text-xs ${usernameSubmitted && !usernameValid ? 'text-red-600' : 'text-neutral-400'}`}>3-20 karakter, hanya huruf, angka, dan underscore</p>
+                            <p className={`mt-2 text-xs ${usernameSubmitted && !usernameValid ? 'text-red-600' : 'text-neutral-400'}`}>3-30 karakter, hanya huruf, angka, dan underscore</p>
+                            {usernameError && <p className="mt-2 text-xs text-red-600">{usernameError}</p>}
                         </div>
                         <div className="w-full sm:py-8 flex justify-end sm:justify-end">
-                            <IconButton type="submit" className="w-full sm:w-auto bg-primary-600">Simpan</IconButton>
+                            <IconButton type="submit" disabled={isSavingUsername} className="w-full sm:w-auto bg-primary-600">{isSavingUsername ? 'Menyimpan...' : 'Simpan'}</IconButton>
                         </div>
                     </form>
                 ) : (
@@ -174,7 +209,8 @@ export default function ProfilPage() {
                                 <PasswordInput label="Kata Sandi Saat Ini" name="current" placeholder="Masukkan kata sandi saat ini" value={passwords.current} shown={shownPasswords.current} onToggle={() => setShownPasswords((value) => ({ ...value, current: !value.current }))} onChange={(value) => setPasswords((state) => ({ ...state, current: value }))} error={passwordSubmitted && !passwords.current} />
                                 <PasswordInput label="Kata Sandi Baru" name="next" placeholder="Buat kata sandi" value={passwords.next} shown={shownPasswords.next} onToggle={() => setShownPasswords((value) => ({ ...value, next: !value.next }))} onChange={(value) => setPasswords((state) => ({ ...state, next: value }))} help="Minimal 8 karakter dengan kombinasi huruf dan angka" error={passwordSubmitted && !passwordValid} />
                                 <PasswordInput label="Konfirmasi Kata Sandi Baru" name="confirmation" placeholder="Ulangi kata sandi" value={passwords.confirmation} shown={shownPasswords.confirmation} onToggle={() => setShownPasswords((value) => ({ ...value, confirmation: !value.confirmation }))} onChange={(value) => setPasswords((state) => ({ ...state, confirmation: value }))} error={passwordSubmitted && !passwordsMatch} />
-                                <IconButton type="submit" className="w-full sm:w-auto bg-primary-600">Simpan Perubahan</IconButton>
+                                {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
+                                <IconButton type="submit" disabled={isSavingPassword} className="w-full sm:w-auto bg-primary-600">{isSavingPassword ? 'Menyimpan...' : 'Simpan Perubahan'}</IconButton>
                             </form>
                         </section>
                     )}

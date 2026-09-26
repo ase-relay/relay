@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import api from '@/lib/api';
+import { googleLogin as googleLoginApi } from '@/lib/api';
 import { User, LoginRequest, RegisterRequest, LoginResponse, RegisterResponse, MeResponse } from '@/lib/types/auth';
 
 interface AuthContextType {
@@ -11,6 +12,8 @@ interface AuthContextType {
   login: (data: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => void;
+  setUser: (user: User | null) => void;
+  googleLogin: (email: string, name: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -73,8 +76,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const googleLogin = async (email: string, name: string) => {
+    const googleLoginData = await googleLoginApi({ email, name });
+    const { token } = googleLoginData;
+    localStorage.setItem('otewe_token', token);
+
+    const meResponse = await api.get<MeResponse>('/auth/me');
+    const userData = meResponse.data.data;
+    if (userData) {
+      setUser(userData);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, checkingAuth, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, checkingAuth, login, register, logout, setUser, googleLogin }}>
       {children}
     </AuthContext.Provider>
   );

@@ -12,6 +12,9 @@ import { AuthSlideRoute } from "@/components/auth/AuthSlideRoute";
 import { AuthSlideTransport } from "@/components/auth/AuthSlideTransport";
 import { CarouselNavButton } from "@/components/ui/CarouselNavButton";
 import { useAuth } from "@/context/AuthContext";
+import { GoogleLogin } from "@react-oauth/google";
+import { jwtDecode } from "jwt-decode";
+import Alert from "@/components/ui/Alert";
 
 const slides = [AuthSlideBudget, AuthSlideTransport, AuthSlideRoute];
 const usernamePattern = /^[A-Za-z0-9_]{3,20}$/;
@@ -25,8 +28,10 @@ export default function RegisterPage() {
     const [submitted, setSubmitted] = useState(false);
     const [apiError, setApiError] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isGoogleLogin, setIsGoogleLogin] = useState(false);
+    const [googleError, setGoogleError] = useState("");
     const [form, setForm] = useState({ email: "", username: "", password: "", confirmation: "" });
-    const { register: registerUser } = useAuth();
+    const { register: registerUser, googleLogin } = useAuth();
     const router = useRouter();
     const ActiveSlide = slides[activeSlide];
     const usernameValid = usernamePattern.test(form.username);
@@ -70,6 +75,21 @@ export default function RegisterPage() {
         }
     }
 
+    async function handleGoogleLogin(credentialResponse: any) {
+        try {
+            setIsGoogleLogin(true);
+            setGoogleError("");
+            const credential = jwtDecode(credentialResponse.credential);
+            const { email, name } = credential as { email: string; name: string };
+            await googleLogin(email, name);
+            router.push('/beranda');
+        } catch (err: any) {
+            setGoogleError(err.message || "Gagal login dengan Google. Silakan coba lagi.");
+        } finally {
+            setIsGoogleLogin(false);
+        }
+    }
+
     const inputClass = (hasError: boolean) => `w-full rounded-xl border py-3 pr-11 pl-11 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-1 ${hasError ? "border-red-500 focus:border-red-500 focus:ring-red-500" : "border-neutral-300 focus:border-primary-600 focus:ring-primary-600"}`;
 
     return (
@@ -97,6 +117,7 @@ export default function RegisterPage() {
                     <h2 className="text-2xl font-extrabold tracking-tight text-black">Siap buat Otewe?</h2>
                     <p className="mt-2 text-sm text-neutral-600">Daftar dan pilih transportasi yang pas buatmu.</p>
                     {apiError && <p role="alert" className="mt-8 text-sm text-red-600">{apiError}</p>}
+                    {googleError && <Alert status="error" title="Login Google Gagal" description={googleError} onClose={() => setGoogleError("")} className="mt-8" />}
 
                     <form onSubmit={handleSubmit} noValidate className="mt-7 space-y-4">
                         <div><label htmlFor="email" className="text-sm font-semibold text-black">Email</label><div className="relative mt-2"><HiOutlineEnvelope className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-neutral-400" /><input id="email" type="email" autoComplete="email" value={form.email} onChange={(event) => updateField("email", event.target.value)} placeholder="Masukkan email aktif" className={inputClass(submitted && !form.email)} /></div></div>
@@ -107,7 +128,23 @@ export default function RegisterPage() {
                         <button type="submit" disabled={!formValid || isSubmitting} className="w-full cursor-pointer rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-neutral-400 disabled:hover:bg-neutral-400 disabled:opacity-50">{isSubmitting ? "Memproses..." : "Daftar"}</button>
                     </form>
                     <div className="my-6 flex items-center gap-4"><span className="h-px flex-1 bg-neutral-400" /><span className="text-sm text-neutral-500">atau</span><span className="h-px flex-1 bg-neutral-400" /></div>
-                    <button type="button" className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-neutral-300 py-3 text-sm font-medium text-black transition hover:bg-neutral-50"><FcGoogle className="h-5 w-5" />Daftar dengan akun Google</button>
+                    <div className="flex items-center justify-center">
+                        {!isGoogleLogin ? (
+                            <GoogleLogin
+                                onSuccess={handleGoogleLogin}
+                                onError={() => setGoogleError("Login dengan Google dibatalkan. Silakan coba lagi.")}
+                                theme="outline"
+                                shape="pill"
+                                size="large"
+                                text="signup_with"
+                                width="400"
+                            />
+                        ) : (
+                            <div className="flex w-full items-center justify-center gap-3 rounded-xl border border-neutral-300 py-3 text-sm font-medium text-neutral-400">
+                                <span>Memproses...</span>
+                            </div>
+                        )}
+                    </div>
                     <p className="mt-6 text-center text-sm text-neutral-500">Sudah memiliki akun? <Link href="/login" className="font-medium text-primary-600 underline">Masuk</Link></p>
                 </div>
             </section>
