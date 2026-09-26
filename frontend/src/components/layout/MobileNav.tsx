@@ -18,8 +18,14 @@ export function MobileNav() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const blurRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -54,7 +60,7 @@ export function MobileNav() {
     setIsOpen(false);
   }
 
-  if (checkingAuth) {
+  if (!mounted || checkingAuth) {
     return (
       <header className="sticky top-0 z-40 px-4 pt-8 sm:px-8 sm:pt-8 md:hidden">
         <nav className="mx-auto flex h-19.5 max-w-292.5 items-center justify-between rounded-[20px] border border-neutral-200/80 bg-white px-7 shadow-[0_10px_25px_rgba(15,23,42,0.10)] sm:px-11">
@@ -80,11 +86,14 @@ export function MobileNav() {
       <header className="sticky top-0 z-40 px-4 pt-8 sm:px-8 sm:pt-8 md:hidden">
         {/* Layer frosted di belakang navbar: muncul saat di-scroll, dengan mask memudar di tepi
             bawah supaya tidak ada garis pemisah antara blur navbar dan background halaman. */}
-        <div
-          aria-hidden
-          className={`pointer-events-none absolute inset-0 -z-10 bg-white/85 backdrop-blur-md transition-opacity duration-300 ${scrolled ? 'opacity-100' : 'opacity-0'
-            } [mask-image:linear-gradient(to_bottom,black_75%,transparent)] [-webkit-mask-image:linear-gradient(to_bottom,black_75%,transparent)]`}
-        />
+        {mounted && (
+          <div
+            ref={blurRef}
+            aria-hidden
+            className={`pointer-events-none absolute inset-0 -z-10 bg-white/85 backdrop-blur-md transition-opacity duration-300 ${scrolled ? 'opacity-100' : 'opacity-0'
+              } [-webkit-mask-image:linear-gradient(to_bottom,black_75%,transparent)]`}
+          />
+        )}
         <nav className="mx-auto flex h-19.5 max-w-292.5 items-center justify-between rounded-[20px] border border-neutral-200/80 bg-white px-7 shadow-[0_10px_25px_rgba(15,23,42,0.10)] sm:px-11">
           <Link href="/" aria-label="Otewe Beranda">
             <Image
@@ -160,8 +169,8 @@ export function MobileNav() {
                     href={link.href}
                     onClick={handleLinkClick}
                     className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-medium transition-colors ${link.href === pathname
-                        ? 'bg-primary-50 text-primary-600'
-                        : 'text-neutral-900 hover:bg-neutral-100 hover:text-primary-600'
+                      ? 'bg-primary-50 text-primary-600'
+                      : 'text-neutral-900 hover:bg-neutral-100 hover:text-primary-600'
                       }`}
                   >
                     {link.label}
@@ -176,7 +185,7 @@ export function MobileNav() {
                     {/* User Info */}
                     <div className="flex items-center gap-4">
                       <div className="h-12 w-12 shrink-0 rounded-full bg-primary-100 flex items-center justify-center">
-                        <HiOutlineUser className="h-7 w-7 text-primary-600 stroke-[1.25]" />
+                        <HiOutlineUser className="h-7 w-7 text-primary-600 strokeWidth={1.25}" />
                       </div>
                       <div className="min-w-0">
                         <p className="text-base font-semibold text-neutral-900 truncate">{user.username}</p>

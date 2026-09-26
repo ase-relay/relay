@@ -30,7 +30,7 @@ export default function BerandaPage() {
           </div>
 
           {/* Ilustrasi */}
-          <div className="relative z-0 min-h-85 lg:min-h-145 lg:[grid-area:image] lg:-ml-0 lg:scale-110">
+          <div className="relative z-0 min-h-85 lg:min-h-145 lg:[grid-area:image] lg:scale-110">
             <Image
               src="/images/ilustrasi-transportasi.png"
               alt="Ilustrasi bus, angkot, dan ojek di tengah kota"

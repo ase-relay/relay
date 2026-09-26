@@ -233,7 +233,7 @@ function CariRutePageContent() {
                 {[0, 1, 2].map((index) => (
                   <div key={index} className={`flex flex-wrap items-center gap-6 py-4 ${index < 2 ? 'border-b border-neutral-200' : ''}`}>
                     <Skeleton variant="circle" className="h-12 w-12" />
-                    <div className="min-w-[180px] flex-1 space-y-2"><Skeleton variant="text" className="h-5 w-40" /><Skeleton variant="text" className="h-4 w-64 max-w-full" /></div>
+                    <div className="min-w-45 flex-1 space-y-2"><Skeleton variant="text" className="h-5 w-40" /><Skeleton variant="text" className="h-4 w-64 max-w-full" /></div>
                     <Skeleton variant="text" className="h-5 w-24" />
                     <Skeleton variant="text" className="h-5 w-24" />
                     <Skeleton variant="rounded" className="h-9 w-32" />

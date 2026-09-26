@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useState, useEffect } from 'react';
 import { Footer } from '@/components/layout/Footer';
 import { Navbar } from '@/components/layout/Navbar';
 import { useAuth } from '@/context/AuthContext';
@@ -26,7 +26,7 @@ function IconButton({ children, className = '', ...props }: React.ComponentProps
     return (
         <button
             type="button"
-            className={`inline-flex cursor-pointer items-center justify-center gap-2 rounded-[20px] px-4 py-2.5 sm:px-6 sm:py-3 text-sm font-semibold text-white transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:cursor-not-allowed disabled:opacity-60 min-h-[44px] ${className}`}
+            className={`inline-flex cursor-pointer items-center justify-center gap-2 rounded-[20px] px-4 py-2.5 sm:px-6 sm:py-3 text-sm font-semibold text-white transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:cursor-not-allowed disabled:opacity-60 min-h-11 ${className}`}
             {...props}
         >
             {children}
@@ -40,11 +40,16 @@ function IconWrapper({ children, className = '' }: { children: React.ReactNode; 
 
 export default function ProfilPage() {
     const { user, checkingAuth, setUser } = useAuth();
+    const [mounted, setMounted] = useState(false);
     const [editingUsername, setEditingUsername] = useState(false);
     const [changingPassword, setChangingPassword] = useState(false);
     const [username, setUsername] = useState('');
     const [usernameSubmitted, setUsernameSubmitted] = useState(false);
     const [isSavingUsername, setIsSavingUsername] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
     const [usernameError, setUsernameError] = useState('');
     const [passwords, setPasswords] = useState({ current: '', next: '', confirmation: '' });
     const [passwordSubmitted, setPasswordSubmitted] = useState(false);
@@ -112,7 +117,7 @@ export default function ProfilPage() {
         }
     }
 
-    const profileRows = checkingAuth ? (
+    const profileRows = !mounted || checkingAuth ? (
         <div className="space-y-4 sm:grid sm:grid-cols-[minmax(120px,.8fr)_minmax(0,1fr)_auto] sm:items-center sm:gap-x-6 sm:gap-y-0">
             <div className="sm:contents">
                 <p className="py-4 sm:py-8 flex items-center gap-3 sm:gap-4 text-sm sm:text-base font-medium text-neutral-400"><IconWrapper className="h-5 w-5 sm:h-6 sm:w-6"><EmailIcon /></IconWrapper>Email</p>
@@ -151,7 +156,7 @@ export default function ProfilPage() {
                 <p className="py-4 sm:py-8 flex items-center gap-3 sm:gap-4 text-sm sm:text-base font-medium text-neutral-400"><IconWrapper className="h-5 w-5 sm:h-6 sm:w-6"><UserIcon /></IconWrapper>Username</p>
                 {editingUsername ? (
                     <form onSubmit={saveUsername} className="space-y-3 sm:contents">
-                        <div className="w-full sm:max-w-[425px] sm:py-8">
+                        <div className="w-full sm:max-w-106.25 sm:py-8">
                             <input
                                 aria-label="Username baru"
                                 autoComplete="username"

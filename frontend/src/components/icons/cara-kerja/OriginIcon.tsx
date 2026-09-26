@@ -1,7 +1,7 @@
 export default function OriginIcon() {
     return (
         <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="14" cy="14" r="13" stroke="#004BDC" stroke-width="2" />
+            <circle cx="14" cy="14" r="13" stroke="#004BDC" strokeWidth={2} />
             <circle cx="14" cy="14" r="8" fill="#004BDC" />
         </svg>
     )

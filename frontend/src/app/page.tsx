@@ -57,7 +57,7 @@ function HeroSection() {
         </div>
 
         <div className="relative mx-auto w-full max-w-150 order-1 lg:order-2 lg:translate-y-3">
-          <div className="relative aspect-[4/3] sm:aspect-[5/4] lg:aspect-[4/3] overflow-hidden rounded-3xl">
+          <div className="relative aspect-4/3 sm:aspect-5/4 overflow-hidden rounded-3xl">
             <Image
               src="/images/Login_Onboard.png"
               alt="Ilustrasi orang menunggu bus otewe"
@@ -339,14 +339,14 @@ function CTASection() {
 
 export default function Home() {
   return (
-    <div className="relative flex flex-col bg-gradient-to-b from-primary-50 via-white to-white">
+    <div className="relative flex flex-col bg-linear-to-b from-primary-50 via-white to-white">
       <Image
         src="/images/effect/blue-glow-bg.png"
         alt=""
         width={800}
         height={800}
         /* eslint-disable-next-line tailwindcss/classnames-order -- Arbitrary values needed for specific glow dimensions */
-        className="pointer-events-none absolute top-0 left-0 z-0 h-auto w-full max-w-[500px] sm:max-w-[700px]"
+        className="pointer-events-none absolute top-0 left-0 z-0 h-auto w-full max-w-125 sm:max-w-175"
         priority
       />
       <div className="relative z-10">

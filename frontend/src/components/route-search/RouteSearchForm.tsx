@@ -43,7 +43,7 @@ export function RouteSearchForm() {
     router.push(`/cari-rute?origin=${encodeURIComponent(selectedOrigin.name)}&destination=${encodeURIComponent(selectedDestination.name)}`);
   }
 
-  return <div className="w-full max-w-[652px] rounded-3xl bg-white p-5 shadow-[0_8px_22px_rgba(15,23,42,0.12)] sm:p-7 lg:p-14">
+  return <div className="w-full max-w-163 rounded-3xl bg-white p-5 shadow-[0_8px_22px_rgba(15,23,42,0.12)] sm:p-7 lg:p-14">
     <div className="relative space-y-5 sm:space-y-7">
       <div className="absolute top-6 -left-4 h-12 border-l-2 border-dashed border-neutral-300 sm:top-8 sm:-left-6 sm:h-13" />
       <LocationInput id="origin" kind="origin" value={originQuery} placeholder="Pilih lokasi awal ..." isActive={activeField === "origin"} suggestions={originSuggestions} isLoading={isLoadingOrigin} onChange={(value) => { setOriginQuery(value); setSelectedOrigin(null); setError(""); }} onFocus={() => setActiveField("origin")} onBlur={() => setTimeout(() => setActiveField(null), 180)} onSelect={(item) => select(item, "origin")} onUseCurrentLocation={() => setCurrentLocation("origin")} />
