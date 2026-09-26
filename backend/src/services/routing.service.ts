@@ -363,7 +363,7 @@ export class RoutingService {
                 const walkOriginDur = this.calculateWalkingMinutes(walkOriginDist);
 
                 const walkDestDist = dest.distance;
-                const walkDestDur = this.calculateWalkingMinutes(walkDestDur);
+                const walkDestDur = this.calculateWalkingMinutes(walkDestDist);
 
                 // Ambil geometry jalan raya (OSRM) secara paralel untuk ke-5 legs transit
                 const [walkOriginGeom, leg1Geom, walkTransferGeom, leg2Geom, walkDestGeom] = await Promise.all([

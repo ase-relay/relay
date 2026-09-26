@@ -87,18 +87,25 @@ export function transformApiRouteToMapMarkers(route: ApiRoute): MapViewerMarker[
 
 /**
  * Transform `ApiRoute` (response BE) ke `MapViewerPolyline[]` — satu polyline
- * per leg, koordinat dari `leg.from`/`to` (WALK) atau `leg.fromHalte`/`toHalte`
- * (TRANSIT). Leg TRANSIT berhenti di titik Transit (BTT) dan *belum* menggambar
- * jalur sepanjang rute kendaraan (butuh geometry per rute dari BE).
- *
- * ❓ Follow-up ke tim BE: apakah akan ada field geometry (daftar koordinat
- * polyline rute kendaraan) di kontrak response agar jalur transit bisa digambar
- * mengikuti jalan? Sementara ini digambar garis lurus antar halte.
+ * per leg. Jika backend menyuplai array `leg.geometry` (hasil OSRM jalan raya),
+ * polyline akan digambar presisi mengikuti lekukan jalan raya. Jika tidak,
+ * fallback ke garis lurus antar titik halte/koordinat.
  */
 export function transformApiRouteToMapPolylines(route: ApiRoute): MapViewerPolyline[] {
   const polylines: MapViewerPolyline[] = [];
 
   route.legs.forEach((leg, index) => {
+    // 1. Jika ada geometry dari backend (OSRM road coordinates), gunakan langsung!
+    if (leg.geometry && leg.geometry.length > 0) {
+      polylines.push({
+        id: `polyline-${leg.step ?? index + 1}`,
+        positions: leg.geometry,
+        colorHex: getLegColorHex(leg),
+      });
+      return;
+    }
+
+    // 2. Fallback garis lurus jika geometry kosong
     const startPoint = leg.from ?? leg.fromHalte;
     const endPoint = leg.to ?? leg.toHalte;
 

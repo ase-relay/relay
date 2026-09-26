@@ -26,8 +26,9 @@ app.get('/', (req, res) => {
   });
 });
 
-// Register Modular API Routes
+// Register Modular API Routes (support both /api and root paths)
 app.use('/api', apiRoutes);
+app.use('/', apiRoutes);
 
 // Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
