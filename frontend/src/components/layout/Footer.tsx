@@ -5,7 +5,7 @@ export function Footer({ className = "" }: { className?: string }) {
     <footer className={`px-6 py-8 ${className}`}>
       <div className="mx-auto flex max-w-4xl flex-col items-center justify-center gap-5 sm:flex-row sm:gap-20">
         <Image
-          src="/logo/logo.png"
+          src="/logo/logo.svg"
           alt="Otewe"
           width={120}
           height={36}

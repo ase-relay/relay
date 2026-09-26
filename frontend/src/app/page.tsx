@@ -22,7 +22,7 @@ function HeroSection() {
   return (
     <section className="relative overflow-hidden px-4 pb-24 pt-13 sm:pt-16 lg:pb-30">
       <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-8 lg:grid-cols-2 lg:gap-4">
-        <div>
+        <div className="order-2 lg:order-1">
           <h1 className="text-4xl leading-tight font-extrabold text-neutral-900 sm:text-5xl">
             Perjalananmu, pilihanmu.
             <br />
@@ -56,8 +56,8 @@ function HeroSection() {
           </div>
         </div>
 
-        <div className="relative mx-auto h-80 w-full max-w-150 sm:h-88 lg:h-96 lg:translate-y-3">
-          <div className="absolute inset-0 overflow-hidden rounded-3xl">
+        <div className="relative mx-auto w-full max-w-150 order-1 lg:order-2 lg:translate-y-3">
+          <div className="relative aspect-[4/3] sm:aspect-[5/4] lg:aspect-[4/3] overflow-hidden rounded-3xl">
             <Image
               src="/images/Login_Onboard.png"
               alt="Ilustrasi orang menunggu bus otewe"
@@ -68,7 +68,8 @@ function HeroSection() {
             />
           </div>
 
-          <div className="absolute top-0 left-8 z-10 flex flex-nowrap items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-lg sm:left-20">
+          {/* Card "Ongkos" - pojok kiri atas */}
+          <div className="absolute top-5 left-5 z-10 flex flex-nowrap items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-lg sm:top-12 sm:left-12 lg:top-16 lg:left-25">
             <div className="h-10 w-10 shrink-0 [&>svg]:h-10 [&>svg]:w-10">
               <WalletIcon />
             </div>
@@ -78,7 +79,8 @@ function HeroSection() {
             </div>
           </div>
 
-          <div className="absolute top-8 right-0 z-10 flex flex-nowrap items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-lg">
+          {/* Card "Waktu" - sisi kanan, agak ke tengah-atas */}
+          <div className="absolute top-[30%] -right-4 z-10 flex flex-nowrap items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-lg sm:top-[25%] sm:-right-6 lg:top-[30%] lg:-right-3">
             <div className="h-10 w-10 shrink-0 [&>svg]:h-10 [&>svg]:w-10">
               <ClockIcon />
             </div>
@@ -88,7 +90,8 @@ function HeroSection() {
             </div>
           </div>
 
-          <div className="absolute bottom-0 left-0 z-10 flex flex-nowrap items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-lg">
+          {/* Card "Transportasi" - pojok kiri bawah */}
+          <div className="absolute -bottom-4 -left-4 z-10 flex flex-nowrap items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-lg sm:-bottom-6 sm:-left-6 lg:-bottom-1 lg:left-1">
             <div className="h-10 w-10 shrink-0 [&>svg]:h-10 [&>svg]:w-10">
               <TransportIcon />
             </div>
@@ -336,14 +339,14 @@ function CTASection() {
 
 export default function Home() {
   return (
-    <div className="relative flex flex-col bg-linear-to-b">
+    <div className="relative flex flex-col bg-gradient-to-b from-primary-50 via-white to-white">
       <Image
         src="/images/effect/blue-glow-bg.png"
         alt=""
         width={800}
         height={800}
         /* eslint-disable-next-line tailwindcss/classnames-order -- Arbitrary values needed for specific glow dimensions */
-        className="pointer-events-none absolute top-0 left-0 z-0 h-auto w-125 max-w-none sm:w-175"
+        className="pointer-events-none absolute top-0 left-0 z-0 h-auto w-full max-w-[500px] sm:max-w-[700px]"
         priority
       />
       <div className="relative z-10">

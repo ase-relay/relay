@@ -50,7 +50,7 @@ api.interceptors.response.use(
  *   halaman pemanggil yang menampilkan empty state.
  */
 export async function searchRoutes(payload: RoutingSearchRequest): Promise<RoutingSearchResponse> {
-  const response = await api.post<RoutingSearchResponse>('/api/routing/search', payload);
+  const response = await api.post<RoutingSearchResponse>('/routing/search', payload);
   const envelope = response.data;
 
   if (envelope.status !== 'success') {

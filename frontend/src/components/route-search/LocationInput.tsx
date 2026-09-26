@@ -25,9 +25,9 @@ export function LocationInput({ id, kind, value, placeholder, isActive, suggesti
   const isOrigin = kind === "origin";
   return (
     <div className="relative">
-      {isOrigin ? <span className="absolute top-1/2 -left-9 h-5 w-5 -translate-y-1/2 rounded-full border-2 border-neutral-400 bg-white" /> : <HiOutlineMapPin className="absolute top-1/2 -left-9 h-6 w-6 -translate-y-1/2 text-neutral-400" />}
+      {isOrigin ? <span className="absolute top-1/2 -left-6 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-neutral-400 bg-white sm:-left-9 sm:h-5 sm:w-5" /> : <HiOutlineMapPin className="absolute top-1/2 -left-6 h-5 w-5 -translate-y-1/2 text-neutral-400 sm:-left-9 sm:h-6 sm:w-6" />}
       <label htmlFor={id} className="sr-only">{isOrigin ? "Lokasi awal" : "Lokasi tujuan"}</label>
-      <input id={id} value={value} onChange={(event) => onChange(event.target.value)} onFocus={onFocus} onBlur={onBlur} placeholder={placeholder} autoComplete="off" className="h-15 w-full rounded-2xl border border-neutral-300 bg-white px-5 text-base text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-primary-600 focus:ring-2 focus:ring-primary-100" />
+      <input id={id} value={value} onChange={(event) => onChange(event.target.value)} onFocus={onFocus} onBlur={onBlur} placeholder={placeholder} autoComplete="off" className="h-12 w-full rounded-2xl border border-neutral-300 bg-white px-4 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-primary-600 focus:ring-2 focus:ring-primary-100 sm:h-15 sm:px-5 sm:text-base" />
       {isActive && <LocationSuggestions suggestions={suggestions} isLoading={isLoading} isLocating={isLocating} onSelect={onSelect} onUseCurrentLocation={onUseCurrentLocation} />}
     </div>
   );

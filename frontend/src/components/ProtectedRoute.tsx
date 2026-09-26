@@ -14,14 +14,6 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     }
   }, [user, loading, router]);
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        Memuat...
-      </div>
-    );
-  }
-
   if (!loading && !user) {
     return null;
   }

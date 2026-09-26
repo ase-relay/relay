@@ -35,7 +35,7 @@ export default function LupaPasswordPage() {
   return (
     <main className="grid min-h-screen bg-white lg:grid-cols-[3fr_2fr]">
       <section className="relative hidden min-h-screen overflow-hidden border-r border-neutral-200 bg-[linear-gradient(180deg,#fff_0%,#edf6ff_100%)] px-10 py-10 lg:block xl:px-14">
-        <Image src="/logo/logo.png" alt="Otewe" width={160} height={48} priority className="relative z-10 h-auto w-36" />
+        <Image src="/logo/logo.svg" alt="Otewe" width={160} height={48} priority className="relative z-10 h-auto w-36" />
         <div className="relative z-10 mt-18 max-w-md">
           <h1 className="text-4xl leading-tight font-extrabold tracking-tight text-black">Selamat datang di<br />otewe!</h1>
           <p className="mt-4 max-w-sm text-base leading-relaxed text-neutral-600">Temukan rute transportasi terbaik untuk perjalananmu dengan mudah, cepat, dan hemat.</p>
@@ -53,7 +53,7 @@ export default function LupaPasswordPage() {
 
       <section className="flex items-center justify-center px-6 py-10 sm:px-12 lg:px-16 xl:px-18">
         <div className="w-full max-w-lg">
-          <Image src="/logo/logo.png" alt="Otewe" width={160} height={48} priority className="mb-12 h-auto w-40 lg:hidden" />
+          <Image src="/logo/logo.svg" alt="Otewe" width={160} height={48} priority className="mb-12 h-auto w-40 lg:hidden" />
           <Link href="/login" className="inline-flex items-center gap-3 text-sm font-medium text-primary-600 hover:underline"><HiArrowLeft className="h-4 w-4" />Kembali ke halaman Masuk</Link>
           <h2 className="mt-10 text-2xl font-extrabold tracking-tight text-black">Lupa Kata Sandi?</h2>
           <p className="mt-4 max-w-sm text-sm leading-relaxed text-neutral-600">Masukkan alamat email yang terdaftar pada akun kamu. Kami akan mengirimkan tautan untuk mengatur ulang kata sandi.</p>

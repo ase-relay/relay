@@ -7,6 +7,7 @@ import { User, LoginRequest, RegisterRequest, LoginResponse, RegisterResponse, M
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  checkingAuth: boolean;
   login: (data: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => void;
@@ -17,6 +18,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [checkingAuth, setCheckingAuth] = useState(() => {
+    // Initialize checkingAuth synchronously on client-side only
+    if (typeof window !== 'undefined') {
+      return !!localStorage.getItem('otewe_token');
+    }
+    return false;
+  });
 
   useEffect(() => {
     const token = localStorage.getItem('otewe_token');
@@ -36,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .finally(() => {
         setLoading(false);
+        setCheckingAuth(false);
       });
   }, []);
 
@@ -65,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, checkingAuth, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
