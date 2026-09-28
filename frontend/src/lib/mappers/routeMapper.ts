@@ -125,6 +125,7 @@ export function mapApiRouteToJourneySegments(apiRoute: ApiRoute): JourneySegment
     const id = `${apiRoute.id}-leg-${leg.step ?? index + 1}`;
 
     if (leg.legType === 'WALK') {
+      const walkSteps = leg.steps && leg.steps.length > 0 ? leg.steps : [leg.instruction];
       return {
         id,
         type: 'WALK' as const,
@@ -132,7 +133,7 @@ export function mapApiRouteToJourneySegments(apiRoute: ApiRoute): JourneySegment
         endTime: UNKNOWN_TIME,
         duration: leg.durationMinutes,
         distance: leg.distanceMeters,
-        steps: [leg.instruction],
+        steps: walkSteps,
       };
     }
 
