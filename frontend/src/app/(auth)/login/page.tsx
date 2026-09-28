@@ -46,8 +46,8 @@ export default function LoginPage() {
         setIsSubmitting(true);
 
         try {
-            await login(form);
-            router.push('/beranda');
+            const user = await login(form);
+            router.push(user.role === 'ADMIN' ? '/admin' : '/beranda');
         } catch (err) {
             if (axios.isAxiosError(err)) {
                 if (err.response?.status === 401) {
@@ -71,8 +71,8 @@ export default function LoginPage() {
             setGoogleError("");
             const credential = jwtDecode(credentialResponse.credential);
             const { email, name } = credential as { email: string; name: string };
-            await googleLogin(email, name);
-            router.push('/beranda');
+            const user = await googleLogin(email, name);
+            router.push(user.role === 'ADMIN' ? '/admin' : '/beranda');
         } catch (err: any) {
             setGoogleError(err.message || "Gagal login dengan Google. Silakan coba lagi.");
         } finally {
@@ -83,7 +83,9 @@ export default function LoginPage() {
     return (
         <main className="grid min-h-screen bg-white lg:grid-cols-[3fr_2fr]">
             <section className="relative hidden min-h-screen overflow-hidden border-r border-neutral-200 bg-[linear-gradient(180deg,#fff_0%,#edf6ff_100%)] px-10 py-10 lg:block xl:px-14">
-                <Image src="/logo/logo.svg" alt="Otewe" width={160} height={48} priority className="relative z-10 h-auto w-36" />
+                <Link href="/">
+                    <Image src="/logo/logo.svg" alt="Otewe" width={160} height={48} priority className="relative z-10 h-auto w-36 cursor-pointer" />
+                </Link>
                 <div className="relative z-10 mt-18 max-w-md">
                     <h1 className="text-4xl leading-tight font-extrabold tracking-tight text-black">Selamat datang di<br />otewe!</h1>
                     <p className="mt-4 max-w-sm text-base leading-relaxed text-neutral-600">Temukan rute transportasi terbaik untuk perjalananmu dengan mudah, cepat, dan hemat.</p>
@@ -104,7 +106,9 @@ export default function LoginPage() {
 
             <section className="flex items-center justify-center px-6 py-10 sm:px-12 lg:px-16 xl:px-18">
                 <div className="w-full max-w-lg">
-                    <Image src="/logo/logo.svg" alt="Otewe" width={160} height={48} priority className="mb-12 h-auto w-40 lg:hidden" />
+                    <Link href="/">
+                        <Image src="/logo/logo.svg" alt="Otewe" width={160} height={48} priority className="mb-12 h-auto w-40 lg:hidden cursor-pointer" />
+                    </Link>
                     <h2 className="text-2xl font-extrabold tracking-tight text-black">Mau Otewe kemana?</h2>
                     <p className="mt-2 text-sm text-neutral-600">Ongkos, Transportasi, Waktu, kita cari yang pas!</p>
                     {error && <p role="alert" className="mt-8 text-sm text-red-600">{error}</p>}

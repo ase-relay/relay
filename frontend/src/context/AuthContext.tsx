@@ -9,11 +9,11 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   checkingAuth: boolean;
-  login: (data: LoginRequest) => Promise<void>;
+  login: (data: LoginRequest) => Promise<User>;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => void;
   setUser: (user: User | null) => void;
-  googleLogin: (email: string, name: string) => Promise<void>;
+  googleLogin: (email: string, name: string) => Promise<User>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
-  const login = async (data: LoginRequest) => {
+  const login = async (data: LoginRequest): Promise<User> => {
     const loginResponse = await api.post<LoginResponse>('/auth/login', data);
     const loginData = loginResponse.data.data;
     if (!loginData) {
@@ -64,7 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userData = meResponse.data.data;
     if (userData) {
       setUser(userData);
+      return userData;
     }
+    throw new Error('Gagal mengambil data user');
   };
 
   const register = async (data: RegisterRequest) => {
@@ -76,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  const googleLogin = async (email: string, name: string) => {
+  const googleLogin = async (email: string, name: string): Promise<User> => {
     const googleLoginData = await googleLoginApi({ email, name });
     const { token } = googleLoginData;
     localStorage.setItem('otewe_token', token);
@@ -85,7 +87,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userData = meResponse.data.data;
     if (userData) {
       setUser(userData);
+      return userData;
     }
+    throw new Error('Gagal mengambil data user');
   };
 
   return (
