@@ -76,6 +76,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem('otewe_token');
     setUser(null);
+    // Clear service worker cache on logout
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.controller?.postMessage({ type: 'CLEAR_CACHE' });
+    }
   };
 
   const googleLogin = async (email: string, name: string): Promise<User> => {

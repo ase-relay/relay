@@ -66,6 +66,7 @@ function MapViewerComponent({
         <TileLayer
           url={OSM_TILE_URL}
           attribution={OSM_ATTRIBUTION}
+          crossOrigin="anonymous"
         />
 
         {markers.map((marker) => (

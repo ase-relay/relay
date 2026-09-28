@@ -115,7 +115,7 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
                 <button
                     type="button"
                     onClick={handleLogout}
-                    className="shrink-0 pt-4 flex items-center gap-4 rounded-xl px-4 py-3 text-base font-medium text-white transition-colors hover:bg-white/10"
+                    className="shrink-0 pt-4 flex items-center gap-4 rounded-xl px-4 py-3 text-base font-medium text-white transition-colors hover:bg-white/10 cursor-pointer"
                 >
                     <LogoutIcon color="white" className="h-6 w-6 shrink-0" />
                     Keluar
