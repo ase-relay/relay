@@ -147,7 +147,7 @@ export default function AdminModaPage() {
                             <th className="px-6 py-5 text-[17px] font-semibold">
                                 Nama Moda
                             </th>
-                            <th className="w-[165px] px-6 py-5 text-[17px] font-semibold">
+                            <th className="w-41.25 px-6 py-5 text-[17px] font-semibold">
                                 Status
                             </th>
                             <th className="w-30 px-6 py-5 text-[17px] font-semibold">

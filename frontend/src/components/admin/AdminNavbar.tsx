@@ -35,7 +35,7 @@ export function AdminNavbar({ onMenuClick }: AdminNavbarProps) {
             width={176}
             height={82}
             priority
-            className="h-[48px] w-auto sm:h-[54px] lg:h-[60px]"
+            className="h-12 w-auto sm:h-13.5 lg:h-15"
           />
         </Link>
       </div>

@@ -48,7 +48,7 @@ export function ConfirmDeleteModal({
                 aria-modal="true"
                 aria-labelledby="confirm-delete-title"
                 aria-describedby="confirm-delete-description"
-                className="flex w-full max-w-[400px] flex-col rounded-xl border border-neutral-300 bg-white px-4 py-5 shadow-[0_16px_32px_rgba(15,23,42,0.22)] sm:w-[500px] sm:max-w-none sm:h-[315px] sm:rounded-2xl sm:px-11 sm:py-11"
+                className="flex w-full max-w-100 flex-col rounded-xl border border-neutral-300 bg-white px-4 py-5 shadow-[0_16px_32px_rgba(15,23,42,0.22)] sm:w-125 sm:max-w-none sm:h-78.75 sm:rounded-2xl sm:px-11 sm:py-11"
             >
                 <h2
                     id="confirm-delete-title"

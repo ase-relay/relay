@@ -292,7 +292,7 @@ export function RuteFormModal({
                                         />
                                     </div>
 
-                                    <div className="mt-2 max-h-[200px] overflow-y-auto rounded-xl bg-white p-2 sm:mt-3 sm:max-h-[250px] sm:rounded-2xl sm:p-3">
+                                    <div className="mt-2 max-h-50 overflow-y-auto rounded-xl bg-white p-2 sm:mt-3 sm:max-h-62.5 sm:rounded-2xl sm:p-3">
                                         <label className="flex cursor-pointer items-center gap-2 px-2 py-2 text-xs text-neutral-900 sm:gap-3 sm:py-2.5 sm:text-sm">
                                             <input
                                                 type="checkbox"
@@ -331,9 +331,9 @@ export function RuteFormModal({
                                         Urutan Halte dalam Jalur
                                     </h4>
 
-                                    <div className="mt-2 min-h-[200px] rounded-xl bg-white p-2 sm:mt-3 sm:min-h-[250px] sm:rounded-2xl sm:p-3">
+                                    <div className="mt-2 min-h-50 rounded-xl bg-white p-2 sm:mt-3 sm:min-h-62.5 sm:rounded-2xl sm:p-3">
                                         {selected.length === 0 ? (
-                                            <p className="flex min-h-[180px] items-center justify-center text-center text-xs text-neutral-400 sm:min-h-[220px] sm:text-sm">
+                                            <p className="flex min-h-45 items-center justify-center text-center text-xs text-neutral-400 sm:min-h-55 sm:text-sm">
                                                 Belum ada halte yang dipilih
                                             </p>
                                         ) : (

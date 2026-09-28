@@ -107,7 +107,7 @@ export function ModaFormModal({ isOpen, initial = null, onCancel, onSave }: Moda
                             id="moda-status"
                             value={status}
                             onChange={(event) => setStatus(event.target.value as ModaStatus)}
-                            className={`${inputClass} cursor-pointer appearance-none bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%238E8E93' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m5 7.5 5 5 5-5'/%3E%3C/svg%3E")] bg-[length:20px_20px] bg-position-[right_16px_center] bg-no-repeat pr-10 sm:bg-position-[right_28px_center] sm:pr-12`}
+                            className={`${inputClass} cursor-pointer appearance-none bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%238E8E93' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m5 7.5 5 5 5-5'/%3E%3C/svg%3E")] bg-size-[20px_20px] bg-position-[right_16px_center] bg-no-repeat pr-10 sm:bg-position-[right_28px_center] sm:pr-12`}
                         >
                             {statusOptions.map((option) => (
                                 <option key={option.value} value={option.value}>

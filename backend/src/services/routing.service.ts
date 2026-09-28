@@ -351,6 +351,14 @@ export class RoutingService {
                   passedStopsCount: slice1.length,
                 });
 
+                const slice1Info: PassedStopInfo[] = slice1.map((s) => ({
+                  id: s.halte.id,
+                  namaHalte: s.halte.namaHalte,
+                  urutan: s.urutan,
+                  latitude: s.halte.latitude,
+                  longitude: s.halte.longitude,
+                }));
+
                 // Hitung Leg 2 (Rute 2)
                 const slice2 = rute2.stops.slice(transitIndex2, destIndex2 + 1);
                 const metrics2 = this.calculateLegTransitMetrics(slice2);
@@ -361,13 +369,21 @@ export class RoutingService {
                   passedStopsCount: slice2.length,
                 });
 
+                const slice2Info: PassedStopInfo[] = slice2.map((s) => ({
+                  id: s.halte.id,
+                  namaHalte: s.halte.namaHalte,
+                  urutan: s.urutan,
+                  latitude: s.halte.latitude,
+                  longitude: s.halte.longitude,
+                }));
+
                 const walkOriginDist = orig.distance;
                 const walkOriginDur = this.calculateWalkingMinutes(walkOriginDist);
 
                 const walkDestDist = dest.distance;
                 const walkDestDur = this.calculateWalkingMinutes(walkDestDist);
 
-                                // Ambil geometry jalan raya (OSRM) dan langkah belokan jalan kaki secara paralel untuk ke-5 legs transit
+                // Ambil geometry jalan raya (OSRM) dan langkah belokan jalan kaki secara paralel untuk ke-5 legs transit
                 const [walkOriginDetail, leg1Geom, walkTransferDetail, leg2Geom, walkDestDetail] = await Promise.all([
                   GeometryService.getWalkRouteDetails(
                     [
@@ -427,20 +443,20 @@ export class RoutingService {
                   {
                     step: 2,
                     legType: 'TRANSIT',
-                    instruction: `Naik ${r1.moda.namaModa} ${r1.namaRute}`,
+                    instruction: `Naik ${rute1.moda.namaModa} ${rute1.namaRute}`,
                     distanceMeters: metrics1.distance,
                     durationMinutes: metrics1.duration,
                     fare: fare1,
                     moda: {
-                      id: r1.moda.id,
-                      nama: r1.moda.namaModa,
-                      tipe: r1.moda.tipeModa,
-                      ikon: r1.moda.ikon,
+                      id: rute1.moda.id,
+                      nama: rute1.moda.namaModa,
+                      tipe: rute1.moda.tipeModa,
+                      ikon: rute1.moda.ikon,
                     },
                     rute: {
-                      id: r1.id,
-                      kode: r1.kodeRute,
-                      nama: r1.namaRute,
+                      id: rute1.id,
+                      kode: rute1.kodeRute,
+                      nama: rute1.namaRute,
                     },
                     fromHalte: {
                       id: orig.halte.id,
@@ -495,20 +511,20 @@ export class RoutingService {
                   {
                     step: 4,
                     legType: 'TRANSIT',
-                    instruction: `Pindah ke ${r2.moda.namaModa} ${r2.namaRute}`,
+                    instruction: `Pindah ke ${rute2.moda.namaModa} ${rute2.namaRute}`,
                     distanceMeters: metrics2.distance,
                     durationMinutes: metrics2.duration,
                     fare: fare2,
                     moda: {
-                      id: r2.moda.id,
-                      nama: r2.moda.namaModa,
-                      tipe: r2.moda.tipeModa,
-                      ikon: r2.moda.ikon,
+                      id: rute2.moda.id,
+                      nama: rute2.moda.namaModa,
+                      tipe: rute2.moda.tipeModa,
+                      ikon: rute2.moda.ikon,
                     },
                     rute: {
-                      id: r2.id,
-                      kode: r2.kodeRute,
-                      nama: r2.namaRute,
+                      id: rute2.id,
+                      kode: rute2.kodeRute,
+                      nama: rute2.namaRute,
                     },
                     fromHalte: {
                       id: transitHalte.id,

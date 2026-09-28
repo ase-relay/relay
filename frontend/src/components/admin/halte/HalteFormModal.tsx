@@ -387,7 +387,7 @@ export function HalteFormModal({ isOpen, initial = null, onCancel, onSave }: Hal
 
             {mapOpen && (
                 <div
-                    className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-black/45 p-2.5 sm:p-4"
+                    className="fixed inset-0 z-60 flex items-center justify-center overflow-y-auto bg-black/45 p-2.5 sm:p-4"
                     role="presentation"
                     onMouseDown={(event) => {
                         if (event.target === event.currentTarget) setMapOpen(false);
@@ -431,7 +431,7 @@ export function HalteFormModal({ isOpen, initial = null, onCancel, onSave }: Hal
                         </div>
 
                         <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-5 sm:mt-4 sm:gap-4">
-                            <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-neutral-100 lg:col-span-3 sm:rounded-2xl">
+                            <div className="relative aspect-4/3 overflow-hidden rounded-xl bg-neutral-100 lg:col-span-3 sm:rounded-2xl">
                                 <Image
                                     src="/images/MapIllustration.png"
                                     alt="Peta area Bandung"
