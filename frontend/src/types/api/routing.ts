@@ -115,6 +115,7 @@ export interface ApiRouteLeg {
   passedStopsCount?: number;
   passedStops?: ApiPassedStop[];
   geometry?: [number, number][]; // Array of [lat, lng] coordinates following actual road network for Leaflet <Polyline>
+  steps?: string[]; // Turn-by-turn walking navigation steps from BE
 }
 
 export interface ApiRoute {

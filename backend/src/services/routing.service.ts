@@ -171,14 +171,14 @@ export class RoutingService {
               longitude: s.halte.longitude,
             }));
 
-            // Ambil geometry jalan raya (OSRM) secara paralel untuk walkOrigin, transitLeg, dan walkDest
-            const [walkOriginGeom, transitGeom, walkDestGeom] = await Promise.all([
-              GeometryService.getRouteGeometry(
+            // Ambil geometry jalan raya (OSRM) dan langkah belokan jalan kaki secara paralel
+            const [walkOriginDetail, transitGeom, walkDestDetail] = await Promise.all([
+              GeometryService.getWalkRouteDetails(
                 [
                   { lat: origin.lat, lng: origin.lng },
                   { lat: orig.halte.latitude, lng: orig.halte.longitude },
                 ],
-                'foot'
+                `Jalan kaki ke ${orig.halte.namaHalte}`
               ),
               GeometryService.getRouteGeometry(
                 passedStopsSlice.map((s) => ({
@@ -187,12 +187,12 @@ export class RoutingService {
                 })),
                 'driving'
               ),
-              GeometryService.getRouteGeometry(
+              GeometryService.getWalkRouteDetails(
                 [
                   { lat: dest.halte.latitude, lng: dest.halte.longitude },
                   { lat: destination.lat, lng: destination.lng },
                 ],
-                'foot'
+                `Jalan kaki ke titik tujuan (${destination.name})`
               ),
             ]);
 
@@ -211,7 +211,8 @@ export class RoutingService {
                   lat: orig.halte.latitude,
                   lng: orig.halte.longitude,
                 },
-                geometry: walkOriginGeom,
+                geometry: walkOriginDetail.geometry,
+                steps: walkOriginDetail.steps,
               },
               {
                 step: 2,
@@ -273,7 +274,8 @@ export class RoutingService {
                   lng: dest.halte.longitude,
                 },
                 to: { name: destination.name, lat: destination.lat, lng: destination.lng },
-                geometry: walkDestGeom,
+                geometry: walkDestDetail.geometry,
+                steps: walkDestDetail.steps,
               },
             ];
 
@@ -365,14 +367,14 @@ export class RoutingService {
                 const walkDestDist = dest.distance;
                 const walkDestDur = this.calculateWalkingMinutes(walkDestDist);
 
-                // Ambil geometry jalan raya (OSRM) secara paralel untuk ke-5 legs transit
-                const [walkOriginGeom, leg1Geom, walkTransferGeom, leg2Geom, walkDestGeom] = await Promise.all([
-                  GeometryService.getRouteGeometry(
+                                // Ambil geometry jalan raya (OSRM) dan langkah belokan jalan kaki secara paralel untuk ke-5 legs transit
+                const [walkOriginDetail, leg1Geom, walkTransferDetail, leg2Geom, walkDestDetail] = await Promise.all([
+                  GeometryService.getWalkRouteDetails(
                     [
                       { lat: origin.lat, lng: origin.lng },
                       { lat: orig.halte.latitude, lng: orig.halte.longitude },
                     ],
-                    'foot'
+                    `Jalan kaki ke ${orig.halte.namaHalte}`
                   ),
                   GeometryService.getRouteGeometry(
                     slice1.map((s) => ({
@@ -381,12 +383,12 @@ export class RoutingService {
                     })),
                     'driving'
                   ),
-                  GeometryService.getRouteGeometry(
+                  GeometryService.getWalkRouteDetails(
                     [
                       { lat: transitHalte.latitude, lng: transitHalte.longitude },
                       { lat: transitHalte.latitude, lng: transitHalte.longitude },
                     ],
-                    'foot'
+                    `Transit di ${transitHalte.namaHalte}`
                   ),
                   GeometryService.getRouteGeometry(
                     slice2.map((s) => ({
@@ -395,12 +397,12 @@ export class RoutingService {
                     })),
                     'driving'
                   ),
-                  GeometryService.getRouteGeometry(
+                  GeometryService.getWalkRouteDetails(
                     [
                       { lat: dest.halte.latitude, lng: dest.halte.longitude },
                       { lat: destination.lat, lng: destination.lng },
                     ],
-                    'foot'
+                    `Jalan kaki ke titik tujuan (${destination.name})`
                   ),
                 ]);
 
@@ -419,25 +421,26 @@ export class RoutingService {
                       lat: orig.halte.latitude,
                       lng: orig.halte.longitude,
                     },
-                    geometry: walkOriginGeom,
+                    geometry: walkOriginDetail.geometry,
+                    steps: walkOriginDetail.steps,
                   },
                   {
                     step: 2,
                     legType: 'TRANSIT',
-                    instruction: `Naik ${rute1.moda.namaModa} ${rute1.namaRute} menuju ${transitHalte.namaHalte}`,
+                    instruction: `Naik ${r1.moda.namaModa} ${r1.namaRute}`,
                     distanceMeters: metrics1.distance,
                     durationMinutes: metrics1.duration,
                     fare: fare1,
                     moda: {
-                      id: rute1.moda.id,
-                      nama: rute1.moda.namaModa,
-                      tipe: rute1.moda.tipeModa,
-                      ikon: rute1.moda.ikon,
+                      id: r1.moda.id,
+                      nama: r1.moda.namaModa,
+                      tipe: r1.moda.tipeModa,
+                      ikon: r1.moda.ikon,
                     },
                     rute: {
-                      id: rute1.id,
-                      kode: rute1.kodeRute,
-                      nama: rute1.namaRute,
+                      id: r1.id,
+                      kode: r1.kodeRute,
+                      nama: r1.namaRute,
                     },
                     fromHalte: {
                       id: orig.halte.id,
@@ -452,13 +455,7 @@ export class RoutingService {
                       lng: transitHalte.longitude,
                     },
                     passedStopsCount: slice1.length,
-                    passedStops: slice1.map((s) => ({
-                      id: s.halte.id,
-                      namaHalte: s.halte.namaHalte,
-                      urutan: s.urutan,
-                      latitude: s.halte.latitude,
-                      longitude: s.halte.longitude,
-                    })),
+                    passedStops: slice1Info,
                     geometry: leg1Geom,
                     from: {
                       id: orig.halte.id,
@@ -492,25 +489,26 @@ export class RoutingService {
                       lat: transitHalte.latitude,
                       lng: transitHalte.longitude,
                     },
-                    geometry: walkTransferGeom,
+                    geometry: walkTransferDetail.geometry,
+                    steps: walkTransferDetail.steps,
                   },
                   {
                     step: 4,
                     legType: 'TRANSIT',
-                    instruction: `Transfer naik ${rute2.moda.namaModa} ${rute2.namaRute} ke ${dest.halte.namaHalte}`,
+                    instruction: `Pindah ke ${r2.moda.namaModa} ${r2.namaRute}`,
                     distanceMeters: metrics2.distance,
                     durationMinutes: metrics2.duration,
                     fare: fare2,
                     moda: {
-                      id: rute2.moda.id,
-                      nama: rute2.moda.namaModa,
-                      tipe: rute2.moda.tipeModa,
-                      ikon: rute2.moda.ikon,
+                      id: r2.moda.id,
+                      nama: r2.moda.namaModa,
+                      tipe: r2.moda.tipeModa,
+                      ikon: r2.moda.ikon,
                     },
                     rute: {
-                      id: rute2.id,
-                      kode: rute2.kodeRute,
-                      nama: rute2.namaRute,
+                      id: r2.id,
+                      kode: r2.kodeRute,
+                      nama: r2.namaRute,
                     },
                     fromHalte: {
                       id: transitHalte.id,
@@ -525,13 +523,7 @@ export class RoutingService {
                       lng: dest.halte.longitude,
                     },
                     passedStopsCount: slice2.length,
-                    passedStops: slice2.map((s) => ({
-                      id: s.halte.id,
-                      namaHalte: s.halte.namaHalte,
-                      urutan: s.urutan,
-                      latitude: s.halte.latitude,
-                      longitude: s.halte.longitude,
-                    })),
+                    passedStops: slice2Info,
                     geometry: leg2Geom,
                     from: {
                       id: transitHalte.id,
@@ -560,7 +552,8 @@ export class RoutingService {
                       lng: dest.halte.longitude,
                     },
                     to: { name: destination.name, lat: destination.lat, lng: destination.lng },
-                    geometry: walkDestGeom,
+                    geometry: walkDestDetail.geometry,
+                    steps: walkDestDetail.steps,
                   },
                 ];
 
