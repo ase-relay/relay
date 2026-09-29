@@ -66,6 +66,9 @@ function CariRutePageContent() {
   const [routes, setRoutes] = useState<RouteRecommendation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  // Data lokasi tidak ada/rusak (mis. refresh atau buka URL langsung) → state khusus
+  // dengan tombol kembali, tanpa memanggil backend sama sekali.
+  const [missingLocations, setMissingLocations] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
   // Grup 4: preferensi pencarian tambahan sesuai kontrak BE.
@@ -81,16 +84,19 @@ function CariRutePageContent() {
     setOriginName(stored?.origin.name ?? searchParams.get('origin') ?? 'Lokasi awal');
     setDestinationName(stored?.destination.name ?? searchParams.get('destination') ?? 'Tujuan');
 
-    // Tanpa data koordinat lengkap (mis. user membuka URL ini langsung), request ke BE
-    // tidak bisa dibentuk sesuai kontrak — tampilkan pesan, bukan fetch dengan data bohong.
+    // Tanpa data koordinat lengkap (mis. user membuka URL ini langsung atau refresh
+    // setelah storage kosong), request ke BE tidak bisa dibentuk sesuai kontrak —
+    // tampilkan state jelas dengan jalan kembali, bukan fetch dengan data bohong.
     if (!stored) {
-      setErrorMessage('Data lokasi pencarian tidak ditemukan. Silakan cari rute dari halaman beranda.');
+      setMissingLocations(true);
+      setErrorMessage('');
       setIsLoading(false);
       setRoutes([]);
       return;
     }
 
     let didCancel = false;
+    setMissingLocations(false);
     setIsLoading(true);
     setErrorMessage('');
     setRoutes([]);
@@ -221,6 +227,14 @@ function CariRutePageContent() {
 
             <h2 id="route-list-heading" className="sr-only">Daftar rekomendasi rute</h2>
 
+            {missingLocations && (
+              <div className="py-10 text-center">
+                <p className="text-base font-semibold text-neutral-900">Data lokasi pencarian tidak ditemukan</p>
+                <p className="mt-2 text-sm text-neutral-500">Halaman ini membutuhkan lokasi awal dan tujuan dari hasil pencarian. Silakan cari rute lagi dari halaman beranda.</p>
+                <Link href="/beranda" className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-primary-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700">Kembali ke Beranda</Link>
+              </div>
+            )}
+
             {errorMessage && (
               <div className="mb-6 space-y-4">
                 <Alert status="error" title="Pencarian rute gagal" description={errorMessage} onClose={() => setErrorMessage('')} />
@@ -242,7 +256,7 @@ function CariRutePageContent() {
               </div>
             )}
 
-            {!isLoading && !errorMessage && routes.length === 0 && (
+            {!isLoading && !errorMessage && !missingLocations && routes.length === 0 && (
               <div className="py-10 text-center">
                 <p className="text-base font-semibold text-neutral-900">Tidak ada rute ditemukan</p>
                 <p className="mt-2 text-sm text-neutral-500">Coba ubah lokasi awal/tujuan atau kurangi filter pencarian, lalu cari lagi dari beranda.</p>

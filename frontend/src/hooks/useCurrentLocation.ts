@@ -1,13 +1,12 @@
 import { useCallback, useState } from 'react';
-import type { LocationSuggestion } from '@/services/mock/locationSearch';
+import { CURRENT_LOCATION_ID, type LocationSuggestion } from '@/services/locationSearch';
 
 /**
  * Hook untuk mendapat koordinat ASLI perangkat via `navigator.geolocation`.
  *
- * Latar belakang (lihat "⚠️ Catatan Tambahan" di TODO-integrasi-routing-search.md):
- * opsi "Lokasi saya" dulu memakai placeholder `lat: 0, lng: 0` — padahal (0,0) adalah
- * koordinat valid di dunia nyata, bukan sentinel value. Kini opsi tersebut HANYA
- * menghasilkan koordinat asli, atau gagal dengan pesan error (tidak ada placeholder).
+ * - `maximumAge: 0` → selalu ambil posisi baru, tidak memakai cache lama.
+ * - `enableHighAccuracy: false` → cukup akurat untuk titik awal rute dan lebih cepat.
+ * - `timeout: 10_000` → gagal dalam 10 detik dengan pesan error bahasa Indonesia.
  */
 export function useCurrentLocation() {
   const [isLocating, setIsLocating] = useState(false);
@@ -15,7 +14,7 @@ export function useCurrentLocation() {
   const getCurrentLocation = useCallback((): Promise<LocationSuggestion> => {
     return new Promise((resolve, reject) => {
       if (typeof window === 'undefined' || !('geolocation' in navigator)) {
-        reject(new Error('Browser tidak mendukung deteksi lokasi. Silakan pilih lokasi dari daftar saran.'));
+        reject(new Error('Browser tidak mendukung deteksi lokasi. Silakan ketik nama lokasi manual.'));
         return;
       }
 
@@ -24,7 +23,7 @@ export function useCurrentLocation() {
         (position) => {
           setIsLocating(false);
           resolve({
-            id: 'current-location',
+            id: CURRENT_LOCATION_ID,
             name: 'Lokasi saya',
             district: 'Lokasi perangkat saat ini',
             lat: position.coords.latitude,
@@ -35,13 +34,13 @@ export function useCurrentLocation() {
           setIsLocating(false);
           const message =
             error.code === error.PERMISSION_DENIED
-              ? 'Izin lokasi ditolak. Aktifkan izin lokasi di browser atau pilih lokasi dari daftar saran.'
+              ? 'Izin lokasi ditolak. Aktifkan izin lokasi di browser atau ketik nama lokasi manual.'
               : error.code === error.TIMEOUT
-                ? 'Waktu deteksi lokasi habis. Coba lagi atau pilih lokasi dari daftar saran.'
-                : 'Lokasi perangkat tidak dapat dideteksi. Silakan pilih lokasi dari daftar saran.';
+                ? 'Waktu deteksi lokasi habis (10 detik). Coba lagi atau ketik nama lokasi manual.'
+                : 'Lokasi perangkat tidak dapat dideteksi. Silakan ketik nama lokasi manual.';
           reject(new Error(message));
         },
-        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+        { enableHighAccuracy: false, timeout: 10_000, maximumAge: 0 },
       );
     });
   }, []);

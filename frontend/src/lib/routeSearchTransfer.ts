@@ -1,4 +1,4 @@
-import type { LocationSuggestion } from '@/services/mock/locationSearch';
+import type { LocationSuggestion } from '@/services/locationSearch';
 import type { RoutingSearchData } from '@/types/api/routing';
 
 // Task 1.3: membawa data lokasi lengkap (name + lat + lng) dari halaman Beranda ke halaman Cari Rute.

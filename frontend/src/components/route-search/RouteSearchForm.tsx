@@ -1,56 +1,245 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { HiOutlineMagnifyingGlass } from "react-icons/hi2";
+import { useCallback, useState } from "react";
+import { HiArrowPath, HiOutlineMagnifyingGlass } from "react-icons/hi2";
+import { useAuth } from "@/context/AuthContext";
 import { useRouteSearchInput } from "@/hooks/useRouteSearchInput";
 import { useCurrentLocation } from "@/hooks/useCurrentLocation";
+import type { RouteSearchHistoryItem } from "@/lib/routeSearchHistory";
 import { saveRouteSearchLocations } from "@/lib/routeSearchTransfer";
-import type { LocationSuggestion } from "@/services/mock/locationSearch";
+import { distanceMeters } from "@/lib/utils";
+import {
+  isAbortError,
+  locationErrorMessage,
+  resolveTypedLocation,
+  type LocationSuggestion,
+} from "@/services/locationSearch";
 import { LocationInput } from "./LocationInput";
 import { SwapLocationsButton } from "./SwapLocationsButton";
 
+type Field = "origin" | "destination";
+type FieldErrors = { origin?: string; destination?: string };
+
+/** Dua lokasi dengan jarak < 50 m dianggap lokasi yang sama. */
+const SAME_LOCATION_METERS = 50;
+
 export function RouteSearchForm() {
   const router = useRouter();
-  const [error, setError] = useState("");
-  const { originQuery, destinationQuery, originSuggestions, destinationSuggestions, activeField, isLoadingOrigin, isLoadingDestination, selectedOrigin, selectedDestination, setOriginQuery, setDestinationQuery, setActiveField, setSelectedOrigin, setSelectedDestination, handleSelectSuggestion, handleSwap } = useRouteSearchInput();
+  const { user } = useAuth();
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [formError, setFormError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const {
+    originQuery,
+    destinationQuery,
+    originSuggestions,
+    destinationSuggestions,
+    activeField,
+    isLoadingOrigin,
+    isLoadingDestination,
+    originSearchError,
+    destinationSearchError,
+    selectedOrigin,
+    selectedDestination,
+    history,
+    setOriginQuery,
+    setDestinationQuery,
+    setActiveField,
+    setSelectedOrigin,
+    setSelectedDestination,
+    handleSelectSuggestion,
+    handleSwap,
+    saveLocationsToHistory,
+    removeHistoryItem,
+    clearHistory,
+  } = useRouteSearchInput(user?.id ?? null);
   const { isLocating, getCurrentLocation } = useCurrentLocation();
 
-  function select(suggestion: LocationSuggestion, field: "origin" | "destination") {
-    handleSelectSuggestion(suggestion, field);
-    setError("");
+  const closeDropdown = useCallback(() => setActiveField(null), [setActiveField]);
+
+  function clearFieldError(field: Field) {
+    setFieldErrors((previous) => ({ ...previous, [field]: undefined }));
   }
 
-  // Koordinat ASLI perangkat via navigator.geolocation — bukan lagi placeholder (0,0).
-  // Lihat "⚠️ Catatan Tambahan" di TODO-integrasi-routing-search.md.
-  async function setCurrentLocation(field: "origin" | "destination") {
-    setError("");
+  function select(suggestion: LocationSuggestion, field: Field) {
+    handleSelectSuggestion(suggestion, field);
+    clearFieldError(field);
+    setFormError("");
+  }
+
+  function selectHistory(item: RouteSearchHistoryItem, field: Field) {
+    select(
+      { id: item.id, name: item.name, district: item.district, lat: item.lat, lng: item.lng },
+      field,
+    );
+  }
+
+  // Koordinat ASLI perangkat via navigator.geolocation (tanpa cache lama).
+  async function setCurrentLocation(field: Field) {
+    if (isLocating) return;
+    clearFieldError(field);
+    setFormError("");
     try {
       const location = await getCurrentLocation();
       select(location, field);
     } catch (locationError) {
-      setError(locationError instanceof Error ? locationError.message : "Lokasi perangkat tidak dapat dideteksi.");
+      setFieldErrors((previous) => ({
+        ...previous,
+        [field]:
+          locationError instanceof Error
+            ? locationError.message
+            : "Lokasi perangkat tidak dapat dideteksi.",
+      }));
     }
   }
 
-  function search() {
-    if (!selectedOrigin || !selectedDestination) { setError("Pilih lokasi awal dan tujuan dari daftar saran."); return; }
-    if (selectedOrigin.id === selectedDestination.id) { setError("Lokasi awal dan tujuan tidak boleh sama."); return; }
-    // Bawa objek lokasi lengkap (name + lat + lng) via sessionStorage agar halaman cari-rute
-    // punya data koordinat yang dibutuhkan kontrak request BE. Nama lokasi ikut di query string
-    // sebagai fallback tampilan bila storage tidak tersedia.
-    saveRouteSearchLocations(selectedOrigin, selectedDestination);
-    router.push(`/cari-rute?origin=${encodeURIComponent(selectedOrigin.name)}&destination=${encodeURIComponent(selectedDestination.name)}`);
+  async function search() {
+    if (isSubmitting) return;
+    setFormError("");
+
+    const originText = originQuery.trim();
+    const destinationText = destinationQuery.trim();
+    const nextErrors: FieldErrors = {};
+    if (!originText) nextErrors.origin = "Lokasi awal belum diisi.";
+    if (!destinationText) nextErrors.destination = "Lokasi tujuan belum diisi.";
+    if (nextErrors.origin || nextErrors.destination) {
+      setFieldErrors(nextErrors);
+      return;
+    }
+    setFieldErrors({});
+
+    setIsSubmitting(true);
+    setActiveField(null);
+    try {
+      let origin = selectedOrigin;
+      let destination = selectedDestination;
+
+      // User boleh langsung menekan "Cari Rute" tanpa memilih saran:
+      // teks yang belum terpilih di-resolve ke lokasi teratas geocoder.
+      if (!origin) {
+        try {
+          origin = await resolveTypedLocation(originText);
+        } catch (resolveError) {
+          if (isAbortError(resolveError)) return;
+          setFieldErrors({ origin: locationErrorMessage(resolveError) });
+          return;
+        }
+        handleSelectSuggestion(origin, "origin");
+      }
+
+      if (!destination) {
+        try {
+          destination = await resolveTypedLocation(destinationText);
+        } catch (resolveError) {
+          if (isAbortError(resolveError)) return;
+          setFieldErrors({ destination: locationErrorMessage(resolveError) });
+          return;
+        }
+        handleSelectSuggestion(destination, "destination");
+      }
+
+      if (distanceMeters(origin, destination) < SAME_LOCATION_METERS) {
+        setFormError("Lokasi awal dan tujuan tidak boleh sama.");
+        return;
+      }
+
+      // Simpan riwayat (tanpa "Lokasi saya"), lalu bawa objek lokasi lengkap
+      // (name + lat + lng) ke halaman cari-rute lewat sessionStorage.
+      saveLocationsToHistory(origin, destination);
+      saveRouteSearchLocations(origin, destination);
+      router.push(
+        `/cari-rute?origin=${encodeURIComponent(origin.name)}&destination=${encodeURIComponent(destination.name)}`,
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
-  return <div className="w-full max-w-163 rounded-3xl bg-white p-5 shadow-[0_8px_22px_rgba(15,23,42,0.12)] sm:p-7 lg:p-14">
-    <div className="relative space-y-5 sm:space-y-7">
-      <div className="absolute top-6 -left-4 h-12 border-l-2 border-dashed border-neutral-300 sm:top-8 sm:-left-6 sm:h-13" />
-      <LocationInput id="origin" kind="origin" value={originQuery} placeholder="Pilih lokasi awal ..." isActive={activeField === "origin"} suggestions={originSuggestions} isLoading={isLoadingOrigin} onChange={(value) => { setOriginQuery(value); setSelectedOrigin(null); setError(""); }} onFocus={() => setActiveField("origin")} onBlur={() => setTimeout(() => setActiveField(null), 180)} onSelect={(item) => select(item, "origin")} onUseCurrentLocation={() => setCurrentLocation("origin")} />
-      <SwapLocationsButton onClick={() => { handleSwap(); setError(""); }} />
-      <LocationInput id="destination" kind="destination" value={destinationQuery} placeholder="Pilih lokasi tujuan ..." isActive={activeField === "destination"} suggestions={destinationSuggestions} isLoading={isLoadingDestination} onChange={(value) => { setDestinationQuery(value); setSelectedDestination(null); setError(""); }} onFocus={() => setActiveField("destination")} onBlur={() => setTimeout(() => setActiveField(null), 180)} onSelect={(item) => select(item, "destination")} onUseCurrentLocation={() => setCurrentLocation("destination")} />
+  return (
+    <div className="w-full max-w-163 rounded-3xl bg-white p-5 shadow-[0_8px_22px_rgba(15,23,42,0.12)] sm:p-7 lg:p-14">
+      <div className="relative space-y-5 sm:space-y-7">
+        <div className="absolute top-6 -left-4 h-12 border-l-2 border-dashed border-neutral-300 sm:top-8 sm:-left-6 sm:h-13" />
+        <LocationInput
+          id="origin"
+          kind="origin"
+          value={originQuery}
+          placeholder="Pilih lokasi awal ..."
+          isActive={activeField === "origin"}
+          suggestions={originSuggestions}
+          isLoading={isLoadingOrigin}
+          isLocating={isLocating}
+          error={fieldErrors.origin}
+          searchError={originSearchError}
+          history={history}
+          onChange={(value) => {
+            setOriginQuery(value);
+            setSelectedOrigin(null);
+            clearFieldError("origin");
+            setFormError("");
+          }}
+          onFocus={() => setActiveField("origin")}
+          onClose={closeDropdown}
+          onSelect={(item) => select(item, "origin")}
+          onSelectHistory={(item) => selectHistory(item, "origin")}
+          onRemoveHistory={removeHistoryItem}
+          onClearHistory={clearHistory}
+          onUseCurrentLocation={() => setCurrentLocation("origin")}
+          onSubmit={search}
+        />
+        <SwapLocationsButton
+          onClick={() => {
+            handleSwap();
+            setFieldErrors({});
+            setFormError("");
+          }}
+        />
+        <LocationInput
+          id="destination"
+          kind="destination"
+          value={destinationQuery}
+          placeholder="Pilih lokasi tujuan ..."
+          isActive={activeField === "destination"}
+          suggestions={destinationSuggestions}
+          isLoading={isLoadingDestination}
+          error={fieldErrors.destination}
+          searchError={destinationSearchError}
+          history={history}
+          onChange={(value) => {
+            setDestinationQuery(value);
+            setSelectedDestination(null);
+            clearFieldError("destination");
+            setFormError("");
+          }}
+          onFocus={() => setActiveField("destination")}
+          onClose={closeDropdown}
+          onSelect={(item) => select(item, "destination")}
+          onSelectHistory={(item) => selectHistory(item, "destination")}
+          onRemoveHistory={removeHistoryItem}
+          onClearHistory={clearHistory}
+          onUseCurrentLocation={() => setCurrentLocation("destination")}
+          onSubmit={search}
+        />
+      </div>
+      {formError && (
+        <p role="alert" className="mt-4 text-sm font-medium text-red-600">
+          {formError}
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={search}
+        disabled={isSubmitting}
+        className="mt-7 flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-2xl bg-primary-600 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-70 sm:mt-9 sm:h-15 sm:text-base"
+      >
+        {isSubmitting ? (
+          <HiArrowPath className="h-5 w-5 animate-spin sm:h-6 sm:w-6" aria-hidden="true" />
+        ) : (
+          <HiOutlineMagnifyingGlass className="h-5 w-5 sm:h-6 sm:w-6" />
+        )}
+        Cari Rute
+      </button>
     </div>
-    {error && <p role="alert" className="mt-4 text-sm font-medium text-red-600">{error}</p>}
-    <button type="button" onClick={search} className="mt-7 flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-2xl bg-primary-600 text-sm font-semibold text-white transition hover:bg-primary-700 sm:mt-9 sm:h-15 sm:text-base"><HiOutlineMagnifyingGlass className="h-5 w-5 sm:h-6 sm:w-6" />Cari Rute</button>
-  </div>;
+  );
 }
