@@ -34,6 +34,9 @@ model ModaTransportasi {
   tipeModa  String? // BRT, FEEDEER, COMMUTER_TRAIN, RIDE_HAILING
   ikon      String? // URL atau nama identifier icon SVG
   deskripsi String?
+  // ESTIMASI kecepatan rata-rata (km/jam) untuk perhitungan durasi mesin routing.
+  // Null = pakai konstanta default di src/config/routing.config.ts.
+  rataRataKecepatanKmh Float?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -103,8 +106,11 @@ model Tarif {
   modaId       Int
   ruteId       Int? // Opsional jika tarif berlaku khusus pada rute tertentu
   tipeTarif    TipeTarif @default(FLAT)
-  nominalDasar Float     @default(0) // Base fare
+  nominalDasar Float     @default(0) // Base fare / tarif minimum (jarak <= jarakMinimumKm)
   nominalPerKm Float?    @default(0) // Biaya per km jika tipe PER_KM
+  // Khusus tipe PER_KM (mis. ojek): jarak maksimum yang ditutup nominalDasar.
+  // Null/0 = nominalDasar berlaku sebagai tarif dasar biasa.
+  jarakMinimumKm Float?
   keterangan   String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt

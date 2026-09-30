@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { RoutingSearchRequest, RoutingSearchResponse } from '@/types/api/routing';
+import type { RoutingSearchRequest, RoutingSearchResponse, RoutingGeometryRequest, RoutingGeometryResponse } from '@/types/api/routing';
 import type { UpdateProfileRequest, UpdateProfileResponse, UpdateProfileData, ChangePasswordRequest, ChangePasswordResponse, GoogleLoginRequest, GoogleLoginResponse, GoogleLoginData } from '@/types/api/auth';
 
 const api = axios.create({
@@ -59,6 +59,29 @@ export async function searchRoutes(payload: RoutingSearchRequest): Promise<Routi
 
   if (envelope.status !== 'success') {
     throw new Error(envelope.message || 'Gagal mencari rute. Silakan coba lagi.');
+  }
+
+  return envelope;
+}
+
+// ---------------------------------------------------------------------------
+// Endpoint: POST /api/routing/geometry (aditif)
+// ---------------------------------------------------------------------------
+
+/**
+ * Susulan geometri OSRM untuk leg-leg yang masih berupa garis lurus
+ * (stale-while-revalidate di halaman detail rute).
+ *
+ * - `status !== 'success'` → throw `Error` dengan `message` dari BE.
+ */
+export async function fetchRouteGeometry(
+  payload: RoutingGeometryRequest,
+): Promise<RoutingGeometryResponse> {
+  const response = await api.post<RoutingGeometryResponse>('/routing/geometry', payload);
+  const envelope = response.data;
+
+  if (envelope.status !== 'success') {
+    throw new Error(envelope.message || 'Gagal memuat geometri rute. Silakan coba lagi.');
   }
 
   return envelope;

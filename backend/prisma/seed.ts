@@ -13,42 +13,86 @@ async function main() {
 
   // 1. Bersihkan data relasi seeder lama (jika ada)
   await prisma.ruteStop.deleteMany({});
-  await prisma.tarif.deleteMany({});
+  // Tarif terikat rute harus dihapus SEBELUM rute dihapus (onDelete: SetNull,
+  // jadi tanpa ini baris lama menumpuk dan menjadi tarif default moda).
+  await prisma.tarif.deleteMany({ where: { ruteId: { not: null } } });
   await prisma.rute.deleteMany({});
   await prisma.halte.deleteMany({});
-  await prisma.modaTransportasi.deleteMany({});
+  // Moda TIDAK dihapus (deleteMany) agar data tambahan idempoten —
+  // mis. "Ojek Online" tetap ada meski seed dijalankan berulang.
 
   console.log('🧹 Cleaned up existing transport master data.');
 
-  // 2. Seed Moda Transportasi
-  const bus = await prisma.modaTransportasi.create({
-    data: {
-      namaModa: 'Bus Trans Metro Pasundan',
-      tipeModa: 'BRT',
-      ikon: 'bus',
-      deskripsi: 'Layanan Bus Rapid Transit (BRT) Trans Metro Pasundan (Teman Bus Bandung).',
-    },
+  // 2. Seed / perbarui Moda Transportasi (upsert by namaModa — idempoten)
+  const upsertModa = (data: {
+    namaModa: string;
+    tipeModa: string;
+    ikon: string;
+    deskripsi: string;
+    rataRataKecepatanKmh: number;
+  }) =>
+    prisma.modaTransportasi.upsert({
+      where: { namaModa: data.namaModa },
+      update: data,
+      create: data,
+    });
+
+  const bus = await upsertModa({
+    namaModa: 'Bus Trans Metro Pasundan',
+    tipeModa: 'BRT',
+    ikon: 'bus',
+    deskripsi: 'Layanan Bus Rapid Transit (BRT) Trans Metro Pasundan (Teman Bus Bandung).',
+    rataRataKecepatanKmh: 20, // ESTIMASI km/jam (placeholder, disesuaikan kebutuhan)
   });
 
-  const angkot = await prisma.modaTransportasi.create({
-    data: {
-      namaModa: 'Angkutan Kota (Angkot)',
-      tipeModa: 'FEEDER',
-      ikon: 'car',
-      deskripsi: 'Angkutan kota mikrolet trayek Bandung Raya.',
-    },
+  const angkot = await upsertModa({
+    namaModa: 'Angkutan Kota (Angkot)',
+    tipeModa: 'FEEDER',
+    ikon: 'car',
+    deskripsi: 'Angkutan kota mikrolet trayek Bandung Raya.',
+    rataRataKecepatanKmh: 15, // ESTIMASI km/jam (placeholder, disesuaikan kebutuhan)
   });
 
-  const krd = await prisma.modaTransportasi.create({
-    data: {
-      namaModa: 'Commuter Line Bandung Raya',
-      tipeModa: 'COMMUTER_TRAIN',
-      ikon: 'train',
-      deskripsi: 'Kereta Rel Diesel (KRD) lokal rute Padalarang - Cicalengka via Bandung.',
-    },
+  const krd = await upsertModa({
+    namaModa: 'Commuter Line Bandung Raya',
+    tipeModa: 'COMMUTER_TRAIN',
+    ikon: 'train',
+    deskripsi: 'Kereta Rel Diesel (KRD) lokal rute Padalarang - Cicalengka via Bandung.',
+    rataRataKecepatanKmh: 35, // ESTIMASI km/jam (placeholder, disesuaikan kebutuhan)
   });
 
-  console.log('✅ Seeded 3 Moda Transportasi: Bus, Angkot, Kereta.');
+  const ojek = await upsertModa({
+    namaModa: 'Ojek Online',
+    tipeModa: 'RIDE_HAILING',
+    ikon: 'motorcycle',
+    deskripsi:
+      'Ojek online (ride-hailing): perjalanan langsung dan akses pertama/akhir mil ke halte.',
+    rataRataKecepatanKmh: 22, // ESTIMASI km/jam (placeholder, disesuaikan kebutuhan)
+  });
+
+  console.log('✅ Seeded 4 Moda Transportasi: Bus, Angkot, Kereta, Ojek Online.');
+
+  // 2b. Tarif default ojek (moda-level, ruteId = null) — NILAI PLACEHOLDER
+  const existingOjekTarif = await prisma.tarif.findFirst({
+    where: { modaId: ojek.id, ruteId: null },
+  });
+  const ojekTarifData = {
+    modaId: ojek.id,
+    tipeTarif: TipeTarif.PER_KM,
+    nominalDasar: 10000, // tarif minimum (berlaku s/d jarakMinimumKm)
+    nominalPerKm: 2500, // tarif per km setelah jarak minimum
+    jarakMinimumKm: 2,
+    keterangan:
+      'PLACEHOLDER — tarif minimum 2 km Rp 10.000 + Rp 2.500/km (dibulatkan ke atas kelipatan Rp 500). ' +
+      'GANTI dengan tarif resmi terbaru Bandung (ojek online) sebelum dipakai.',
+  };
+  if (existingOjekTarif) {
+    await prisma.tarif.update({ where: { id: existingOjekTarif.id }, data: ojekTarifData });
+  } else {
+    await prisma.tarif.create({ data: ojekTarifData });
+  }
+
+  console.log('✅ Seeded tarif ojek (PLACEHOLDER — ganti tarif resmi terbaru Bandung).');
 
   // 3. Seed Halte & Stasiun Strategis Bandung (Koordinat Presisi OpenStreetMap)
   const halteData = [

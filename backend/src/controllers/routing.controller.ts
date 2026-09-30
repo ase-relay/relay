@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { RoutingService } from '../services/routing.service';
-import { RoutingSearchRequestDTO } from '../types/routing.types';
+import { RoutingSearchRequestDTO, RoutingGeometryRequestDTO } from '../types/routing.types';
 import jwt from 'jsonwebtoken';
 
 /**
@@ -46,6 +46,29 @@ export class RoutingController {
       res.status(500).json({
         status: 'error',
         message: error.message || 'Gagal melakukan pencarian rute',
+      });
+    }
+  }
+
+  /**
+   * POST /api/routing/geometry (aditif)
+   * Susulan geometri OSRM untuk leg-leg yang masih berupa garis lurus.
+   */
+  static async getGeometry(req: Request, res: Response): Promise<void> {
+    try {
+      const requestDTO: RoutingGeometryRequestDTO = req.body;
+      const result = await RoutingService.getLegGeometry(requestDTO);
+
+      res.status(200).json({
+        status: 'success',
+        message: 'Berhasil mengambil geometri rute',
+        data: result,
+      });
+    } catch (error) {
+      console.error('Routing geometry error:', error);
+      res.status(500).json({
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Gagal mengambil geometri rute',
       });
     }
   }

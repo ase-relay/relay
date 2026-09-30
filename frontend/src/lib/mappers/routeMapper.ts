@@ -115,8 +115,8 @@ export function mapApiRouteToRouteResultCard(apiRoute: ApiRoute): RouteRecommend
 // ---------------------------------------------------------------------------
 
 /**
- * Jam keberangkatan/tiba belum disediakan kontrak BE (lihat open question di
- * TODO), jadi diisi placeholder tampilan.
+ * Placeholder jam — hanya dipakai bila field aditif BE `departureTime`/
+ * `arrivalTime`/`estimatedTime` tidak ada (mis. response lama tanpa timeline).
  */
 const UNKNOWN_TIME = '--:--';
 
@@ -129,8 +129,8 @@ export function mapApiRouteToJourneySegments(apiRoute: ApiRoute): JourneySegment
       return {
         id,
         type: 'WALK' as const,
-        startTime: UNKNOWN_TIME,
-        endTime: UNKNOWN_TIME,
+        startTime: leg.departureTime ?? UNKNOWN_TIME,
+        endTime: leg.arrivalTime ?? UNKNOWN_TIME,
         duration: leg.durationMinutes,
         distance: leg.distanceMeters,
         steps: walkSteps,
@@ -140,8 +140,8 @@ export function mapApiRouteToJourneySegments(apiRoute: ApiRoute): JourneySegment
     return {
       id,
       type: 'TRANSIT' as const,
-      startTime: UNKNOWN_TIME,
-      endTime: UNKNOWN_TIME,
+      startTime: leg.departureTime ?? UNKNOWN_TIME,
+      endTime: leg.arrivalTime ?? UNKNOWN_TIME,
       operator: leg.rute?.nama ?? leg.moda?.nama ?? '',
       routeCode: leg.rute?.kode ?? '',
       cost: leg.fare,
@@ -150,7 +150,7 @@ export function mapApiRouteToJourneySegments(apiRoute: ApiRoute): JourneySegment
       stops: (leg.passedStops ?? [])
         .slice()
         .sort((first, second) => first.urutan - second.urutan)
-        .map((stop) => ({ time: UNKNOWN_TIME, stopName: stop.namaHalte })),
+        .map((stop) => ({ time: stop.estimatedTime ?? UNKNOWN_TIME, stopName: stop.namaHalte })),
     };
   });
 }

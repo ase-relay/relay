@@ -1,633 +1,324 @@
 import { prisma } from '../config/db';
-import { calculateHaversineDistance } from './halte.service';
-import { FareService } from './fare.service';
-import { GeometryService, CoordinatePoint } from './geometry.service';
+import { ROUTING_CONFIG } from '../config/routing.config';
+import { GeometryService } from './geometry.service';
+import { getRoutingNetwork } from './routing-network';
+import { buildRouteCandidates, InternalSegment, RouteCandidate } from './route-candidates';
+import { pruneAndRank, ScoredRoute } from './route-scoring';
+import { applyRouteTimeline, parseClock, currentClockMinutes } from './route-timeline';
 import {
   RoutingSearchRequestDTO,
   RoutingSearchResponseData,
-  RouteOption,
+  RoutingGeometryRequestDTO,
+  RoutingGeometryResponseData,
   RouteLeg,
-  PassedStopInfo,
+  RouteRecommendation,
+  RouteSegment,
+  SegmentType,
+  LocationPoint,
 } from '../types/routing.types';
 
-// Kecepatan jalan kaki rata-rata: ~4.5 km/jam = 75 meter per menit
-const WALKING_SPEED_METERS_PER_MINUTE = 75;
-// Waktu tunggu / buffer transfer antar moda: 5 menit
-const TRANSFER_BUFFER_MINUTES = 5;
+/**
+ * Orkestrator mesin rekomendasi rute multimodal (BUS, KERETA, OJEK).
+ *
+ * Alur: load jaringan (cache) -> generate kandidat (murni matematika)
+ * -> pruning/ranking -> mapping ke kontrak response (legs + segmen aditif)
+ * -> penyusulan geometri OSRM hanya untuk hasil final (berbudget, fallback
+ * garis lurus) supaya respons tetap cepat (<2 dtk).
+ */
+
+const stripInternalSegment = ({
+  passedStops: _passedStops,
+  moda: _moda,
+  rute: _rute,
+  ruteId: _ruteId,
+  ...publicFields
+}: InternalSegment): RouteSegment => publicFields;
+
+function buildLegs(
+  route: RouteCandidate,
+  destination: LocationPoint
+): RouteLeg[] {
+  const total = route.segments.length;
+
+  return route.segments.map((segment, index) => {
+    const isLast = index === total - 1;
+    // "Kendaraan pertama" = tidak ada kendaraan sebelum segmen ini
+    // (segmen jalan kaki/akses tidak dihitung sebagai perpindahan).
+    const isFirstVehicle = route.segments
+      .slice(0, index)
+      .every((previous) => previous.type === 'WALK');
+    const from = {
+      id: segment.from.id,
+      name: segment.from.name,
+      lat: segment.from.lat,
+      lng: segment.from.lng,
+    };
+    const to = {
+      id: segment.to.id,
+      name: segment.to.name,
+      lat: segment.to.lat,
+      lng: segment.to.lng,
+    };
+
+    if (segment.type === 'WALK') {
+      const instruction = isLast
+        ? `Jalan kaki ke titik tujuan (${destination.name})`
+        : `Jalan kaki ke ${segment.to.name}`;
+      return {
+        step: index + 1,
+        legType: 'WALK' as const,
+        instruction,
+        distanceMeters: segment.distanceMeters,
+        durationMinutes: segment.durationMinutes,
+        fare: 0,
+        from: { name: segment.from.name, lat: segment.from.lat, lng: segment.from.lng },
+        to: { name: segment.to.name, lat: segment.to.lat, lng: segment.to.lng },
+      };
+    }
+
+    const isOjek = segment.type === 'OJEK';
+    const modaInfo = segment.moda
+      ? {
+          id: segment.moda.id,
+          nama: segment.moda.namaModa,
+          tipe: segment.moda.tipeModa,
+          ikon: segment.moda.ikon,
+        }
+      : undefined;
+
+    let instruction: string;
+    if (isOjek) {
+      instruction = `Naik ojek ke ${segment.to.name}`;
+    } else {
+      const label = `${modaInfo?.nama ?? 'Moda'} ${segment.namaRute ?? ''}`.trim();
+      instruction = isFirstVehicle ? `Naik ${label}` : `Pindah ke ${label}`;
+    }
+
+    const leg: RouteLeg = {
+      step: index + 1,
+      legType: 'TRANSIT',
+      instruction,
+      distanceMeters: segment.distanceMeters,
+      durationMinutes: segment.durationMinutes,
+      fare: segment.cost,
+      from,
+      to,
+    };
+
+    if (modaInfo) leg.moda = modaInfo;
+    if (segment.rute) leg.rute = segment.rute;
+    if (segment.from.id !== undefined) {
+      leg.fromHalte = {
+        id: segment.from.id,
+        name: segment.from.name,
+        lat: segment.from.lat,
+        lng: segment.from.lng,
+      };
+    }
+    if (segment.to.id !== undefined) {
+      leg.toHalte = {
+        id: segment.to.id,
+        name: segment.to.name,
+        lat: segment.to.lat,
+        lng: segment.to.lng,
+      };
+    }
+    if (segment.passedStops) {
+      leg.passedStopsCount = segment.passedStops.length;
+      leg.passedStops = segment.passedStops.map((stop) => ({
+        id: stop.halte.id,
+        namaHalte: stop.halte.nama,
+        urutan: stop.urutan,
+        latitude: stop.halte.lat,
+        longitude: stop.halte.lng,
+      }));
+    }
+
+    return leg;
+  });
+}
+
+function toRouteRecommendation(
+  route: ScoredRoute,
+  origin: LocationPoint,
+  destination: LocationPoint
+): RouteRecommendation {
+  const vehicleSegments = route.segments.filter((segment) => segment.type !== 'WALK');
+  const modes: SegmentType[] = [];
+  for (const segment of route.segments) {
+    if (!modes.includes(segment.type)) modes.push(segment.type);
+  }
+
+  return {
+    id: route.id,
+    type: route.transfersCount === 0 ? 'DIRECT' : 'TRANSIT',
+    summary: {
+      totalDurationMinutes: route.totalDurationMinutes,
+      totalDistanceMeters: route.totalDistanceMeters,
+      totalFare: route.totalCost,
+      transfersCount: route.transfersCount,
+      departureHalte:
+        vehicleSegments.length > 0 ? vehicleSegments[0].from.name : origin.name,
+      arrivalHalte: vehicleSegments.length > 0
+        ? vehicleSegments[vehicleSegments.length - 1].to.name
+        : destination.name,
+    },
+    legs: buildLegs(route, destination),
+    totalCost: route.totalCost,
+    totalDurationMinutes: route.totalDurationMinutes,
+    transfersCount: route.transfersCount,
+    tags: route.tags,
+    modes,
+    segments: route.segments.map(stripInternalSegment),
+    category: route.category,
+  };
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  fallback: () => T
+): Promise<T> {
+  return new Promise<T>((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        resolve(fallback());
+      }
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(value);
+        }
+      },
+      () => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(fallback());
+        }
+      }
+    );
+  });
+}
+
+const straightGeometry = (
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number }
+): [number, number][] => [
+  [a.lat, a.lng],
+  [b.lat, b.lng],
+];
+
+/** Susul geometri OSRM untuk satu rute final (berbudget, tidak pernah melempar). */
+async function enrichRouteGeometry(route: RouteRecommendation, budgetMs: number): Promise<void> {
+  await Promise.all(
+    route.legs.map(async (leg) => {
+      const endpoints = [
+        { lat: leg.from.lat, lng: leg.from.lng },
+        { lat: leg.to.lat, lng: leg.to.lng },
+      ];
+
+      if (leg.legType === 'WALK') {
+        const detail = await withTimeout(
+          GeometryService.getWalkRouteDetails(endpoints, leg.instruction),
+          budgetMs,
+          () => ({
+            geometry: straightGeometry(endpoints[0], endpoints[1]),
+            steps: [leg.instruction],
+          })
+        );
+        leg.geometry = detail.geometry;
+        leg.steps = detail.steps;
+        return;
+      }
+
+      const points =
+        leg.passedStops && leg.passedStops.length >= 2
+          ? leg.passedStops.map((stop) => ({ lat: stop.latitude, lng: stop.longitude }))
+          : endpoints;
+
+      leg.geometry = await withTimeout(
+        GeometryService.getRouteGeometry(points, 'driving'),
+        budgetMs,
+        () => points.map((point) => [point.lat, point.lng] as [number, number])
+      );
+    })
+  );
+}
 
 export class RoutingService {
   /**
-   * Menghitung durasi jalan kaki berdasarkan jarak (meter)
-   */
-  private static calculateWalkingMinutes(distanceMeters: number): number {
-    return Math.max(1, Math.round(distanceMeters / WALKING_SPEED_METERS_PER_MINUTE));
-  }
-
-  /**
-   * Menghitung total estimasi menit dan jarak antar stop rute
-   */
-  private static calculateLegTransitMetrics(stops: any[]): { duration: number; distance: number } {
-    let totalMinutes = 0;
-    let totalDistance = 0;
-
-    for (let i = 0; i < stops.length - 1; i++) {
-      const current = stops[i];
-      const next = stops[i + 1];
-
-      // Gunakan estimasiMenit / jarakMeter jika terdefinisi di DB
-      if (current.estimasiMenit) {
-        totalMinutes += current.estimasiMenit;
-      } else {
-        // Estimasi kasar transit darat: ~20 km/jam = ~3 menit per km
-        const dist = calculateHaversineDistance(
-          current.halte.latitude,
-          current.halte.longitude,
-          next.halte.latitude,
-          next.halte.longitude
-        );
-        totalMinutes += Math.max(2, Math.round((dist / 1000) * 3));
-      }
-
-      if (current.jarakMeter) {
-        totalDistance += current.jarakMeter;
-      } else {
-        totalDistance += calculateHaversineDistance(
-          current.halte.latitude,
-          current.halte.longitude,
-          next.halte.latitude,
-          next.halte.longitude
-        );
-      }
-    }
-
-    return {
-      duration: Math.max(3, totalMinutes),
-      distance: totalDistance,
-    };
-  }
-
-  /**
-   * Core routing search method: mencari rekomendasi rute direct dan 1-transit
+   * Pencarian rekomendasi rute multimodal (BUS, KERETA, OJEK).
+   * Kontrak lama (summary/legs) dipertahankan; field baru bersifat aditif.
    */
   static async searchRoutes(
     request: RoutingSearchRequestDTO,
     userId?: number
   ): Promise<RoutingSearchResponseData> {
+    const startedAt = Date.now();
     const { origin, destination, preferences = {} } = request;
-    const maxWalkingDistance = preferences.maxWalkingDistance || 1500;
-    const allowedModa = preferences.allowedModa && preferences.allowedModa.length > 0 ? preferences.allowedModa : undefined;
+    const maxWalkingDistance =
+      preferences.maxWalkingDistance || ROUTING_CONFIG.defaultWalkingDistanceMeters;
+    const allowedModa =
+      preferences.allowedModa && preferences.allowedModa.length > 0
+        ? preferences.allowedModa
+        : undefined;
     const sortBy = preferences.sortBy || 'RECOMMENDED';
 
-    // 1. Ambil semua halte untuk mencari halte terdekat dari origin & destination
-    const allHalte = await prisma.halte.findMany({
-      include: {
-        ruteStops: {
-          include: {
-            rute: {
-              include: {
-                moda: true,
-              },
-            },
-          },
-        },
-      },
+    // 1. Jaringan (halte/rute/tarif) dari cache memori
+    const network = await getRoutingNetwork(allowedModa);
+
+    // 2. Generate kandidat (OJEK_LANGSUNG + transit round 0/1/2 + akses ojek)
+    const { candidates, notices } = buildRouteCandidates({
+      origin,
+      destination,
+      maxWalkingDistanceMeters: maxWalkingDistance,
+      network,
     });
 
-    // Cari halte dalam radius maxWalkingDistance dari origin
-    const originCandidateHalte = allHalte
-      .map((h) => ({
-        halte: h,
-        distance: calculateHaversineDistance(origin.lat, origin.lng, h.latitude, h.longitude),
-      }))
-      .filter((item) => item.distance <= maxWalkingDistance)
-      .sort((a, b) => a.distance - b.distance);
+    // 3. Pruning (dedupe/dominasi/keberagaman) + ranking sesuai sortBy
+    const ranked = pruneAndRank(candidates, sortBy);
 
-    // Cari halte dalam radius maxWalkingDistance dari destination
-    const destCandidateHalte = allHalte
-      .map((h) => ({
-        halte: h,
-        distance: calculateHaversineDistance(destination.lat, destination.lng, h.latitude, h.longitude),
-      }))
-      .filter((item) => item.distance <= maxWalkingDistance)
-      .sort((a, b) => a.distance - b.distance);
-
-    // Ambil seluruh rute aktif dengan stops terurut
-    const allRutes = await prisma.rute.findMany({
-      where: {
-        isActive: true,
-        ...(allowedModa ? { modaId: { in: allowedModa } } : {}),
-      },
-      include: {
-        moda: true,
-        stops: {
-          orderBy: { urutan: 'asc' },
-          include: {
-            halte: true,
-          },
-        },
-      },
+    // ID akhir dirapikan sesuai urutan hasil (route-1 = rekomendasi teratas)
+    ranked.forEach((route, index) => {
+      route.id = `route-${index + 1}`;
     });
 
-    const routeOptions: RouteOption[] = [];
-    const directRouteTracker = new Set<number>(); // ruteId yang sudah dipakai direct
+    // 4. Mapping ke kontrak response
+    const routes = ranked.map((route) => toRouteRecommendation(route, origin, destination));
 
-    // ==========================================
-    // 2. SEARCH DIRECT ROUTES (0 Transit)
-    // ==========================================
-    for (const orig of originCandidateHalte) {
-      for (const dest of destCandidateHalte) {
-        if (orig.halte.id === dest.halte.id) continue;
+    // 4b. Jam perkiraan berangkat/tiba per leg + per halte (aditif).
+    //     Default = saat ini; request boleh memaksa jam lewat departureTime.
+    const startMinutes =
+      request.departureTime !== undefined
+        ? parseClock(request.departureTime) ?? currentClockMinutes()
+        : currentClockMinutes();
+    routes.forEach((route) => {
+      const timeline = applyRouteTimeline(route.legs, startMinutes);
+      route.summary.departureTime = timeline.departureTime;
+      route.summary.arrivalTime = timeline.arrivalTime;
+    });
 
-        for (const rute of allRutes) {
-          const originStopIndex = rute.stops.findIndex((s) => s.halteId === orig.halte.id);
-          const destStopIndex = rute.stops.findIndex((s) => s.halteId === dest.halte.id);
+    // 5. Susul geometri OSRM hanya untuk hasil final (paralel + budget timeout)
+    await Promise.all(
+      routes.map((route) => enrichRouteGeometry(route, ROUTING_CONFIG.geometryBudgetMs))
+    );
 
-          // Validasi: Rute harus melewati kedua halte dan urutannya searah (origin duluan sebelum dest)
-          if (originStopIndex !== -1 && destStopIndex !== -1 && originStopIndex < destStopIndex) {
-            if (directRouteTracker.has(rute.id)) continue;
-            directRouteTracker.add(rute.id);
+    const processingMs = Date.now() - startedAt;
+    console.log(
+      `[routing] selesai dalam ${processingMs}ms — kandidat=${candidates.length} hasil=${routes.length} sortBy=${sortBy}`
+    );
 
-            const passedStopsSlice = rute.stops.slice(originStopIndex, destStopIndex + 1);
-            const transitMetrics = this.calculateLegTransitMetrics(passedStopsSlice);
-
-            const walkOriginDist = orig.distance;
-            const walkOriginDur = this.calculateWalkingMinutes(walkOriginDist);
-
-            const walkDestDist = dest.distance;
-            const walkDestDur = this.calculateWalkingMinutes(walkDestDist);
-
-            const fare = await FareService.calculateFare({
-              modaId: rute.modaId,
-              ruteId: rute.id,
-              distanceMeters: transitMetrics.distance,
-              passedStopsCount: passedStopsSlice.length,
-            });
-
-            const passedStopsInfo: PassedStopInfo[] = passedStopsSlice.map((s) => ({
-              id: s.halte.id,
-              namaHalte: s.halte.namaHalte,
-              urutan: s.urutan,
-              latitude: s.halte.latitude,
-              longitude: s.halte.longitude,
-            }));
-
-            // Ambil geometry jalan raya (OSRM) dan langkah belokan jalan kaki secara paralel
-            const [walkOriginDetail, transitGeom, walkDestDetail] = await Promise.all([
-              GeometryService.getWalkRouteDetails(
-                [
-                  { lat: origin.lat, lng: origin.lng },
-                  { lat: orig.halte.latitude, lng: orig.halte.longitude },
-                ],
-                `Jalan kaki ke ${orig.halte.namaHalte}`
-              ),
-              GeometryService.getRouteGeometry(
-                passedStopsSlice.map((s) => ({
-                  lat: s.halte.latitude,
-                  lng: s.halte.longitude,
-                })),
-                'driving'
-              ),
-              GeometryService.getWalkRouteDetails(
-                [
-                  { lat: dest.halte.latitude, lng: dest.halte.longitude },
-                  { lat: destination.lat, lng: destination.lng },
-                ],
-                `Jalan kaki ke titik tujuan (${destination.name})`
-              ),
-            ]);
-
-            const legs: RouteLeg[] = [
-              {
-                step: 1,
-                legType: 'WALK',
-                instruction: `Jalan kaki ke ${orig.halte.namaHalte}`,
-                distanceMeters: walkOriginDist,
-                durationMinutes: walkOriginDur,
-                fare: 0,
-                from: { name: origin.name, lat: origin.lat, lng: origin.lng },
-                to: {
-                  id: orig.halte.id,
-                  name: orig.halte.namaHalte,
-                  lat: orig.halte.latitude,
-                  lng: orig.halte.longitude,
-                },
-                geometry: walkOriginDetail.geometry,
-                steps: walkOriginDetail.steps,
-              },
-              {
-                step: 2,
-                legType: 'TRANSIT',
-                instruction: `Naik ${rute.moda.namaModa} ${rute.namaRute}`,
-                distanceMeters: transitMetrics.distance,
-                durationMinutes: transitMetrics.duration,
-                fare,
-                moda: {
-                  id: rute.moda.id,
-                  nama: rute.moda.namaModa,
-                  tipe: rute.moda.tipeModa,
-                  ikon: rute.moda.ikon,
-                },
-                rute: {
-                  id: rute.id,
-                  kode: rute.kodeRute,
-                  nama: rute.namaRute,
-                },
-                fromHalte: {
-                  id: orig.halte.id,
-                  name: orig.halte.namaHalte,
-                  lat: orig.halte.latitude,
-                  lng: orig.halte.longitude,
-                },
-                toHalte: {
-                  id: dest.halte.id,
-                  name: dest.halte.namaHalte,
-                  lat: dest.halte.latitude,
-                  lng: dest.halte.longitude,
-                },
-                passedStopsCount: passedStopsSlice.length,
-                passedStops: passedStopsInfo,
-                geometry: transitGeom,
-                from: {
-                  id: orig.halte.id,
-                  name: orig.halte.namaHalte,
-                  lat: orig.halte.latitude,
-                  lng: orig.halte.longitude,
-                },
-                to: {
-                  id: dest.halte.id,
-                  name: dest.halte.namaHalte,
-                  lat: dest.halte.latitude,
-                  lng: dest.halte.longitude,
-                },
-              },
-              {
-                step: 3,
-                legType: 'WALK',
-                instruction: `Jalan kaki ke titik tujuan (${destination.name})`,
-                distanceMeters: walkDestDist,
-                durationMinutes: walkDestDur,
-                fare: 0,
-                from: {
-                  id: dest.halte.id,
-                  name: dest.halte.namaHalte,
-                  lat: dest.halte.latitude,
-                  lng: dest.halte.longitude,
-                },
-                to: { name: destination.name, lat: destination.lat, lng: destination.lng },
-                geometry: walkDestDetail.geometry,
-                steps: walkDestDetail.steps,
-              },
-            ];
-
-            const totalDuration = walkOriginDur + transitMetrics.duration + walkDestDur;
-            const totalDistance = walkOriginDist + transitMetrics.distance + walkDestDist;
-
-            routeOptions.push({
-              id: `route-direct-${rute.id}`,
-              type: 'DIRECT',
-              summary: {
-                totalDurationMinutes: totalDuration,
-                totalDistanceMeters: totalDistance,
-                totalFare: fare,
-                transfersCount: 0,
-                departureHalte: orig.halte.namaHalte,
-                arrivalHalte: dest.halte.namaHalte,
-              },
-              legs,
-            });
-          }
-        }
-      }
-    }
-
-    // ==========================================
-    // 3. SEARCH TRANSIT ROUTES (1-Transit / 2 Legs)
-    // ==========================================
-    const transitCombinationTracker = new Set<string>();
-
-    for (const orig of originCandidateHalte) {
-      for (const dest of destCandidateHalte) {
-        if (orig.halte.id === dest.halte.id) continue;
-
-        // Ambil rute-rute yang melewati halte origin
-        const rutesFromOrigin = allRutes.filter((r) =>
-          r.stops.some((s) => s.halteId === orig.halte.id)
-        );
-
-        // Ambil rute-rute yang melewati halte destination
-        const rutesToDest = allRutes.filter((r) =>
-          r.stops.some((s) => s.halteId === dest.halte.id)
-        );
-
-        for (const rute1 of rutesFromOrigin) {
-          const origIndex1 = rute1.stops.findIndex((s) => s.halteId === orig.halte.id);
-
-          for (const rute2 of rutesToDest) {
-            if (rute1.id === rute2.id) continue; // Jangan pakai rute yang sama untuk transit
-
-            const destIndex2 = rute2.stops.findIndex((s) => s.halteId === dest.halte.id);
-
-            // Cari Halte Transit (T) yang ada di rute1 (setelah origin) dan rute2 (sebelum destination)
-            for (let i = origIndex1 + 1; i < rute1.stops.length; i++) {
-              const transitStopRute1 = rute1.stops[i];
-              const transitIndex2 = rute2.stops.findIndex(
-                (s) => s.halteId === transitStopRute1.halteId
-              );
-
-              if (transitIndex2 !== -1 && transitIndex2 < destIndex2) {
-                const combinationKey = `${rute1.id}-${transitStopRute1.halteId}-${rute2.id}`;
-                if (transitCombinationTracker.has(combinationKey)) continue;
-                transitCombinationTracker.add(combinationKey);
-
-                const transitHalte = transitStopRute1.halte;
-
-                // Hitung Leg 1 (Rute 1)
-                const slice1 = rute1.stops.slice(origIndex1, i + 1);
-                const metrics1 = this.calculateLegTransitMetrics(slice1);
-                const fare1 = await FareService.calculateFare({
-                  modaId: rute1.modaId,
-                  ruteId: rute1.id,
-                  distanceMeters: metrics1.distance,
-                  passedStopsCount: slice1.length,
-                });
-
-                const slice1Info: PassedStopInfo[] = slice1.map((s) => ({
-                  id: s.halte.id,
-                  namaHalte: s.halte.namaHalte,
-                  urutan: s.urutan,
-                  latitude: s.halte.latitude,
-                  longitude: s.halte.longitude,
-                }));
-
-                // Hitung Leg 2 (Rute 2)
-                const slice2 = rute2.stops.slice(transitIndex2, destIndex2 + 1);
-                const metrics2 = this.calculateLegTransitMetrics(slice2);
-                const fare2 = await FareService.calculateFare({
-                  modaId: rute2.modaId,
-                  ruteId: rute2.id,
-                  distanceMeters: metrics2.distance,
-                  passedStopsCount: slice2.length,
-                });
-
-                const slice2Info: PassedStopInfo[] = slice2.map((s) => ({
-                  id: s.halte.id,
-                  namaHalte: s.halte.namaHalte,
-                  urutan: s.urutan,
-                  latitude: s.halte.latitude,
-                  longitude: s.halte.longitude,
-                }));
-
-                const walkOriginDist = orig.distance;
-                const walkOriginDur = this.calculateWalkingMinutes(walkOriginDist);
-
-                const walkDestDist = dest.distance;
-                const walkDestDur = this.calculateWalkingMinutes(walkDestDist);
-
-                // Ambil geometry jalan raya (OSRM) dan langkah belokan jalan kaki secara paralel untuk ke-5 legs transit
-                const [walkOriginDetail, leg1Geom, walkTransferDetail, leg2Geom, walkDestDetail] = await Promise.all([
-                  GeometryService.getWalkRouteDetails(
-                    [
-                      { lat: origin.lat, lng: origin.lng },
-                      { lat: orig.halte.latitude, lng: orig.halte.longitude },
-                    ],
-                    `Jalan kaki ke ${orig.halte.namaHalte}`
-                  ),
-                  GeometryService.getRouteGeometry(
-                    slice1.map((s) => ({
-                      lat: s.halte.latitude,
-                      lng: s.halte.longitude,
-                    })),
-                    'driving'
-                  ),
-                  GeometryService.getWalkRouteDetails(
-                    [
-                      { lat: transitHalte.latitude, lng: transitHalte.longitude },
-                      { lat: transitHalte.latitude, lng: transitHalte.longitude },
-                    ],
-                    `Transit di ${transitHalte.namaHalte}`
-                  ),
-                  GeometryService.getRouteGeometry(
-                    slice2.map((s) => ({
-                      lat: s.halte.latitude,
-                      lng: s.halte.longitude,
-                    })),
-                    'driving'
-                  ),
-                  GeometryService.getWalkRouteDetails(
-                    [
-                      { lat: dest.halte.latitude, lng: dest.halte.longitude },
-                      { lat: destination.lat, lng: destination.lng },
-                    ],
-                    `Jalan kaki ke titik tujuan (${destination.name})`
-                  ),
-                ]);
-
-                const legs: RouteLeg[] = [
-                  {
-                    step: 1,
-                    legType: 'WALK',
-                    instruction: `Jalan kaki ke ${orig.halte.namaHalte}`,
-                    distanceMeters: walkOriginDist,
-                    durationMinutes: walkOriginDur,
-                    fare: 0,
-                    from: { name: origin.name, lat: origin.lat, lng: origin.lng },
-                    to: {
-                      id: orig.halte.id,
-                      name: orig.halte.namaHalte,
-                      lat: orig.halte.latitude,
-                      lng: orig.halte.longitude,
-                    },
-                    geometry: walkOriginDetail.geometry,
-                    steps: walkOriginDetail.steps,
-                  },
-                  {
-                    step: 2,
-                    legType: 'TRANSIT',
-                    instruction: `Naik ${rute1.moda.namaModa} ${rute1.namaRute}`,
-                    distanceMeters: metrics1.distance,
-                    durationMinutes: metrics1.duration,
-                    fare: fare1,
-                    moda: {
-                      id: rute1.moda.id,
-                      nama: rute1.moda.namaModa,
-                      tipe: rute1.moda.tipeModa,
-                      ikon: rute1.moda.ikon,
-                    },
-                    rute: {
-                      id: rute1.id,
-                      kode: rute1.kodeRute,
-                      nama: rute1.namaRute,
-                    },
-                    fromHalte: {
-                      id: orig.halte.id,
-                      name: orig.halte.namaHalte,
-                      lat: orig.halte.latitude,
-                      lng: orig.halte.longitude,
-                    },
-                    toHalte: {
-                      id: transitHalte.id,
-                      name: transitHalte.namaHalte,
-                      lat: transitHalte.latitude,
-                      lng: transitHalte.longitude,
-                    },
-                    passedStopsCount: slice1.length,
-                    passedStops: slice1Info,
-                    geometry: leg1Geom,
-                    from: {
-                      id: orig.halte.id,
-                      name: orig.halte.namaHalte,
-                      lat: orig.halte.latitude,
-                      lng: orig.halte.longitude,
-                    },
-                    to: {
-                      id: transitHalte.id,
-                      name: transitHalte.namaHalte,
-                      lat: transitHalte.latitude,
-                      lng: transitHalte.longitude,
-                    },
-                  },
-                  {
-                    step: 3,
-                    legType: 'WALK',
-                    instruction: `Transit di ${transitHalte.namaHalte}`,
-                    distanceMeters: 30,
-                    durationMinutes: TRANSFER_BUFFER_MINUTES,
-                    fare: 0,
-                    from: {
-                      id: transitHalte.id,
-                      name: transitHalte.namaHalte,
-                      lat: transitHalte.latitude,
-                      lng: transitHalte.longitude,
-                    },
-                    to: {
-                      id: transitHalte.id,
-                      name: transitHalte.namaHalte,
-                      lat: transitHalte.latitude,
-                      lng: transitHalte.longitude,
-                    },
-                    geometry: walkTransferDetail.geometry,
-                    steps: walkTransferDetail.steps,
-                  },
-                  {
-                    step: 4,
-                    legType: 'TRANSIT',
-                    instruction: `Pindah ke ${rute2.moda.namaModa} ${rute2.namaRute}`,
-                    distanceMeters: metrics2.distance,
-                    durationMinutes: metrics2.duration,
-                    fare: fare2,
-                    moda: {
-                      id: rute2.moda.id,
-                      nama: rute2.moda.namaModa,
-                      tipe: rute2.moda.tipeModa,
-                      ikon: rute2.moda.ikon,
-                    },
-                    rute: {
-                      id: rute2.id,
-                      kode: rute2.kodeRute,
-                      nama: rute2.namaRute,
-                    },
-                    fromHalte: {
-                      id: transitHalte.id,
-                      name: transitHalte.namaHalte,
-                      lat: transitHalte.latitude,
-                      lng: transitHalte.longitude,
-                    },
-                    toHalte: {
-                      id: dest.halte.id,
-                      name: dest.halte.namaHalte,
-                      lat: dest.halte.latitude,
-                      lng: dest.halte.longitude,
-                    },
-                    passedStopsCount: slice2.length,
-                    passedStops: slice2Info,
-                    geometry: leg2Geom,
-                    from: {
-                      id: transitHalte.id,
-                      name: transitHalte.namaHalte,
-                      lat: transitHalte.latitude,
-                      lng: transitHalte.longitude,
-                    },
-                    to: {
-                      id: dest.halte.id,
-                      name: dest.halte.namaHalte,
-                      lat: dest.halte.latitude,
-                      lng: dest.halte.longitude,
-                    },
-                  },
-                  {
-                    step: 5,
-                    legType: 'WALK',
-                    instruction: `Jalan kaki ke titik tujuan (${destination.name})`,
-                    distanceMeters: walkDestDist,
-                    durationMinutes: walkDestDur,
-                    fare: 0,
-                    from: {
-                      id: dest.halte.id,
-                      name: dest.halte.namaHalte,
-                      lat: dest.halte.latitude,
-                      lng: dest.halte.longitude,
-                    },
-                    to: { name: destination.name, lat: destination.lat, lng: destination.lng },
-                    geometry: walkDestDetail.geometry,
-                    steps: walkDestDetail.steps,
-                  },
-                ];
-
-                const totalDuration =
-                  walkOriginDur + metrics1.duration + TRANSFER_BUFFER_MINUTES + metrics2.duration + walkDestDur;
-                const totalDistance = walkOriginDist + metrics1.distance + 30 + metrics2.distance + walkDestDist;
-                const totalFare = fare1 + fare2;
-
-                routeOptions.push({
-                  id: `route-transit-${rute1.id}-${transitHalte.id}-${rute2.id}`,
-                  type: 'TRANSIT',
-                  summary: {
-                    totalDurationMinutes: totalDuration,
-                    totalDistanceMeters: totalDistance,
-                    totalFare,
-                    transfersCount: 1,
-                    departureHalte: orig.halte.namaHalte,
-                    arrivalHalte: dest.halte.namaHalte,
-                  },
-                  legs,
-                });
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // ==========================================
-    // 4. SORTING SESUAI PREFERENSI
-    // ==========================================
-    switch (sortBy) {
-      case 'FASTEST':
-        routeOptions.sort((a, b) => a.summary.totalDurationMinutes - b.summary.totalDurationMinutes);
-        break;
-      case 'CHEAPEST':
-        routeOptions.sort((a, b) => a.summary.totalFare - b.summary.totalFare);
-        break;
-      case 'LEAST_TRANSFERS':
-        routeOptions.sort((a, b) => a.summary.transfersCount - b.summary.transfersCount);
-        break;
-      case 'RECOMMENDED':
-      default:
-        // Bobot: Utamakan direct route lebih dulu, baru durasi tercepat
-        routeOptions.sort((a, b) => {
-          if (a.summary.transfersCount !== b.summary.transfersCount) {
-            return a.summary.transfersCount - b.summary.transfersCount;
-          }
-          return a.summary.totalDurationMinutes - b.summary.totalDurationMinutes;
-        });
-        break;
-    }
-
-    // ==========================================
-    // 5. SIMPAN RIWAYAT PENCARIAN JIKA ADA USER ID
-    // ==========================================
+    // 6. Simpan riwayat pencarian jika ada user id (gagal tidak membatalkan respons)
     if (userId) {
       try {
+        const top = ranked.length > 0 ? ranked[0] : null;
         await prisma.searchHistory.create({
           data: {
             userId,
@@ -637,11 +328,10 @@ export class RoutingService {
             destName: destination.name,
             destLat: destination.lat,
             destLng: destination.lng,
-            selectedRuteId: routeOptions.length > 0 ? (routeOptions[0].type === 'DIRECT' ? parseInt(routeOptions[0].id.replace('route-direct-', '')) : null) : null,
+            selectedRuteId: top && top.rideRuteIds.length > 0 ? top.rideRuteIds[0] : null,
           },
         });
       } catch (err) {
-        // Jangan gagalkan response routing jika create history ada issue
         console.error('Failed to record search history:', err);
       }
     }
@@ -649,9 +339,58 @@ export class RoutingService {
     return {
       origin,
       destination,
-      totalRoutesFound: routeOptions.length,
-      routes: routeOptions,
+      totalRoutesFound: routes.length,
+      routes,
+      meta: {
+        notices: Array.from(new Set(notices)),
+        processingMs,
+      },
     };
+  }
+
+  /**
+   * Susulan geometri OSRM untuk leg-leg tertentu (endpoint aditif
+   * POST /api/routing/geometry). Dipakai halaman detail FE saat ada leg
+   * yang jatuh ke fallback garis lurus (stale-while-revalidate).
+   * Tidak pernah melempar kecuali error tak terduga dari service.
+   */
+  static async getLegGeometry(
+    request: RoutingGeometryRequestDTO
+  ): Promise<RoutingGeometryResponseData> {
+    const budgetMs = ROUTING_CONFIG.geometryBudgetMs;
+
+    const legs = await Promise.all(
+      request.legs.map(async (leg, index) => {
+        const step = leg.step ?? index + 1;
+        const endpoints = [
+          { lat: leg.from.lat, lng: leg.from.lng },
+          { lat: leg.to.lat, lng: leg.to.lng },
+        ];
+
+        if (leg.legType === 'WALK') {
+          const detail = await withTimeout(
+            GeometryService.getWalkRouteDetails(endpoints, leg.instruction),
+            budgetMs,
+            () => ({
+              geometry: straightGeometry(endpoints[0], endpoints[1]),
+              steps: leg.instruction ? [leg.instruction] : ['Jalan kaki menuju lokasi'],
+            })
+          );
+          return { step, geometry: detail.geometry, steps: detail.steps };
+        }
+
+        const points =
+          leg.passedStops && leg.passedStops.length >= 2 ? leg.passedStops : endpoints;
+        const geometry = await withTimeout(
+          GeometryService.getRouteGeometry(points, 'driving'),
+          budgetMs,
+          () => points.map((point) => [point.lat, point.lng] as [number, number])
+        );
+        return { step, geometry };
+      })
+    );
+
+    return { legs };
   }
 
   /**

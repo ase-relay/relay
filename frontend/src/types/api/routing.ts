@@ -76,6 +76,11 @@ export interface ApiPassedStop {
   id: number;
   namaHalte: string;
   urutan: number;
+  /** Koordinat halte (dikirim BE; dipakai interpolasi jarak). */
+  latitude?: number;
+  longitude?: number;
+  /** Perkiraan tiba di halte ini ("HH:MM"). */
+  estimatedTime?: string;
 }
 
 export interface ApiRouteSummary {
@@ -85,6 +90,10 @@ export interface ApiRouteSummary {
   transfersCount: number;
   departureHalte: string;
   arrivalHalte: string;
+  /** Perkiraan jam berangkat rute ("HH:MM"). */
+  departureTime?: string;
+  /** Perkiraan jam tiba rute ("HH:MM"). */
+  arrivalTime?: string;
 }
 
 /**
@@ -116,6 +125,10 @@ export interface ApiRouteLeg {
   passedStops?: ApiPassedStop[];
   geometry?: [number, number][]; // Array of [lat, lng] coordinates following actual road network for Leaflet <Polyline>
   steps?: string[]; // Turn-by-turn walking navigation steps from BE
+  /** Perkiraan jam mulai leg ini ("HH:MM"). */
+  departureTime?: string;
+  /** Perkiraan jam selesai leg ini ("HH:MM"). */
+  arrivalTime?: string;
 }
 
 export interface ApiRoute {
@@ -137,4 +150,40 @@ export interface RoutingSearchResponse {
   status: string;
   message: string;
   data: RoutingSearchData;
+}
+
+// ---------------------------------------------------------------------------
+// Endpoint aditif POST /api/routing/geometry
+// (susulan geometri OSRM untuk leg yang masih garis lurus)
+// ---------------------------------------------------------------------------
+
+export interface RoutingGeometryPoint {
+  lat: number;
+  lng: number;
+}
+
+export interface RoutingGeometryLegInput {
+  step?: number;
+  legType: 'WALK' | 'TRANSIT';
+  from: RoutingGeometryPoint;
+  to: RoutingGeometryPoint;
+  /** Titik antara (leg TRANSIT) agar geometri mengikuti jalur rute. */
+  passedStops?: RoutingGeometryPoint[];
+  instruction?: string;
+}
+
+export interface RoutingGeometryRequest {
+  legs: RoutingGeometryLegInput[];
+}
+
+export interface RoutingGeometryLegResult {
+  step: number;
+  geometry: [number, number][];
+  steps?: string[];
+}
+
+export interface RoutingGeometryResponse {
+  status: string;
+  message: string;
+  data: { legs: RoutingGeometryLegResult[] };
 }

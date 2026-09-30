@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { RouteSummaryHeader } from '@/components/route-detail/RouteSummaryHeader';
@@ -8,9 +8,10 @@ import { JourneySegment, TripStepList } from '@/components/route-detail/TripStep
 import { MapPlaceholder } from '@/components/map/MapPlaceholder';
 import { mapApiRouteToJourneySegments } from '@/lib/mappers/routeMapper';
 import { readRouteSearchResults } from '@/lib/routeSearchTransfer';
+import { fetchRouteGeometry } from '@/lib/api';
 import { transformApiRouteToMapMarkers, transformApiRouteToMapPolylines } from '@/lib/utils/mapDataTransform';
 import { MapViewerMarker, MapViewerPolyline } from '@/components/map/MapViewer';
-import type { ApiRoute } from '@/types/api/routing';
+import type { ApiRoute, ApiRouteLeg, RoutingGeometryLegInput } from '@/types/api/routing';
 import type { RouteOption } from '@/lib/types/route';
 
 // Dynamic import with SSR disabled untuk menghindari error Leaflet di server
@@ -34,10 +35,35 @@ function findRouteById(routeId: string): ApiRoute | null {
   return results.routes.find((route) => route.id === routeId) ?? null;
 }
 
+/** Konversi leg → input endpoint geometry; null bila koordinat ujung tidak lengkap. */
+function toGeometryInput(leg: ApiRouteLeg): RoutingGeometryLegInput | null {
+  const from = leg.from ?? leg.fromHalte;
+  const to = leg.to ?? leg.toHalte;
+  if (!from || !to) return null;
+
+  const passedStops =
+    leg.legType === 'TRANSIT' && leg.passedStops
+      ? leg.passedStops
+          .filter(
+            (stop) => typeof stop.latitude === 'number' && typeof stop.longitude === 'number',
+          )
+          .map((stop) => ({ lat: stop.latitude as number, lng: stop.longitude as number }))
+      : undefined;
+
+  return {
+    step: leg.step,
+    legType: leg.legType,
+    from: { lat: from.lat, lng: from.lng },
+    to: { lat: to.lat, lng: to.lng },
+    passedStops,
+    instruction: leg.instruction,
+  };
+}
+
 /**
  * Adapter shape: `ApiRoute` (kontrak BE) → `RouteOption` (props RouteSummaryHeader).
  * Header komponen ini masih berbasis shape mock lama; adapter menjaga komponen
- * tetap tidak berubah. Jadwal jam belum disediakan kontrak BE → placeholder '--:--'.
+ * tetap tidak berubah. Jam berangkat/tiba rute diambil dari summary BE (aditif).
  */
 function toRouteOption(apiRoute: ApiRoute, originName: string, destinationName: string): RouteOption {
   const firstLeg = apiRoute.legs[0];
@@ -93,6 +119,53 @@ export default function RouteDetailPage() {
     return mapApiRouteToJourneySegments(selectedRoute);
   }, [selectedRoute]);
 
+  // Self-heal geometri (stale-while-revalidate): bila ada leg yang jatuh ke
+  // fallback garis lurus (<= 2 titik) saat pencarian pertama (OSRM cold/429),
+  // minta geometri sebenarnya ke endpoint /routing/geometry dan perbarui
+  // polyline. Garis lurus tetap tampil instan — hasilnya menyusul di background.
+  // Dibatasi satu kali per mount (ref) agar tidak loop.
+  const geometryRetriedRef = useRef(false);
+  useEffect(() => {
+    if (!selectedRoute || geometryRetriedRef.current) return;
+
+    const pending = selectedRoute.legs
+      .map((leg) => ({ leg, input: toGeometryInput(leg) }))
+      .filter(
+        (entry): entry is { leg: ApiRouteLeg; input: RoutingGeometryLegInput } =>
+          entry.input !== null &&
+          (!entry.leg.geometry || entry.leg.geometry.length <= 2),
+      );
+    if (pending.length === 0) return;
+
+    geometryRetriedRef.current = true;
+    let cancelled = false;
+
+    fetchRouteGeometry({ legs: pending.map((entry) => entry.input) })
+      .then((response) => {
+        if (cancelled) return;
+        const byStep = new Map(response.data.legs.map((item) => [item.step, item]));
+        setSelectedRoute((previous) => {
+          if (!previous) return previous;
+          return {
+            ...previous,
+            legs: previous.legs.map((leg) => {
+              const fresh = byStep.get(leg.step);
+              if (!fresh || !fresh.geometry || fresh.geometry.length <= 2) return leg;
+              return { ...leg, geometry: fresh.geometry, steps: fresh.steps ?? leg.steps };
+            }),
+          };
+        });
+      })
+      .catch(() => {
+        // Senyap: garis lurus tetap tampil; pencarian berikutnya membawa geometry
+        // dari cache BE.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRoute]);
+
   // Handle route not found
   if (!selectedRoute) {
     // Hindari kedip layar "rute tidak ditemukan" saat data sessionStorage belum dibaca.
@@ -145,8 +218,16 @@ export default function RouteDetailPage() {
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div>
             <TripStepList
-              origin={{ time: '--:--', name: originPoint?.name ?? 'Lokasi awal', address: '' }}
-              destination={{ time: '--:--', name: destinationPoint?.name ?? 'Tujuan', address: '' }}
+              origin={{
+                time: selectedRoute.summary.departureTime ?? '--:--',
+                name: originPoint?.name ?? 'Lokasi awal',
+                address: '',
+              }}
+              destination={{
+                time: selectedRoute.summary.arrivalTime ?? '--:--',
+                name: destinationPoint?.name ?? 'Tujuan',
+                address: '',
+              }}
               segments={journeySegments}
             />
           </div>
