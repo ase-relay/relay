@@ -144,6 +144,7 @@ export function mapApiRouteToJourneySegments(apiRoute: ApiRoute): JourneySegment
       endTime: leg.arrivalTime ?? UNKNOWN_TIME,
       operator: leg.rute?.nama ?? leg.moda?.nama ?? '',
       routeCode: leg.rute?.kode ?? '',
+      vehicleType: mapModaNamaToVehicleType(leg.moda?.nama),
       cost: leg.fare,
       duration: leg.durationMinutes,
       stopCount: leg.passedStopsCount ?? 0,

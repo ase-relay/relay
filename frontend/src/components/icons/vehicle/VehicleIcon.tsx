@@ -10,6 +10,9 @@ export type VehicleType = 'walking' | 'angkot' | 'bus' | 'train' | 'motorcycle';
 
 interface VehicleIconProps {
   type: VehicleType;
+  /** Class CSS untuk svg — dipakai agar semua ikon moda seragam ukurannya
+   *  (mis. `h-[54px] w-[54px] shrink-0` mencegah svg menyusut di flex container). */
+  className?: string;
 }
 
 const vehicleIcons = {
@@ -20,8 +23,8 @@ const vehicleIcons = {
   motorcycle: MotorcycleIcon,
 };
 
-export function VehicleIcon({ type }: VehicleIconProps) {
+export function VehicleIcon({ type, className }: VehicleIconProps) {
   const Icon = vehicleIcons[type];
 
-  return <Icon />;
+  return <Icon className={className} />;
 }

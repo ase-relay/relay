@@ -35,7 +35,7 @@ export default function ResetPasswordPage() {
     // TODO: sambungkan ke API reset password dengan token dari tautan email.
   }
 
-  const inputClass = (hasError: boolean) => `w-full rounded-xl border py-3 pr-11 pl-11 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-1 ${hasError ? "border-red-500 focus:border-red-500 focus:ring-red-500" : "border-neutral-300 focus:border-primary-600 focus:ring-primary-600"}`;
+  const inputClass = (hasError: boolean) => `w-full rounded-xl border py-3 pr-11 pl-11 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-1 ${hasError ? "border-red-500 focus:border-red-500 focus:ring-red-500" : "border-neutral-300 focus:border-primary-600 focus:ring-primary-600"}`;
 
   return (
     <main className="grid min-h-screen bg-white lg:grid-cols-[3fr_2fr]">

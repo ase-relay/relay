@@ -11,7 +11,7 @@ export default function BerandaPage() {
     // sehingga Navbar sticky ikut terscroll. clip memotong overflow tanpa merusak sticky.
     <div className="relative flex min-h-screen flex-col overflow-clip text-neutral-900" style={{ '--page-bg': 'var(--color-bg-secondary)' } as React.CSSProperties}>
       <Navbar />
-      <main className="relative flex flex-1 items-center overflow-hidden">
+      <main className="relative flex flex-1 items-center overflow-x-clip">
         <DotGridBlueIcon className="pointer-events-none absolute bottom-10 left-0 hidden h-auto w-28 lg:block" />
         <section
           className="relative mx-auto grid w-full max-w-7xl gap-10 px-6 py-12 sm:px-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-0 lg:px-12 lg:py-16 lg:[grid-template-areas:'heading_image'_'form_image']"

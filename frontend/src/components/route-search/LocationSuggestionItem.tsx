@@ -1,6 +1,7 @@
 "use client";
 
-import { HiOutlineClock, HiOutlineMapPin, HiOutlineXMark } from "react-icons/hi2";
+import { HiOutlineMapPin, HiOutlineXMark } from "react-icons/hi2";
+import SearchHistoryIcon from "@/components/icons/home/SearchHistoryIcon";
 
 type LocationSuggestionVariant = "current-location" | "history" | "suggestion";
 
@@ -65,7 +66,7 @@ export function LocationSuggestionItem({
     variant === "current-location" ? (
       <TargetIcon className="h-5 w-5 text-neutral-900" />
     ) : variant === "history" ? (
-      <HiOutlineClock className="h-5 w-5 text-neutral-400" />
+      <SearchHistoryIcon className="h-5 w-5 shrink-0" />
     ) : (
       <HiOutlineMapPin className="h-5 w-5 text-neutral-400" />
     );

@@ -10,6 +10,10 @@ export const routes: RouteOption[] = [
     transitCount: 2,
     originStopName: 'Halte BEC',
     destinationStopName: 'Halte Cimahi',
+    vehicleType: 'train',
+    badges: ['KRL'],
+    operator: 'KRL Commuter Line',
+    walkingMinutes: 5,
     segments: [
       {
         id: 'seg-1-1',
@@ -55,6 +59,10 @@ export const routes: RouteOption[] = [
     transitCount: 3,
     originStopName: 'Halte BEC',
     destinationStopName: 'Halte Cimahi',
+    vehicleType: 'bus',
+    badges: ['BRT'],
+    operator: 'Bus BRT',
+    walkingMinutes: 10,
     segments: [
       {
         id: 'seg-2-1',
@@ -100,6 +108,10 @@ export const routes: RouteOption[] = [
     transitCount: 1,
     originStopName: 'Halte BEC',
     destinationStopName: 'Halte Cimahi',
+    vehicleType: 'motorcycle',
+    badges: [],
+    operator: 'Ojek Online',
+    walkingMinutes: 0,
     segments: [
       {
         id: 'seg-3-1',
@@ -123,6 +135,10 @@ export const routes: RouteOption[] = [
     transitCount: 1,
     originStopName: 'Telkom University',
     destinationStopName: 'Bandung Electronic Center (BEC)',
+    vehicleType: 'bus',
+    badges: ['3D', 'FD-1'],
+    operator: 'Metro Jabar Trans',
+    walkingMinutes: 20,
     segments: [
       {
         id: 'seg-4-1',

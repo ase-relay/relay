@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import React from 'react';
 import L from 'leaflet';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, ZoomControl } from 'react-leaflet';
 import { createMarkerIcon } from './MapMarkerIcon';
 import { MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM, OSM_TILE_URL, OSM_ATTRIBUTION } from '@/constants/mapConfig';
 import 'leaflet/dist/leaflet.css';
@@ -33,6 +33,8 @@ interface MapViewerProps {
   center?: [number, number];
   zoom?: number;
   className?: string;
+  /** Posisi kontrol zoom Leaflet. Default 'topleft' (perilaku lama); design halaman detail memakai 'bottomright'. */
+  zoomControlPosition?: 'topleft' | 'topright' | 'bottomleft' | 'bottomright';
 }
 
 // Helper component untuk auto-fit bounds
@@ -54,15 +56,18 @@ function MapViewerComponent({
   polylines = [],
   center = MAP_DEFAULT_CENTER,
   zoom = MAP_DEFAULT_ZOOM,
-  className = ''
+  className = '',
+  zoomControlPosition = 'topleft'
 }: MapViewerProps) {
   return (
     <div className={className}>
       <MapContainer
         center={center}
         zoom={zoom}
+        zoomControl={false}
         style={{ height: '100%', width: '100%' }}
       >
+        <ZoomControl position={zoomControlPosition} />
         <TileLayer
           url={OSM_TILE_URL}
           attribution={OSM_ATTRIBUTION}

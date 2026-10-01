@@ -1,3 +1,5 @@
+import type { VehicleType } from '@/components/icons/vehicle/VehicleIcon';
+
 export interface TransportMode {
   id: string;
   name: string;          // "Jalan Kaki" | "Angkot" | "Bus/BRT" | "KRL Commuter" | "Ojek Online"
@@ -33,6 +35,16 @@ export interface RouteOption {
   totalCost: number;
   transitCount: number;
   segments: RouteSegment[];
+  /** Nama tempat asal untuk judul ringkasan (fallback: nama halte). */
   originStopName: string;
+  /** Nama tempat tujuan untuk judul ringkasan (fallback: nama halte). */
   destinationStopName: string;
+  /** Ikon lingkaran kendaraan utama — diturunkan dari moda leg TRANSIT pertama. */
+  vehicleType: VehicleType;
+  /** Badge kode rute (mis. "TMP-3D"); bisa kosong. */
+  badges: string[];
+  /** Nama operator/rute untuk teks abu-abu di samping badge; bisa kosong. */
+  operator: string;
+  /** Total menit berjalan kaki dari semua leg WALK. */
+  walkingMinutes: number;
 }

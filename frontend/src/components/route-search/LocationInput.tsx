@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { RouteSearchHistoryItem } from "@/lib/routeSearchHistory";
 import { MIN_QUERY_LENGTH, type LocationSuggestion } from "@/services/locationSearch";
-import { HiOutlineMapPin } from "react-icons/hi2";
+import MapPinIcon from "@/components/icons/home/MapPinIcon";
+import InitialLocationIcon from "@/components/icons/home/InitialLocationIcon";
 import { LocationSuggestions, type DropdownItem } from "./LocationSuggestions";
 
 type LocationInputProps = {
@@ -22,6 +23,8 @@ type LocationInputProps = {
   /** Pesan galat layanan geocoder yang tampil di dalam dropdown. */
   searchError?: string;
   history: RouteSearchHistoryItem[];
+  /** Nilai dari field lain (origin untuk destination, sebaliknya) untuk validasi. */
+  otherFieldValue?: string;
   onChange: (value: string) => void;
   onFocus: () => void;
   /** Menutup dropdown (Esc/Tab/klik di luar) tanpa mengubah teks. */
@@ -61,6 +64,7 @@ export function LocationInput({
   error,
   searchError = "",
   history,
+  otherFieldValue = "",
   onChange,
   onFocus,
   onClose,
@@ -85,9 +89,11 @@ export function LocationInput({
   const items = useMemo<DropdownItem[]>(() => {
     const query = value.trim();
 
-    // Input kosong: "Lokasi saya" (hanya awal) lalu riwayat pencarian.
+    // Input kosong: "Lokasi saya" (awal dan tujuan) lalu riwayat pencarian.
+    // Sembunyikan "Lokasi saya" di destination jika origin sudah berisi "Lokasi saya".
     if (query.length === 0) {
-      const idleItems: DropdownItem[] = isOrigin ? [{ type: "current-location" }] : [];
+      const isOtherFieldCurrentLocation = otherFieldValue === 'Lokasi saya';
+      const idleItems: DropdownItem[] = (!isOrigin && isOtherFieldCurrentLocation) ? [] : [{ type: "current-location" }];
       for (const item of history) idleItems.push({ type: "history", item });
       if (idleItems.length === 0) {
         idleItems.push({ type: "message", text: "Ketik nama tempat, jalan, atau halte." });
@@ -112,7 +118,7 @@ export function LocationInput({
       });
     }
     return suggestionItems;
-  }, [value, isOrigin, history, suggestions, isLoading, searchError]);
+  }, [value, isOrigin, history, suggestions, isLoading, searchError, otherFieldValue]);
 
   const activeIndex = useMemo(() => {
     if (activeKey === null) return -1;
@@ -225,12 +231,34 @@ export function LocationInput({
     }
   }
 
+  // Ikon rail kiri mengikuti isi field: kosong → outline abu; terisi →
+  // lokasi awal jadi lingkaran biru berisi, tujuan jadi pin kuning/oranye.
+  const hasValue = value.trim().length > 0;
+
+  // Ketiga varian ikon memakai kotak & offset yang SAMA sehingga sumbu
+  // tengahnya selalu segaris (acuan garis putus-putus di RouteSearchForm):
+  // mobile → kotak 24px di -left-6 (sumbu x = -12px);
+  // sm → kotak 28px di -left-9 (sumbu x = -22px).
+  const railBox =
+    "absolute top-1/2 -left-6 grid h-6 w-6 -translate-y-1/2 place-items-center sm:-left-9 sm:h-7 sm:w-7";
+
   return (
     <div ref={wrapperRef} className="relative w-full">
       {isOrigin ? (
-        <span className="absolute top-1/2 -left-6 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-neutral-400 bg-white sm:-left-9 sm:h-5 sm:w-5" />
+        hasValue ? (
+          <span className={railBox}>
+            <InitialLocationIcon className="absolute left-1/2 top-1/2 h-4.5 w-4.5 max-w-none -translate-x-1/2 -translate-y-1/2 sm:h-5.5 sm:w-5.5" />
+          </span>
+        ) : (
+          <span className={railBox}>
+            <span className="block h-4 w-4 rounded-full border-2 border-neutral-400 bg-white sm:h-5 sm:w-5" />
+          </span>
+        )
       ) : (
-        <HiOutlineMapPin className="absolute top-1/2 -left-6 h-5 w-5 -translate-y-1/2 text-neutral-400 sm:-left-9 sm:h-6 sm:w-6" />
+        <MapPinIcon
+          className="absolute top-1/2 -left-6 h-6 w-6 -translate-y-1/2 sm:-left-9 sm:h-7 sm:w-7"
+          color={hasValue ? "#F58220" : "#9CA3AF"}
+        />
       )}
       <label htmlFor={id} id={labelId} className="sr-only">
         {isOrigin ? "Lokasi awal" : "Lokasi tujuan"}

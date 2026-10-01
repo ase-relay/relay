@@ -3,8 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { FcGoogle } from "react-icons/fc";
+import { useEffect, useRef, useState } from "react";
 import { HiOutlineEnvelope, HiOutlineEye, HiOutlineEyeSlash, HiOutlineLockClosed, HiOutlineUser } from "react-icons/hi2";
 import axios from "axios";
 import { AuthSlideBudget } from "@/components/auth/AuthSlideBudget";
@@ -12,7 +11,7 @@ import { AuthSlideRoute } from "@/components/auth/AuthSlideRoute";
 import { AuthSlideTransport } from "@/components/auth/AuthSlideTransport";
 import { CarouselNavButton } from "@/components/ui/CarouselNavButton";
 import { useAuth } from "@/context/AuthContext";
-import { GoogleLogin } from "@react-oauth/google";
+import { CredentialResponse, GoogleLogin } from "@react-oauth/google";
 import { jwtDecode } from "jwt-decode";
 import Alert from "@/components/ui/Alert";
 
@@ -33,11 +32,23 @@ export default function RegisterPage() {
     const [form, setForm] = useState({ email: "", username: "", password: "", confirmation: "" });
     const { register: registerUser, googleLogin } = useAuth();
     const router = useRouter();
+    const googleBtnRef = useRef<HTMLDivElement>(null);
+    const [googleBtnWidth, setGoogleBtnWidth] = useState(400);
     const ActiveSlide = slides[activeSlide];
     const usernameValid = usernamePattern.test(form.username);
     const passwordValid = passwordPattern.test(form.password);
     const confirmationValid = form.confirmation === form.password && form.confirmation.length > 0;
     const formValid = Boolean(form.email) && usernameValid && passwordValid && confirmationValid && agreedToTerms;
+
+    useEffect(() => {
+        const el = googleBtnRef.current;
+        if (!el) return;
+        const update = () => setGoogleBtnWidth(Math.min(400, Math.max(240, el.clientWidth)));
+        update();
+        const observer = new ResizeObserver(update);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
 
     function moveSlide(direction: number) {
         setActiveSlide((current) => (current + direction + slides.length) % slides.length);
@@ -75,22 +86,26 @@ export default function RegisterPage() {
         }
     }
 
-    async function handleGoogleLogin(credentialResponse: any) {
+    async function handleGoogleLogin(credentialResponse: CredentialResponse) {
         try {
             setIsGoogleLogin(true);
             setGoogleError("");
+            if (!credentialResponse.credential) {
+                setGoogleError("Login dengan Google gagal. Silakan coba lagi.");
+                return;
+            }
             const credential = jwtDecode(credentialResponse.credential);
             const { email, name } = credential as { email: string; name: string };
             await googleLogin(email, name);
             router.push('/beranda');
-        } catch (err: any) {
-            setGoogleError(err.message || "Gagal login dengan Google. Silakan coba lagi.");
+        } catch (err) {
+            setGoogleError(err instanceof Error && err.message ? err.message : "Gagal login dengan Google. Silakan coba lagi.");
         } finally {
             setIsGoogleLogin(false);
         }
     }
 
-    const inputClass = (hasError: boolean) => `w-full rounded-xl border py-3 pr-11 pl-11 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-1 ${hasError ? "border-red-500 focus:border-red-500 focus:ring-red-500" : "border-neutral-300 focus:border-primary-600 focus:ring-primary-600"}`;
+    const inputClass = (hasError: boolean) => `w-full rounded-xl border py-3 pr-11 pl-11 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-1 ${hasError ? "border-red-500 focus:border-red-500 focus:ring-red-500" : "border-neutral-300 focus:border-primary-600 focus:ring-primary-600"}`;
 
     return (
         <main className="grid min-h-screen bg-white lg:grid-cols-[3fr_2fr]">
@@ -132,7 +147,7 @@ export default function RegisterPage() {
                         <button type="submit" disabled={!formValid || isSubmitting} className="w-full cursor-pointer rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-neutral-400 disabled:hover:bg-neutral-400 disabled:opacity-50">{isSubmitting ? "Memproses..." : "Daftar"}</button>
                     </form>
                     <div className="my-6 flex items-center gap-4"><span className="h-px flex-1 bg-neutral-400" /><span className="text-sm text-neutral-500">atau</span><span className="h-px flex-1 bg-neutral-400" /></div>
-                    <div className="flex items-center justify-center">
+                    <div ref={googleBtnRef} className="flex w-full justify-center">
                         {!isGoogleLogin ? (
                             <GoogleLogin
                                 onSuccess={handleGoogleLogin}
@@ -141,7 +156,7 @@ export default function RegisterPage() {
                                 shape="pill"
                                 size="large"
                                 text="signup_with"
-                                width="400"
+                                width={googleBtnWidth}
                             />
                         ) : (
                             <div className="flex w-full items-center justify-center gap-3 rounded-xl border border-neutral-300 py-3 text-sm font-medium text-neutral-400">

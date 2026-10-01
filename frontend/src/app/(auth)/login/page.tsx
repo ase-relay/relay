@@ -3,8 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { FcGoogle } from "react-icons/fc";
+import { useEffect, useRef, useState } from "react";
 import { HiOutlineEye, HiOutlineEyeSlash, HiOutlineLockClosed, HiOutlineUser } from "react-icons/hi2";
 import axios from "axios";
 import { AuthSlideBudget } from "@/components/auth/AuthSlideBudget";
@@ -12,7 +11,7 @@ import { AuthSlideRoute } from "@/components/auth/AuthSlideRoute";
 import { AuthSlideTransport } from "@/components/auth/AuthSlideTransport";
 import { CarouselNavButton } from "@/components/ui/CarouselNavButton";
 import { useAuth } from "@/context/AuthContext";
-import { GoogleLogin } from "@react-oauth/google";
+import { CredentialResponse, GoogleLogin } from "@react-oauth/google";
 import { jwtDecode } from "jwt-decode";
 import Alert from "@/components/ui/Alert";
 
@@ -26,9 +25,21 @@ export default function LoginPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isGoogleLogin, setIsGoogleLogin] = useState(false);
     const [googleError, setGoogleError] = useState("");
+    const googleBtnRef = useRef<HTMLDivElement>(null);
+    const [googleBtnWidth, setGoogleBtnWidth] = useState(400);
     const { login, googleLogin } = useAuth();
     const router = useRouter();
     const ActiveSlide = slides[activeSlide];
+
+    useEffect(() => {
+        const el = googleBtnRef.current;
+        if (!el) return;
+        const update = () => setGoogleBtnWidth(Math.min(400, Math.max(240, el.clientWidth)));
+        update();
+        const observer = new ResizeObserver(update);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
 
     function moveSlide(direction: number) {
         setActiveSlide((current) => (current + direction + slides.length) % slides.length);
@@ -65,16 +76,20 @@ export default function LoginPage() {
         }
     }
 
-    async function handleGoogleLogin(credentialResponse: any) {
+    async function handleGoogleLogin(credentialResponse: CredentialResponse) {
         try {
             setIsGoogleLogin(true);
             setGoogleError("");
+            if (!credentialResponse.credential) {
+                setGoogleError("Login dengan Google gagal. Silakan coba lagi.");
+                return;
+            }
             const credential = jwtDecode(credentialResponse.credential);
             const { email, name } = credential as { email: string; name: string };
             const user = await googleLogin(email, name);
             router.push(user.role === 'ADMIN' ? '/admin' : '/beranda');
-        } catch (err: any) {
-            setGoogleError(err.message || "Gagal login dengan Google. Silakan coba lagi.");
+        } catch (err) {
+            setGoogleError(err instanceof Error && err.message ? err.message : "Gagal login dengan Google. Silakan coba lagi.");
         } finally {
             setIsGoogleLogin(false);
         }
@@ -115,13 +130,13 @@ export default function LoginPage() {
                     {googleError && <Alert status="error" title="Login Google Gagal" description={googleError} onClose={() => setGoogleError("")} className="mt-8" />}
 
                     <form onSubmit={handleSubmit} className="mt-7 space-y-5">
-                        <div><label htmlFor="identifier" className="text-sm font-semibold text-black">Email atau username</label><div className="relative mt-2"><HiOutlineUser className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-neutral-400" /><input id="identifier" type="text" autoComplete="username" value={form.identifier} onChange={(event) => setForm({ ...form, identifier: event.target.value })} placeholder="Masukkan email atau username" className="w-full rounded-xl border border-neutral-300 py-3 pr-4 pl-11 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-primary-600 focus:ring-1 focus:ring-primary-600" /></div></div>
-                        <div><label htmlFor="password" className="text-sm font-semibold text-black">Kata Sandi</label><div className="relative mt-2"><HiOutlineLockClosed className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-neutral-400" /><input id="password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Masukkan kata sandi" className="w-full rounded-xl border border-neutral-300 py-3 pr-11 pl-11 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-primary-600 focus:ring-1 focus:ring-primary-600" /><button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"} className="absolute top-1/2 right-4 -translate-y-1/2 cursor-pointer text-neutral-400">{showPassword ? <HiOutlineEyeSlash className="h-4 w-4" /> : <HiOutlineEye className="h-4 w-4" />}</button></div></div>
+                        <div><label htmlFor="identifier" className="text-sm font-semibold text-black">Email atau username</label><div className="relative mt-2"><HiOutlineUser className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-neutral-400" /><input id="identifier" type="text" autoComplete="username" value={form.identifier} onChange={(event) => setForm({ ...form, identifier: event.target.value })} placeholder="Masukkan email atau username" className="w-full rounded-xl border border-neutral-300 py-3 pr-4 pl-11 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-primary-600 focus:ring-1 focus:ring-primary-600" /></div></div>
+                        <div><label htmlFor="password" className="text-sm font-semibold text-black">Kata Sandi</label><div className="relative mt-2"><HiOutlineLockClosed className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-neutral-400" /><input id="password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Masukkan kata sandi" className="w-full rounded-xl border border-neutral-300 py-3 pr-11 pl-11 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-primary-600 focus:ring-1 focus:ring-primary-600" /><button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"} className="absolute top-1/2 right-4 -translate-y-1/2 cursor-pointer text-neutral-400">{showPassword ? <HiOutlineEyeSlash className="h-4 w-4" /> : <HiOutlineEye className="h-4 w-4" />}</button></div></div>
                         <div className="flex justify-end"><Link href="/lupa-password" className="text-sm font-medium text-primary-600 hover:underline">Lupa kata sandi?</Link></div>
                         <button type="submit" disabled={isSubmitting} className="w-full cursor-pointer rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">{isSubmitting ? "Memproses..." : "Masuk"}</button>
                     </form>
                     <div className="my-6 flex items-center gap-4"><span className="h-px flex-1 bg-neutral-400" /><span className="text-sm text-neutral-500">atau</span><span className="h-px flex-1 bg-neutral-400" /></div>
-                    <div className="flex items-center justify-center">
+                    <div ref={googleBtnRef} className="flex w-full justify-center">
                         {!isGoogleLogin ? (
                             <GoogleLogin
                                 onSuccess={handleGoogleLogin}
@@ -130,7 +145,7 @@ export default function LoginPage() {
                                 shape="pill"
                                 size="large"
                                 text="signin_with"
-                                width="400"
+                                width={googleBtnWidth}
                             />
                         ) : (
                             <div className="flex w-full items-center justify-center gap-3 rounded-xl border border-neutral-300 py-3 text-sm font-medium text-neutral-400">

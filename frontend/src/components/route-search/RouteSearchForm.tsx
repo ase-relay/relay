@@ -158,9 +158,15 @@ export function RouteSearchForm() {
   }
 
   return (
-    <div className="w-full max-w-163 rounded-3xl bg-white p-5 shadow-[0_8px_22px_rgba(15,23,42,0.12)] sm:p-7 lg:p-14">
+    <div className="w-full max-w-163 rounded-3xl bg-white p-8 shadow-[0_8px_22px_rgba(15,23,42,0.12)] sm:p-11 lg:p-14">
       <div className="relative space-y-5 sm:space-y-7">
-        <div className="absolute top-6 -left-4 h-12 border-l-2 border-dashed border-neutral-300 sm:top-8 sm:-left-6 sm:h-13" />
+        {/* Penghubung tepat di sumbu ikon rail (mobile x = -12px, sm x = -22px),
+            membentang dari bawah ikon origin ke atas ikon destination.
+            Mobile: input h-12 & ikon 24px → 36→80. sm: input h-15 & ikon 28px → 44→104. */}
+        <div
+          aria-hidden="true"
+          className="absolute top-9 -left-3 h-11 -translate-x-1/2 border-l-2 border-dashed border-neutral-300 sm:top-11 sm:-left-[22px] sm:h-15"
+        />
         <LocationInput
           id="origin"
           kind="origin"
@@ -173,6 +179,7 @@ export function RouteSearchForm() {
           error={fieldErrors.origin}
           searchError={originSearchError}
           history={history}
+          otherFieldValue={destinationQuery}
           onChange={(value) => {
             setOriginQuery(value);
             setSelectedOrigin(null);
@@ -206,6 +213,7 @@ export function RouteSearchForm() {
           error={fieldErrors.destination}
           searchError={destinationSearchError}
           history={history}
+          otherFieldValue={originQuery}
           onChange={(value) => {
             setDestinationQuery(value);
             setSelectedDestination(null);

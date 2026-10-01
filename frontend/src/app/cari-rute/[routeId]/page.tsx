@@ -1,16 +1,22 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import { Navbar } from '@/components/layout/Navbar';
+import { Footer } from '@/components/layout/Footer';
 import { RouteSummaryHeader } from '@/components/route-detail/RouteSummaryHeader';
 import { JourneySegment, TripStepList } from '@/components/route-detail/TripStepList';
 import { MapPlaceholder } from '@/components/map/MapPlaceholder';
-import { mapApiRouteToJourneySegments } from '@/lib/mappers/routeMapper';
-import { readRouteSearchResults } from '@/lib/routeSearchTransfer';
+import { mapApiRouteToJourneySegments, mapApiRouteToRouteResultCard } from '@/lib/mappers/routeMapper';
+import { readRouteSearchLocations, readRouteSearchResults, RouteSearchLocations } from '@/lib/routeSearchTransfer';
 import { fetchRouteGeometry } from '@/lib/api';
 import { transformApiRouteToMapMarkers, transformApiRouteToMapPolylines } from '@/lib/utils/mapDataTransform';
 import { MapViewerMarker, MapViewerPolyline } from '@/components/map/MapViewer';
+import BackArrowIcon from '@/components/icons/cari-rute/BackArrowIcon';
+import ExpandIcon from '@/components/icons/cari-rute/ExpandIcon';
+import CloseIcon from '@/components/icons/common/CloseIcon';
 import type { ApiRoute, ApiRouteLeg, RoutingGeometryLegInput } from '@/types/api/routing';
 import type { RouteOption } from '@/lib/types/route';
 
@@ -62,10 +68,16 @@ function toGeometryInput(leg: ApiRouteLeg): RoutingGeometryLegInput | null {
 
 /**
  * Adapter shape: `ApiRoute` (kontrak BE) → `RouteOption` (props RouteSummaryHeader).
- * Header komponen ini masih berbasis shape mock lama; adapter menjaga komponen
- * tetap tidak berubah. Jam berangkat/tiba rute diambil dari summary BE (aditif).
+ * Statistik (biaya/waktu/transit), ikon moda, badge kode rute, operator, dan total
+ * menit jalan kaki dihitung lewat mapper kartu rute yang sama dengan halaman daftar —
+ * tanpa hardcode. Judul memakai nama lokasi pencarian (design), fallback nama halte.
  */
-function toRouteOption(apiRoute: ApiRoute, originName: string, destinationName: string): RouteOption {
+function toRouteOption(
+  apiRoute: ApiRoute,
+  originName: string,
+  destinationName: string,
+): RouteOption {
+  const card = mapApiRouteToRouteResultCard(apiRoute);
   const firstLeg = apiRoute.legs[0];
   const lastLeg = apiRoute.legs[apiRoute.legs.length - 1];
 
@@ -77,29 +89,40 @@ function toRouteOption(apiRoute: ApiRoute, originName: string, destinationName: 
     totalCost: apiRoute.summary.totalFare,
     transitCount: apiRoute.summary.transfersCount,
     segments: [],
-    originStopName: firstLeg?.from?.name ?? firstLeg?.fromHalte?.name ?? originName,
-    destinationStopName: lastLeg?.to?.name ?? lastLeg?.toHalte?.name ?? destinationName,
+    originStopName: originName || firstLeg?.from?.name || firstLeg?.fromHalte?.name || 'Lokasi awal',
+    destinationStopName: destinationName || lastLeg?.to?.name || lastLeg?.toHalte?.name || 'Tujuan',
+    vehicleType: card.type,
+    badges: card.badges,
+    operator: card.operator,
+    walkingMinutes: card.walkingTime,
   };
 }
 
 export default function RouteDetailPage() {
-  const router = useRouter();
   const params = useParams();
   const routeId = params.routeId as string;
 
   // sessionStorage hanya ada di client — baca setelah mount agar tidak hydration mismatch.
   const [selectedRoute, setSelectedRoute] = useState<ApiRoute | null>(null);
+  const [searchLocations, setSearchLocations] = useState<RouteSearchLocations | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [mapExpanded, setMapExpanded] = useState(false);
 
   useEffect(() => {
     setSelectedRoute(findRouteById(routeId));
+    setSearchLocations(readRouteSearchLocations());
     setHasLoaded(true);
   }, [routeId]);
 
-  // Handle back navigation
-  const handleBack = () => {
-    router.push('/cari-rute');
-  };
+  // Tutup overlay peta dengan Escape.
+  useEffect(() => {
+    if (!mapExpanded) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMapExpanded(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [mapExpanded]);
 
   // Transform route data to map markers with useMemo (versi baru berbasis ApiRoute)
   const mapMarkers = useMemo<MapViewerMarker[]>(() => {
@@ -193,12 +216,12 @@ export default function RouteDetailPage() {
           <p className="text-neutral-600 mb-6">
             Data rute tidak tersedia. Cari ulang rute dari halaman pencarian untuk memuat detailnya.
           </p>
-          <button
-            onClick={handleBack}
-            className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 transition-colors"
+          <Link
+            href="/cari-rute"
+            className="inline-block bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 transition-colors"
           >
             Kembali ke Pencarian Rute
-          </button>
+          </Link>
         </div>
       </div>
     );
@@ -209,42 +232,107 @@ export default function RouteDetailPage() {
   const originPoint = firstLeg?.from ?? firstLeg?.fromHalte;
   const destinationPoint = lastLeg?.to ?? lastLeg?.toHalte;
 
+  // Nama tempat (design) dari penyimpanan pencarian; fallback nama halte rute.
+  const originName = searchLocations?.origin.name ?? originPoint?.name ?? 'Lokasi awal';
+  const destinationName = searchLocations?.destination.name ?? destinationPoint?.name ?? 'Tujuan';
+  const originAddress = searchLocations?.origin.district ?? '';
+  const destinationAddress = searchLocations?.destination.district ?? '';
+
   return (
-    <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <RouteSummaryHeader route={toRouteOption(selectedRoute, originPoint?.name ?? '', destinationPoint?.name ?? '')} onBack={handleBack} />
+    <div className="flex min-h-screen flex-col text-neutral-900">
+      <Navbar />
+
+      <main className="mx-auto w-full max-w-292.5 flex-1 px-4 pb-12 pt-6 sm:px-8 xl:px-0">
+        <Link
+          href="/cari-rute"
+          className="inline-flex items-center gap-3 text-sm font-medium text-primary-600 transition-colors hover:text-primary-700"
+        >
+          <BackArrowIcon className="h-2.5 w-auto" />
+          Kembali ke Rekomendasi Rute
+        </Link>
+
+        <div className="mt-6">
+          <RouteSummaryHeader route={toRouteOption(selectedRoute, originName, destinationName)} />
+        </div>
 
         {/* Detail perjalanan dan peta */}
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div>
-            <TripStepList
-              origin={{
-                time: selectedRoute.summary.departureTime ?? '--:--',
-                name: originPoint?.name ?? 'Lokasi awal',
-                address: '',
-              }}
-              destination={{
-                time: selectedRoute.summary.arrivalTime ?? '--:--',
-                name: destinationPoint?.name ?? 'Tujuan',
-                address: '',
-              }}
-              segments={journeySegments}
-            />
-          </div>
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
+          <TripStepList
+            origin={{
+              time: selectedRoute.summary.departureTime ?? '--:--',
+              name: originName,
+              address: originAddress,
+            }}
+            destination={{
+              time: selectedRoute.summary.arrivalTime ?? '--:--',
+              name: destinationName,
+              address: destinationAddress,
+            }}
+            segments={journeySegments}
+          />
 
-          <div className="lg:sticky lg:top-6 h-fit">
-            <div className="bg-white rounded-xl shadow-lg p-4">
-              <div className="aspect-video w-full">
-                <MapViewerNoSSR
-                  markers={mapMarkers}
-                  polylines={mapPolylines}
-                  className="w-full h-full"
-                />
+          <div className="h-fit lg:sticky lg:top-32">
+            <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-6" aria-label="Peta">
+              <h2 className="text-lg font-bold text-neutral-900">Peta</h2>
+              <div className="relative mt-4">
+                <div className="aspect-[4/3] w-full overflow-hidden rounded-xl">
+                  <MapViewerNoSSR
+                    markers={mapMarkers}
+                    polylines={mapPolylines}
+                    className="w-full h-full"
+                    zoomControlPosition="bottomright"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMapExpanded(true)}
+                  aria-label="Perbesar peta"
+                  className="absolute right-3 top-3 z-[1000] grid h-9 w-9 place-items-center rounded-lg bg-white shadow-md transition-colors hover:bg-neutral-50 cursor-pointer"
+                >
+                  <ExpandIcon className="h-5 w-5" />
+                </button>
               </div>
+            </section>
+          </div>
+        </div>
+      </main>
+
+      {/* Overlay peta fullscreen */}
+      {mapExpanded && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Peta ukuran penuh"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setMapExpanded(false);
+          }}
+        >
+          <div className="flex h-[88vh] w-full max-w-6xl flex-col rounded-2xl bg-white p-4 shadow-xl sm:p-5">
+            <div className="flex items-center justify-between pb-3">
+              <h2 className="text-lg font-bold text-neutral-900">Peta</h2>
+              <button
+                type="button"
+                onClick={() => setMapExpanded(false)}
+                aria-label="Tutup peta"
+                className="grid h-9 w-9 place-items-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 cursor-pointer"
+              >
+                <CloseIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-hidden rounded-xl">
+              <MapViewerNoSSR
+                markers={mapMarkers}
+                polylines={mapPolylines}
+                className="h-full w-full"
+                zoomControlPosition="bottomright"
+              />
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      <Footer />
     </div>
   );
 }
