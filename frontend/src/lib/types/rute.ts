@@ -1,12 +1,41 @@
-export type RuteStatus = 'AKTIF' | 'TIDAK_AKTIF';
-
-export interface Rute {
-    id: string;
-    namaJalur: string;
-    moda: string;
-    halte: string[];
-    jumlahHalte: number;
-    status: RuteStatus;
+export interface RuteStopItem {
+    id: number;
+    halteId: number;
+    urutan: number;
+    estimasiMenit: number | null;
+    jarakMeter: number | null;
+    halte: {
+        id: number;
+        namaHalte: string;
+        isActive: boolean;
+    };
 }
 
-export type RuteInput = Omit<Rute, 'id' | 'jumlahHalte'>;
+export interface Rute {
+    id: number;
+    namaRute: string;
+    kodeRute: string | null;
+    deskripsi: string | null;
+    modaId: number;
+    isActive: boolean;
+    moda: {
+        id: number;
+        namaModa: string;
+        isActive?: boolean;
+    };
+    _count?: {
+        stops: number;
+    };
+    stops?: RuteStopItem[];
+}
+
+export interface RuteInput {
+    namaRute: string;
+    modaId: number;
+    isActive: boolean;
+    stops: {
+        halteId: number;
+        estimasiMenit: number;
+        jarakMeter: number;
+    }[];
+}

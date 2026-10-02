@@ -3,40 +3,54 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { HiChevronDown, HiXMark } from 'react-icons/hi2';
 import SearchIcon from '@/components/icons/common/SearchIcon';
-import type { Rute, RuteInput, RuteStatus } from '@/lib/types/rute';
+import type { Rute, RuteInput } from '@/lib/types/rute';
+import type { Halte } from '@/lib/types/halte';
+import type { Moda } from '@/lib/types/moda';
 
 export type RuteFormModalProps = {
     isOpen: boolean;
-    modaOptions: string[];
-    halteOptions: string[];
+    haltes: Halte[];
+    modas: Moda[];
     initial?: Rute | null;
     onCancel: () => void;
-    onSave: (input: RuteInput) => void;
+    onSubmit: (input: RuteInput) => void;
+    submitting: boolean;
 };
-
-const statusOptions: { value: RuteStatus; label: string }[] = [
-    { value: 'AKTIF', label: 'Aktif' },
-    { value: 'TIDAK_AKTIF', label: 'Tidak Aktif' },
-];
 
 export function RuteFormModal({
     isOpen,
-    modaOptions,
-    halteOptions,
+    haltes,
+    modas,
     initial = null,
     onCancel,
-    onSave,
+    onSubmit,
+    submitting,
 }: RuteFormModalProps) {
     const isEdit = initial != null;
 
+    const initialHalteIds = initial?.stops?.map((s) => s.halteId) ?? [];
+    const initialSegmentValues: Record<string, { menit: string; meter: string }> = {};
+    if (initial?.stops) {
+        const ids = initial.stops.map((s) => s.halteId);
+        for (let i = 0; i < ids.length - 1; i++) {
+            const key = `${ids[i]}>${ids[i + 1]}`;
+            const stop = initial.stops[i];
+            initialSegmentValues[key] = {
+                menit: stop.estimasiMenit?.toString() ?? '',
+                meter: stop.jarakMeter?.toString() ?? '',
+            };
+        }
+    }
+
     const [step, setStep] = useState<1 | 2>(1);
-    const [namaJalur, setNamaJalur] = useState(initial?.namaJalur ?? '');
-    const [moda, setModa] = useState(initial?.moda ?? '');
-    const [status, setStatus] = useState<RuteStatus>(initial?.status ?? 'AKTIF');
-    const [selected, setSelected] = useState<string[]>(initial?.halte ?? []);
+    const [namaRute, setNamaRute] = useState(() => initial?.namaRute ?? '');
+    const [modaId, setModaId] = useState(() => initial?.modaId ?? 0);
+    const [isActive, setIsActive] = useState(() => initial?.isActive ?? true);
+    const [selectedHalteIds, setSelectedHalteIds] = useState(() => initialHalteIds);
     const [halteQuery, setHalteQuery] = useState('');
     const [dragIndex, setDragIndex] = useState<number | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [segmentValues, setSegmentValues] = useState(() => initialSegmentValues);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -62,38 +76,40 @@ export function RuteFormModal({
             : 'Tambah Data Rute';
 
     const normalizedQuery = halteQuery.trim().toLowerCase();
-    const filteredHaltes = halteOptions.filter((halte) =>
-        halte.toLowerCase().includes(normalizedQuery),
+    const filteredHaltes = haltes.filter(
+        (halte) =>
+            halte.namaHalte.toLowerCase().includes(normalizedQuery) ||
+            (halte.alamat ?? '').toLowerCase().includes(normalizedQuery),
     );
     const allVisibleSelected =
-        filteredHaltes.length > 0 && filteredHaltes.every((halte) => selected.includes(halte));
+        filteredHaltes.length > 0 && filteredHaltes.every((halte) => selectedHalteIds.includes(halte.id));
 
-    function toggleHalte(name: string) {
+    function toggleHalte(id: number) {
         setErrors((prev) => ({ ...prev, halte: '' }));
-        setSelected((prev) =>
-            prev.includes(name) ? prev.filter((halte) => halte !== name) : [...prev, name],
+        setSelectedHalteIds((prev) =>
+            prev.includes(id) ? prev.filter((h) => h !== id) : [...prev, id],
         );
     }
 
     function toggleAllVisible() {
         setErrors((prev) => ({ ...prev, halte: '' }));
-        setSelected((prev) => {
+        setSelectedHalteIds((prev) => {
             if (allVisibleSelected) {
-                return prev.filter((halte) => !filteredHaltes.includes(halte));
+                return prev.filter((id) => !filteredHaltes.some((h) => h.id === id));
             }
-            const missing = filteredHaltes.filter((halte) => !prev.includes(halte));
+            const missing = filteredHaltes.filter((h) => !prev.includes(h.id)).map((h) => h.id);
             return [...prev, ...missing];
         });
     }
 
     function removeSelected(index: number) {
         setErrors((prev) => ({ ...prev, halte: '' }));
-        setSelected((prev) => prev.filter((_, i) => i !== index));
+        setSelectedHalteIds((prev) => prev.filter((_, i) => i !== index));
     }
 
     function handleDrop(targetIndex: number) {
         if (dragIndex == null || dragIndex === targetIndex) return;
-        setSelected((prev) => {
+        setSelectedHalteIds((prev) => {
             const next = [...prev];
             const [moved] = next.splice(dragIndex, 1);
             next.splice(targetIndex, 0, moved);
@@ -102,13 +118,33 @@ export function RuteFormModal({
         setDragIndex(null);
     }
 
+    function getSegmentKey(fromId: number, toId: number): string {
+        return `${fromId}>${toId}`;
+    }
+
+    function handleSegmentChange(fromId: number, toId: number, field: 'menit' | 'meter', value: string) {
+        const key = getSegmentKey(fromId, toId);
+        setSegmentValues((prev) => ({
+            ...prev,
+            [key]: {
+                ...prev[key],
+                [field]: value,
+            },
+        }));
+    }
+
     function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
         if (step === 1) {
             const nextErrors: Record<string, string> = {};
-            if (!namaJalur.trim()) nextErrors.namaJalur = 'Nama jalur / koridor wajib diisi';
-            if (!moda) nextErrors.moda = 'Moda wajib dipilih';
+            const trimmedNama = namaRute.trim();
+            if (trimmedNama.length < 3) {
+                nextErrors.namaRute = 'Nama rute minimal 3 karakter';
+            }
+            if (modaId === 0) {
+                nextErrors.modaId = 'Moda wajib dipilih';
+            }
             if (Object.keys(nextErrors).length > 0) {
                 setErrors(nextErrors);
                 return;
@@ -118,21 +154,61 @@ export function RuteFormModal({
             return;
         }
 
-        if (selected.length === 0) {
-            setErrors({ halte: 'Pilih minimal satu halte' });
+        if (selectedHalteIds.length < 2) {
+            setErrors({ halte: 'Minimal 2 halte pemberhentian' });
             return;
         }
 
-        onSave({
-            namaJalur: namaJalur.trim(),
-            moda,
-            halte: selected,
-            status,
+        const nextErrors: Record<string, string> = {};
+        for (let i = 0; i < selectedHalteIds.length - 1; i++) {
+            const fromId = selectedHalteIds[i];
+            const toId = selectedHalteIds[i + 1];
+            const key = getSegmentKey(fromId, toId);
+            const segment = segmentValues[key];
+
+            const menitNum = Number(segment?.menit || 0);
+            const meterNum = Number(segment?.meter || 0);
+
+            if (isNaN(menitNum) || menitNum <= 0) {
+                nextErrors[`segment_${i}`] = 'Estimasi menit harus bilangan bulat lebih besar dari 0';
+            }
+            if (isNaN(meterNum) || meterNum <= 0) {
+                nextErrors[`segment_${i}_meter`] = 'Jarak meter harus bilangan bulat lebih besar dari 0';
+            }
+        }
+
+        if (Object.keys(nextErrors).length > 0) {
+            setErrors(nextErrors);
+            return;
+        }
+
+        const stops = selectedHalteIds.map((halteId, index) => {
+            if (index === selectedHalteIds.length - 1) {
+                return { halteId, estimasiMenit: 0, jarakMeter: 0 };
+            }
+            const toId = selectedHalteIds[index + 1];
+            const key = getSegmentKey(halteId, toId);
+            const segment = segmentValues[key];
+            return {
+                halteId,
+                estimasiMenit: Number(segment?.menit || 0),
+                jarakMeter: Number(segment?.meter || 0),
+            };
+        });
+
+        onSubmit({
+            namaRute: namaRute.trim(),
+            modaId,
+            isActive,
+            stops,
         });
     }
 
     const circleClass = (active: boolean) =>
         `flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold sm:h-10 sm:w-10 sm:text-sm ${active ? 'bg-primary-600 text-white' : 'bg-neutral-400 text-white'}`;
+
+    const activeModas = modas.filter((m) => m.isActive);
+    const currentModa = modas.find((m) => m.id === modaId);
 
     return (
         <div
@@ -204,12 +280,12 @@ export function RuteFormModal({
                                 <input
                                     id="rute-nama"
                                     type="text"
-                                    value={namaJalur}
-                                    onChange={(event) => setNamaJalur(event.target.value)}
+                                    value={namaRute}
+                                    onChange={(event) => setNamaRute(event.target.value)}
                                     placeholder="Contoh: Koridor 3D (BEC - Baleendah)"
                                     className={inputClass}
                                 />
-                                {errors.namaJalur && <p className={errorClass}>{errors.namaJalur}</p>}
+                                {errors.namaRute && <p className={errorClass}>{errors.namaRute}</p>}
                             </div>
 
                             <div>
@@ -219,25 +295,30 @@ export function RuteFormModal({
                                 <div className="relative">
                                     <select
                                         id="rute-moda"
-                                        value={moda}
-                                        onChange={(event) => setModa(event.target.value)}
-                                        className={`${selectClass} ${moda ? '' : 'text-neutral-400'}`}
+                                        value={modaId}
+                                        onChange={(event) => setModaId(Number(event.target.value))}
+                                        className={`${selectClass} ${modaId ? '' : 'text-neutral-400'}`}
                                     >
-                                        <option value="" disabled hidden>
+                                        <option value={0} disabled hidden>
                                             Pilih moda
                                         </option>
-                                        {modaOptions.map((option) => (
-                                            <option key={option} value={option}>
-                                                {option}
+                                        {activeModas.map((moda) => (
+                                            <option key={moda.id} value={moda.id}>
+                                                {moda.namaModa}
                                             </option>
                                         ))}
+                                        {currentModa && !currentModa.isActive && (
+                                            <option key={currentModa.id} value={currentModa.id}>
+                                                {currentModa.namaModa} (nonaktif)
+                                            </option>
+                                        )}
                                     </select>
                                     <HiChevronDown
                                         aria-hidden="true"
                                         className="pointer-events-none absolute top-1/2 right-5 h-5 w-5 -translate-y-1/2 text-neutral-500"
                                     />
                                 </div>
-                                {errors.moda && <p className={errorClass}>{errors.moda}</p>}
+                                {errors.modaId && <p className={errorClass}>{errors.modaId}</p>}
                             </div>
 
                             <div>
@@ -247,17 +328,12 @@ export function RuteFormModal({
                                 <div className="relative">
                                     <select
                                         id="rute-status"
-                                        value={status}
-                                        onChange={(event) =>
-                                            setStatus(event.target.value as RuteStatus)
-                                        }
+                                        value={isActive ? 'true' : 'false'}
+                                        onChange={(event) => setIsActive(event.target.value === 'true')}
                                         className={selectClass}
                                     >
-                                        {statusOptions.map((option) => (
-                                            <option key={option.value} value={option.value}>
-                                                {option.label}
-                                            </option>
-                                        ))}
+                                        <option value="true">Aktif</option>
+                                        <option value="false">Tidak Aktif</option>
                                     </select>
                                     <HiChevronDown
                                         aria-hidden="true"
@@ -305,16 +381,19 @@ export function RuteFormModal({
 
                                         {filteredHaltes.map((halte) => (
                                             <label
-                                                key={halte}
+                                                key={halte.id}
                                                 className="flex cursor-pointer items-center gap-2 px-2 py-2 text-xs text-neutral-900 sm:gap-3 sm:py-2.5 sm:text-sm"
                                             >
                                                 <input
                                                     type="checkbox"
-                                                    checked={selected.includes(halte)}
-                                                    onChange={() => toggleHalte(halte)}
+                                                    checked={selectedHalteIds.includes(halte.id)}
+                                                    onChange={() => toggleHalte(halte.id)}
                                                     className="h-4 w-4 shrink-0 cursor-pointer accent-primary-600 sm:h-5 sm:w-5"
                                                 />
-                                                {halte}
+                                                {halte.namaHalte}
+                                                {!halte.isActive && (
+                                                    <span className="text-neutral-400"> (nonaktif)</span>
+                                                )}
                                             </label>
                                         ))}
 
@@ -332,45 +411,110 @@ export function RuteFormModal({
                                     </h4>
 
                                     <div className="mt-2 min-h-50 rounded-xl bg-white p-2 sm:mt-3 sm:min-h-62.5 sm:rounded-2xl sm:p-3">
-                                        {selected.length === 0 ? (
+                                        {selectedHalteIds.length === 0 ? (
                                             <p className="flex min-h-45 items-center justify-center text-center text-xs text-neutral-400 sm:min-h-55 sm:text-sm">
                                                 Belum ada halte yang dipilih
                                             </p>
                                         ) : (
                                             <ul>
-                                                {selected.map((halte, index) => (
-                                                    <li
-                                                        key={halte}
-                                                        draggable
-                                                        onDragStart={() => setDragIndex(index)}
-                                                        onDragOver={(event) => event.preventDefault()}
-                                                        onDrop={() => handleDrop(index)}
-                                                        onDragEnd={() => setDragIndex(null)}
-                                                        className="mb-2 flex cursor-grab items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 last:mb-0 active:cursor-grabbing sm:mb-3 sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3"
-                                                    >
-                                                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-600 text-[10px] font-bold text-white sm:h-8 sm:w-8 sm:text-xs">
-                                                            {index + 1}
-                                                        </span>
-                                                        <span className="flex-1 text-xs font-medium text-neutral-900 sm:text-sm">
-                                                            {halte}
-                                                        </span>
-                                                        <span
-                                                            aria-hidden="true"
-                                                            className="flex w-4 shrink-0 flex-col gap-0.5 sm:w-6 sm:gap-1"
+                                                {selectedHalteIds.map((halteId, index) => {
+                                                    const halte = haltes.find((h) => h.id === halteId);
+                                                    if (!halte) return null;
+                                                    const isLast = index === selectedHalteIds.length - 1;
+                                                    const nextHalteId = isLast ? null : selectedHalteIds[index + 1];
+                                                    const key = nextHalteId ? getSegmentKey(halteId, nextHalteId) : null;
+                                                    const segment = key ? segmentValues[key] : null;
+
+                                                    return (
+                                                        <li
+                                                            key={halteId}
+                                                            className="mb-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 last:mb-0 sm:mb-3 sm:rounded-2xl sm:px-4 sm:py-3"
                                                         >
-                                                            <span className="block h-0.5 w-4 rounded bg-neutral-400 sm:w-6" />
-                                                            <span className="block h-0.5 w-4 rounded bg-neutral-400 sm:w-6" />
-                                                        </span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeSelected(index)}
-                                                            aria-label={`Hapus halte ${halte}`}
-                                                            className="shrink-0 cursor-pointer text-neutral-400 transition hover:text-neutral-600"
-                                                        >
-                                                            <HiXMark className="h-4 w-4 sm:h-5 sm:w-5" />
-                                                        </button>
-                                                    </li>
-                                                ))}
+                                                            <div className="flex items-center gap-2">
+                                                                <span
+                                                                    draggable
+                                                                    onDragStart={() => setDragIndex(index)}
+                                                                    onDragOver={(event) => event.preventDefault()}
+                                                                    onDrop={() => handleDrop(index)}
+                                                                    onDragEnd={() => setDragIndex(null)}
+                                                                    className="flex h-6 w-6 shrink-0 cursor-grab items-center justify-center rounded-full bg-primary-600 text-[10px] font-bold text-white active:cursor-grabbing sm:h-8 sm:w-8 sm:text-xs"
+                                                                >
+                                                                    {index + 1}
+                                                                </span>
+                                                                <span className="flex-1 text-xs font-medium text-neutral-900 sm:text-sm">
+                                                                    {halte.namaHalte}
+                                                                </span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeSelected(index)}
+                                                                    aria-label={`Hapus halte ${halte.namaHalte}`}
+                                                                    className="shrink-0 cursor-pointer text-neutral-400 transition hover:text-neutral-600"
+                                                                >
+                                                                    <HiXMark className="h-4 w-4 sm:h-5 sm:w-5" />
+                                                                </button>
+                                                            </div>
+
+                                                            {!isLast && (
+                                                                <div className="mt-2 grid grid-cols-2 gap-2 sm:mt-3 sm:gap-3">
+                                                                    <div>
+                                                                        <label className="block text-xs text-neutral-600 sm:text-sm">
+                                                                            Menit
+                                                                        </label>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="1"
+                                                                            value={segment?.menit || ''}
+                                                                            onChange={(e) =>
+                                                                                handleSegmentChange(
+                                                                                    halteId,
+                                                                                    nextHalteId!,
+                                                                                    'menit',
+                                                                                    e.target.value,
+                                                                                )
+                                                                            }
+                                                                            className="mt-1 h-8 w-full rounded-lg border border-neutral-300 px-2 text-xs focus:border-primary-600 focus:outline-none sm:h-9 sm:px-3 sm:text-sm"
+                                                                        />
+                                                                        {errors[`segment_${index}`] && (
+                                                                            <p className="mt-1 text-xs text-red-600">
+                                                                                {errors[`segment_${index}`]}
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-xs text-neutral-600 sm:text-sm">
+                                                                            Meter
+                                                                        </label>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="1"
+                                                                            value={segment?.meter || ''}
+                                                                            onChange={(e) =>
+                                                                                handleSegmentChange(
+                                                                                    halteId,
+                                                                                    nextHalteId!,
+                                                                                    'meter',
+                                                                                    e.target.value,
+                                                                                )
+                                                                            }
+                                                                            className="mt-1 h-8 w-full rounded-lg border border-neutral-300 px-2 text-xs focus:border-primary-600 focus:outline-none sm:h-9 sm:px-3 sm:text-sm"
+                                                                        />
+                                                                        {errors[`segment_${index}_meter`] && (
+                                                                            <p className="mt-1 text-xs text-red-600">
+                                                                                {errors[`segment_${index}_meter`]}
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {isLast && (
+                                                                <p className="mt-2 text-xs text-neutral-400 sm:mt-3 sm:text-sm">
+                                                                    Halte akhir
+                                                                </p>
+                                                            )}
+                                                        </li>
+                                                    );
+                                                })}
                                             </ul>
                                         )}
                                     </div>
@@ -378,22 +522,30 @@ export function RuteFormModal({
                                     {errors.halte && <p className={errorClass}>{errors.halte}</p>}
                                 </div>
                             </div>
+
+                            <p className="mt-3 text-xs text-neutral-500 sm:mt-4 sm:text-sm">
+                                Isi estimasi waktu (menit) dan jarak (meter) dari halte ini ke halte berikutnya.
+                            </p>
                         </div>
                     )}
 
-                    <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3 sm:mt-6">
-                        <button
-                            type="button"
-                            onClick={onCancel}
-                            className="cursor-pointer rounded-full bg-neutral-400 px-5 py-2 text-sm font-semibold text-white transition hover:bg-neutral-500 sm:px-6 sm:py-2.5 sm:text-base"
-                        >
-                            Batal
-                        </button>
+                    <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:justify-end sm:gap-4">
+                        {step === 2 && (
+                            <button
+                                type="button"
+                                onClick={() => setStep(1)}
+                                disabled={submitting}
+                                className="inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-full border border-neutral-300 px-7 text-base font-semibold text-neutral-900 transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
+                            >
+                                Kembali
+                            </button>
+                        )}
                         <button
                             type="submit"
-                            className="cursor-pointer rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 sm:px-6 sm:py-2.5 sm:text-base"
+                            disabled={submitting}
+                            className="inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-full bg-primary-600 px-7 text-base font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
                         >
-                            {step === 1 ? 'Lanjut' : isEdit ? 'Simpan' : 'Tambah'}
+                            {submitting ? 'Menyimpan...' : step === 1 ? 'Lanjut' : 'Simpan'}
                         </button>
                     </div>
                 </form>
@@ -401,5 +553,3 @@ export function RuteFormModal({
         </div>
     );
 }
-
-export default RuteFormModal;

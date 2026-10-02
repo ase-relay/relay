@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { RuteFormModal } from '@/components/admin/rute/RuteFormModal';
 import ConfirmEditModal from '@/components/admin/ConfirmEditModal';
 import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
@@ -9,42 +10,15 @@ import SearchIcon from '@/components/icons/common/SearchIcon';
 import PlusIcon from '@/components/icons/common/PlusIcon';
 import AdminEditIcon from '@/components/icons/admin/AdminEditIcon';
 import TrashIcon from '@/components/icons/common/TrashIcon';
-import type { Rute, RuteInput, RuteStatus } from '@/lib/types/rute';
+import type { Rute, RuteInput } from '@/lib/types/rute';
+import type { Halte } from '@/lib/types/halte';
+import type { Moda } from '@/lib/types/moda';
+import { useAdminList } from '@/hooks/useAdminList';
+import api from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/utils/apiError';
 
-const modaOptions = ['Bus Metro Jabar', 'Kereta', 'Motor'];
-
-const halteOptions = [
-    'Bandung Electronic Centre (BEC)',
-    'Museum Kota Bandung',
-    'Puskesmas Bojongsoang',
-    'Bluebird A',
-];
-
-const initialRutes: Rute[] = [
-    {
-        id: 'rute-1',
-        namaJalur: 'Koridor 3D (BEC - Baleendah)',
-        moda: 'Bus Metro Jabar',
-        halte: [
-            'Bandung Electronic Centre (BEC)',
-            'Bluebird A',
-            'Puskesmas Bojongsoang',
-        ],
-        jumlahHalte: 12,
-        status: 'AKTIF',
-    },
-    {
-        id: 'rute-2',
-        namaJalur: 'Bandung - Padalarang',
-        moda: 'Kereta',
-        halte: [],
-        jumlahHalte: 6,
-        status: 'AKTIF',
-    },
-];
-
-function StatusBadge({ status }: { status: RuteStatus }) {
-    if (status === 'AKTIF') {
+function StatusBadge({ isActive }: { isActive: boolean }) {
+    if (isActive) {
         return (
             <span className="inline-flex rounded-lg bg-green-100 px-3.5 py-1.5 text-sm font-semibold text-green-700">
                 Aktif
@@ -59,25 +33,26 @@ function StatusBadge({ status }: { status: RuteStatus }) {
     );
 }
 
-type SuccessAlert = {
-    title: string;
-    description: string;
-};
-
 export default function AdminRutePage() {
-    const [rutes, setRutes] = useState<Rute[]>(initialRutes);
+    const router = useRouter();
+    const { data: rutes, loading, error, refetch } = useAdminList<Rute>({ endpoint: '/transport/rute' });
+    const { data: haltes } = useAdminList<Halte>({ endpoint: '/transport/halte' });
+    const { data: modas } = useAdminList<Moda>({ endpoint: '/transport/moda' });
     const [query, setQuery] = useState('');
     const [formOpen, setFormOpen] = useState(false);
     const [editing, setEditing] = useState<Rute | null>(null);
     const [pendingEdit, setPendingEdit] = useState<RuteInput | null>(null);
     const [deleting, setDeleting] = useState<Rute | null>(null);
-    const [successAlert, setSuccessAlert] = useState<SuccessAlert | null>(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [alert, setAlert] = useState<{ title: string; description: string; type?: 'success' | 'error' } | null>(null);
+    const [loadingDetail, setLoadingDetail] = useState(false);
 
     const normalizedQuery = query.trim().toLowerCase();
     const filtered = rutes.filter(
         (rute) =>
-            rute.namaJalur.toLowerCase().includes(normalizedQuery) ||
-            rute.moda.toLowerCase().includes(normalizedQuery),
+            rute.namaRute.toLowerCase().includes(normalizedQuery) ||
+            (rute.kodeRute?.toLowerCase().includes(normalizedQuery) ?? false) ||
+            rute.moda.namaModa.toLowerCase().includes(normalizedQuery),
     );
 
     function handleAdd() {
@@ -85,9 +60,28 @@ export default function AdminRutePage() {
         setFormOpen(true);
     }
 
-    function handleEdit(rute: Rute) {
-        setEditing(rute);
-        setFormOpen(true);
+    async function handleEdit(rute: Rute) {
+        try {
+            setLoadingDetail(true);
+            const response = await api.get<{ success: boolean; data: Rute; message: string }>(
+                `/transport/rute/${rute.id}`,
+            );
+            if (response.data.success) {
+                setEditing(response.data.data);
+                setFormOpen(true);
+            } else {
+                throw new Error(response.data.message || 'Gagal mengambil detail rute');
+            }
+        } catch (err: unknown) {
+            const message = getApiErrorMessage(err, 'Gagal mengambil detail rute');
+            setAlert({
+                title: 'Gagal Memuat Data',
+                description: message,
+                type: 'error',
+            });
+        } finally {
+            setLoadingDetail(false);
+        }
     }
 
     function handleCloseForm() {
@@ -95,60 +89,129 @@ export default function AdminRutePage() {
         setEditing(null);
     }
 
-    function applySave(input: RuteInput) {
-        if (editing) {
-            setRutes((prev) =>
-                prev.map((rute) =>
-                    rute.id === editing.id
-                        ? { ...rute, ...input, jumlahHalte: input.halte.length }
-                        : rute,
-                ),
+    async function handleFormSave(input: RuteInput) {
+        try {
+            setSubmitting(true);
+
+            if (editing) {
+                setPendingEdit(input);
+                return;
+            }
+
+            const response = await api.post<{ success: boolean; data: Rute; message: string }>(
+                '/transport/rute',
+                input,
             );
-        } else {
-            setRutes((prev) => [
-                ...prev,
-                {
-                    id: `rute-${Date.now()}`,
-                    jumlahHalte: input.halte.length,
-                    ...input,
-                },
-            ]);
+            if (response.data.success) {
+                refetch();
+                handleCloseForm();
+                setAlert({
+                    title: 'Rute Berhasil Ditambahkan',
+                    description: `Rute ${input.namaRute} berhasil ditambahkan`,
+                    type: 'success',
+                });
+                return;
+            }
+            throw new Error(response.data.message || 'Gagal menambahkan rute');
+        } catch (err: unknown) {
+            const message = getApiErrorMessage(err, 'Gagal menyimpan data rute');
+            setAlert({
+                title: 'Gagal Menyimpan',
+                description: message,
+                type: 'error',
+            });
+            if ((err as { response?: { status?: number } }).response?.status === 401) {
+                setAlert({
+                    title: 'Sesi Login Habis',
+                    description: 'Silakan login ulang untuk melanjutkan.',
+                    type: 'error',
+                });
+                setTimeout(() => router.push('/login'), 2000);
+            } else if ((err as { response?: { status?: number } }).response?.status === 403) {
+                setAlert({
+                    title: 'Akses Ditolak',
+                    description: 'Anda tidak memiliki akses untuk mengelola data rute.',
+                    type: 'error',
+                });
+                setTimeout(() => router.push('/beranda'), 2000);
+            }
+        } finally {
+            setSubmitting(false);
         }
     }
 
-    function handleWizardSave(input: RuteInput) {
-        if (editing) {
-            setPendingEdit(input);
-            return;
+    async function handleConfirmEdit() {
+        if (!pendingEdit || !editing) return;
+        try {
+            setSubmitting(true);
+
+            const response = await api.put<{ success: boolean; data: Rute; message: string }>(
+                `/transport/rute/${editing.id}`,
+                pendingEdit,
+            );
+            if (response.data.success) {
+                refetch();
+                setAlert({
+                    title: 'Perubahan Rute Berhasil Disimpan',
+                    description: `Data rute ${pendingEdit.namaRute} telah diperbarui`,
+                    type: 'success',
+                });
+                setPendingEdit(null);
+                handleCloseForm();
+                return;
+            }
+            throw new Error(response.data.message || 'Gagal memperbarui rute');
+        } catch (err: unknown) {
+            const message = getApiErrorMessage(err, 'Gagal memperbarui rute');
+            setAlert({
+                title: 'Gagal Memperbarui',
+                description: message,
+                type: 'error',
+            });
+            if ((err as { response?: { status?: number } }).response?.status === 401) {
+                setTimeout(() => router.push('/login'), 2000);
+            } else if ((err as { response?: { status?: number } }).response?.status === 403) {
+                setTimeout(() => router.push('/beranda'), 2000);
+            }
+        } finally {
+            setSubmitting(false);
         }
-
-        applySave(input);
-        handleCloseForm();
-        setSuccessAlert({
-            title: 'Rute Berhasil Ditambahkan',
-            description: `Rute ${input.namaJalur} berhasil ditambahkan`,
-        });
     }
 
-    function handleConfirmEdit() {
-        if (!pendingEdit) return;
-        applySave(pendingEdit);
-        setSuccessAlert({
-            title: 'Perubahan Berhasil Disimpan',
-            description: `Data rute ${pendingEdit.namaJalur} telah diperbarui`,
-        });
-        setPendingEdit(null);
-        handleCloseForm();
-    }
-
-    function handleDelete() {
+    async function handleDelete() {
         if (!deleting) return;
-        setRutes((prev) => prev.filter((rute) => rute.id !== deleting.id));
-        setSuccessAlert({
-            title: 'Rute Berhasil Dihapus',
-            description: `Rute ${deleting.namaJalur} berhasil dihapus`,
-        });
-        setDeleting(null);
+        try {
+            setSubmitting(true);
+
+            const response = await api.delete<{ success: boolean; message: string }>(
+                `/transport/rute/${deleting.id}`,
+            );
+            if (response.data.success) {
+                refetch();
+                setAlert({
+                    title: 'Rute Berhasil Dihapus',
+                    description: `Rute ${deleting.namaRute} berhasil dihapus`,
+                    type: 'success',
+                });
+                setDeleting(null);
+                return;
+            }
+            throw new Error(response.data.message || 'Gagal menghapus rute');
+        } catch (err: unknown) {
+            const message = getApiErrorMessage(err, 'Gagal menghapus rute');
+            setAlert({
+                title: 'Gagal Menghapus',
+                description: message,
+                type: 'error',
+            });
+            if ((err as { response?: { status?: number } }).response?.status === 401) {
+                setTimeout(() => router.push('/login'), 2000);
+            } else if ((err as { response?: { status?: number } }).response?.status === 403) {
+                setTimeout(() => router.push('/beranda'), 2000);
+            }
+        } finally {
+            setSubmitting(false);
+        }
     }
 
     return (
@@ -160,6 +223,12 @@ export default function AdminRutePage() {
                 Atur rute transportasi yang tersedia di Otewe
             </p>
 
+            {error && (
+                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                    {error}
+                </div>
+            )}
+
             <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="relative w-full sm:w-110">
                     <span className="pointer-events-none absolute top-1/2 left-5 -translate-y-1/2">
@@ -169,126 +238,139 @@ export default function AdminRutePage() {
                         type="search"
                         value={query}
                         onChange={(event) => setQuery(event.target.value)}
-                        placeholder="Cari nama jalur, moda, atau koridor ..."
-                        aria-label="Cari nama jalur, moda, atau koridor"
-                        className="h-14 w-full rounded-2xl border border-neutral-300 bg-white pr-5 pl-14 text-base text-neutral-900 placeholder:text-neutral-400 focus:border-primary-600 focus:outline-none"
+                        placeholder="Cari nama jalur, kode, atau moda ..."
+                        aria-label="Cari nama jalur, kode, atau moda"
+                        disabled={loading}
+                        className="h-14 w-full rounded-2xl border border-neutral-300 bg-white pr-5 pl-14 text-base text-neutral-900 placeholder:text-neutral-400 focus:border-primary-600 focus:outline-none disabled:opacity-50"
                     />
                 </div>
 
                 <button
                     type="button"
                     onClick={handleAdd}
-                    className="inline-flex h-14 w-full cursor-pointer items-center justify-center gap-2.5 rounded-full bg-primary-600 px-7 text-base font-semibold text-white transition hover:bg-primary-700 sm:w-auto"
+                    disabled={loading || submitting || loadingDetail}
+                    className="inline-flex h-14 w-full cursor-pointer items-center justify-center gap-2.5 rounded-full bg-primary-600 px-7 text-base font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
                 >
                     <PlusIcon />
                     Tambah Rute
                 </button>
             </div>
 
-            <div className="mt-9 overflow-x-auto rounded-2xl border border-neutral-200">
-                <table className="w-full min-w-225 border-collapse text-left">
-                    <thead className="bg-primary-600 text-white">
-                        <tr>
-                            <th className="w-19 px-6 py-5 text-[17px] font-semibold">
-                                No.
-                            </th>
-                            <th className="px-6 py-5 text-[17px] font-semibold">
-                                Nama Jalur / Koridor
-                            </th>
-                            <th className="w-47.5 px-6 py-5 text-[17px] font-semibold">
-                                Moda
-                            </th>
-                            <th className="w-40 px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
-                                Jumlah Halte
-                            </th>
-                            <th className="w-41.25 px-6 py-5 text-[17px] font-semibold">
-                                Status
-                            </th>
-                            <th className="w-30 px-6 py-5 text-[17px] font-semibold">
-                                Aksi
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filtered.length === 0 && (
+            {loading ? (
+                <div className="mt-9 flex items-center justify-center py-12">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent" />
+                </div>
+            ) : (
+                <div className="mt-9 overflow-x-auto rounded-2xl border border-neutral-200">
+                    <table className="w-full min-w-225 border-collapse text-left">
+                        <thead className="bg-primary-600 text-white">
                             <tr>
-                                <td
-                                    colSpan={6}
-                                    className="px-6 py-10 text-center text-base text-neutral-500"
+                                <th className="w-19 px-6 py-5 text-[17px] font-semibold">
+                                    No.
+                                </th>
+                                <th className="px-6 py-5 text-[17px] font-semibold">
+                                    Nama Jalur / Koridor
+                                </th>
+                                <th className="w-47.5 px-6 py-5 text-[17px] font-semibold">
+                                    Moda
+                                </th>
+                                <th className="w-40 px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
+                                    Jumlah Halte
+                                </th>
+                                <th className="w-41.25 px-6 py-5 text-[17px] font-semibold">
+                                    Status
+                                </th>
+                                <th className="w-30 px-6 py-5 text-[17px] font-semibold">
+                                    Aksi
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filtered.length === 0 && (
+                                <tr>
+                                    <td
+                                        colSpan={6}
+                                        className="px-6 py-10 text-center text-base text-neutral-500"
+                                    >
+                                        Tidak ada data rute yang cocok.
+                                    </td>
+                                </tr>
+                            )}
+                            {filtered.map((rute, index) => (
+                                <tr
+                                    key={rute.id}
+                                    className={index > 0 ? 'border-t border-neutral-200' : ''}
                                 >
-                                    Tidak ada data rute yang cocok.
-                                </td>
-                            </tr>
-                        )}
-                        {filtered.map((rute, index) => (
-                            <tr
-                                key={rute.id}
-                                className={index > 0 ? 'border-t border-neutral-200' : ''}
-                            >
-                                <td className="px-6 py-5 align-middle text-base text-neutral-900">
-                                    {index + 1}
-                                </td>
-                                <td className="px-6 py-5 align-middle text-base font-medium text-neutral-900">
-                                    {rute.namaJalur}
-                                </td>
-                                <td className="px-6 py-5 align-middle text-base text-neutral-900">
-                                    {rute.moda}
-                                </td>
-                                <td className="px-6 py-5 align-middle text-base text-neutral-900">
-                                    {rute.jumlahHalte}
-                                </td>
-                                <td className="px-6 py-5 align-middle">
-                                    <StatusBadge status={rute.status} />
-                                </td>
-                                <td className="px-6 py-5 align-middle">
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => handleEdit(rute)}
-                                            aria-label={`Edit rute ${rute.namaJalur}`}
-                                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-primary-600 transition hover:bg-primary-700"
-                                        >
-                                            <AdminEditIcon />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setDeleting(rute)}
-                                            aria-label={`Hapus rute ${rute.namaJalur}`}
-                                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-red-600 transition hover:bg-red-700"
-                                        >
-                                            <TrashIcon />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                                    <td className="px-6 py-5 align-middle text-base text-neutral-900">
+                                        {index + 1}
+                                    </td>
+                                    <td className="px-6 py-5 align-middle text-base font-medium text-neutral-900">
+                                        {rute.namaRute}
+                                    </td>
+                                    <td className="px-6 py-5 align-middle text-base text-neutral-900">
+                                        {rute.moda.namaModa}
+                                    </td>
+                                    <td className="px-6 py-5 align-middle text-base text-neutral-900">
+                                        {rute._count?.stops ?? 0}
+                                    </td>
+                                    <td className="px-6 py-5 align-middle">
+                                        <StatusBadge isActive={rute.isActive} />
+                                    </td>
+                                    <td className="px-6 py-5 align-middle">
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleEdit(rute)}
+                                                aria-label={`Edit rute ${rute.namaRute}`}
+                                                disabled={submitting || loadingDetail}
+                                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-primary-600 transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                <AdminEditIcon />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setDeleting(rute)}
+                                                aria-label={`Hapus rute ${rute.namaRute}`}
+                                                disabled={submitting}
+                                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-red-600 transition hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                <TrashIcon />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
             {formOpen && (
                 <RuteFormModal
-                    key={editing?.id}
-                    isOpen={formOpen}
+                    key={editing?.id ?? 'baru'}
+                    isOpen
+                    haltes={haltes}
+                    modas={modas}
                     initial={editing}
-                    modaOptions={modaOptions}
-                    halteOptions={halteOptions}
                     onCancel={handleCloseForm}
-                    onSave={handleWizardSave}
+                    onSubmit={handleFormSave}
+                    submitting={submitting}
                 />
             )}
 
             <ConfirmEditModal
                 isOpen={pendingEdit != null}
+                title="Simpan Rute?"
                 description={
                     <>
                         Apakah kamu yakin ingin menyimpan perubahan rute{' '}
-                        <strong>{pendingEdit?.namaJalur}</strong>? Data yang telah diubah tidak
-                        dapat dikembalikan.
+                        <strong>{pendingEdit?.namaRute}</strong>? Data yang telah diubah tidak dapat
+                        dikembalikan.
                     </>
                 }
                 onCancel={() => setPendingEdit(null)}
                 onConfirm={handleConfirmEdit}
+                disabled={submitting}
             />
 
             <ConfirmDeleteModal
@@ -296,21 +378,22 @@ export default function AdminRutePage() {
                 title="Hapus Rute?"
                 description={
                     <>
-                        Apakah kamu yakin ingin menghapus rute <strong>{deleting?.namaJalur}</strong>?
+                        Apakah kamu yakin ingin menghapus rute <strong>{deleting?.namaRute}</strong>?
                         Data yang telah dihapus tidak dapat dipulihkan.
                     </>
                 }
                 confirmLabel="Hapus Rute"
                 onCancel={() => setDeleting(null)}
                 onConfirm={handleDelete}
+                disabled={submitting}
             />
 
-            {successAlert && (
+            {alert && (
                 <Alert
-                    status="success"
-                    title={successAlert.title}
-                    description={successAlert.description}
-                    onClose={() => setSuccessAlert(null)}
+                    status={alert.type || 'success'}
+                    title={alert.title}
+                    description={alert.description}
+                    onClose={() => setAlert(null)}
                     autoDismissMs={4000}
                     className="fixed top-28 right-6 z-40 shadow-[0_10px_25px_rgba(15,23,42,0.14)]"
                 />
