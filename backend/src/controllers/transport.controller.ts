@@ -5,9 +5,6 @@ import {
   createHalteSchema,
   updateHalteSchema,
   nearbyHalteSchema,
-  createRuteSchema,
-  updateRuteSchema,
-  updateStopsSchema,
 } from '../middlewares/transport-validate.middleware';
 
 export class TransportController {
@@ -100,12 +97,25 @@ export class TransportController {
   static async updateHalte(req: Request, res: Response): Promise<void> {
     try {
       const id = Number(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ success: false, message: 'ID Halte tidak valid' });
+        return;
+      }
+
       const parsed = updateHalteSchema.safeParse(req.body);
       if (!parsed.success) {
         res.status(400).json({
           success: false,
           message: 'Validasi input update halte gagal',
           errors: parsed.error.format(),
+        });
+        return;
+      }
+
+      if (Object.keys(parsed.data).length === 0) {
+        res.status(400).json({
+          success: false,
+          message: 'Tidak ada data yang dikirim untuk diperbarui',
         });
         return;
       }
@@ -117,6 +127,10 @@ export class TransportController {
         data,
       });
     } catch (error: any) {
+      if (error.message?.includes('tidak ditemukan')) {
+        res.status(404).json({ success: false, message: error.message });
+        return;
+      }
       res.status(400).json({ success: false, message: error.message || 'Gagal memperbarui halte' });
     }
   }
@@ -124,25 +138,38 @@ export class TransportController {
   static async deleteHalte(req: Request, res: Response): Promise<void> {
     try {
       const id = Number(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ success: false, message: 'ID Halte tidak valid' });
+        return;
+      }
+
       await HalteService.delete(id);
       res.json({
         success: true,
         message: 'Halte berhasil dihapus',
       });
     } catch (error: any) {
+      if (error.message?.includes('tidak ditemukan')) {
+        res.status(404).json({ success: false, message: error.message });
+        return;
+      }
+      if (error.message?.includes('masih dipakai')) {
+        res.status(409).json({ success: false, message: error.message });
+        return;
+      }
       res.status(400).json({ success: false, message: error.message || 'Gagal menghapus halte' });
     }
   }
 
-  // ================= RUTE CONTROLLERS =================
+  // ================= RUTE CONTROLLERS (PUBLIC GET ONLY) =================
 
   static async getAllRute(req: Request, res: Response): Promise<void> {
     try {
-      const { search, modaId, isActive } = req.query;
-      const data = await RuteService.getAll({
+      const { search, modaId } = req.query;
+      // Ignore isActive query param for public endpoint
+      const data = await RuteService.getAllPublic({
         search: search as string,
         modaId: modaId ? Number(modaId) : undefined,
-        isActive: isActive !== undefined ? isActive === 'true' : undefined,
       });
 
       res.json({
@@ -163,7 +190,7 @@ export class TransportController {
         return;
       }
 
-      const data = await RuteService.getById(id);
+      const data = await RuteService.getByIdPublic(id);
       res.json({
         success: true,
         message: 'Berhasil mengambil detail rute beserta urutan stop',
@@ -171,90 +198,6 @@ export class TransportController {
       });
     } catch (error: any) {
       res.status(404).json({ success: false, message: error.message || 'Rute tidak ditemukan' });
-    }
-  }
-
-  static async createRute(req: Request, res: Response): Promise<void> {
-    try {
-      const parsed = createRuteSchema.safeParse(req.body);
-      if (!parsed.success) {
-        res.status(400).json({
-          success: false,
-          message: 'Validasi input rute gagal',
-          errors: parsed.error.format(),
-        });
-        return;
-      }
-
-      const data = await RuteService.create(parsed.data);
-      res.status(201).json({
-        success: true,
-        message: 'Rute baru berhasil dibuat',
-        data,
-      });
-    } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message || 'Gagal membuat rute' });
-    }
-  }
-
-  static async updateRute(req: Request, res: Response): Promise<void> {
-    try {
-      const id = Number(req.params.id);
-      const parsed = updateRuteSchema.safeParse(req.body);
-      if (!parsed.success) {
-        res.status(400).json({
-          success: false,
-          message: 'Validasi input update rute gagal',
-          errors: parsed.error.format(),
-        });
-        return;
-      }
-
-      const data = await RuteService.update(id, parsed.data);
-      res.json({
-        success: true,
-        message: 'Data rute berhasil diperbarui',
-        data,
-      });
-    } catch (error: any) {
-      res.status(400).json({ success: false, message: error.message || 'Gagal memperbarui rute' });
-    }
-  }
-
-  static async updateRuteStops(req: Request, res: Response): Promise<void> {
-    try {
-      const id = Number(req.params.id);
-      const parsed = updateStopsSchema.safeParse(req.body);
-      if (!parsed.success) {
-        res.status(400).json({
-          success: false,
-          message: 'Validasi urutan stop gagal',
-          errors: parsed.error.format(),
-        });
-        return;
-      }
-
-      const data = await RuteService.updateStops(id, parsed.data.stops);
-      res.json({
-        success: true,
-        message: 'Urutan halte/stop pada rute berhasil diperbarui',
-        data,
-      });
-    } catch (error: any) {
-      res.status(400).json({ success: false, message: error.message || 'Gagal memperbarui stop rute' });
-    }
-  }
-
-  static async deleteRute(req: Request, res: Response): Promise<void> {
-    try {
-      const id = Number(req.params.id);
-      await RuteService.delete(id);
-      res.json({
-        success: true,
-        message: 'Rute berhasil dihapus',
-      });
-    } catch (error: any) {
-      res.status(400).json({ success: false, message: error.message || 'Gagal menghapus rute' });
     }
   }
 }

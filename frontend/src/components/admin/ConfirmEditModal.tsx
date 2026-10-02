@@ -9,6 +9,7 @@ export type ConfirmEditModalProps = {
     confirmLabel?: string;
     cancelLabel?: string;
     isLoading?: boolean;
+    disabled?: boolean;
     onCancel: () => void;
     onConfirm: () => void;
 };
@@ -20,17 +21,18 @@ export function ConfirmEditModal({
     confirmLabel = 'Simpan',
     cancelLabel = 'Batal',
     isLoading = false,
+    disabled = false,
     onCancel,
     onConfirm,
 }: ConfirmEditModalProps) {
     useEffect(() => {
         if (!isOpen) return;
         function handleKeyDown(event: KeyboardEvent) {
-            if (event.key === 'Escape' && !isLoading) onCancel();
+            if (event.key === 'Escape' && !isLoading && !disabled) onCancel();
         }
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, isLoading, onCancel]);
+    }, [isOpen, isLoading, disabled, onCancel]);
 
     if (!isOpen) return null;
 
@@ -39,7 +41,7 @@ export function ConfirmEditModal({
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-2.5 sm:p-4"
             role="presentation"
             onMouseDown={(event) => {
-                if (event.target === event.currentTarget && !isLoading) onCancel();
+                if (event.target === event.currentTarget && !isLoading && !disabled) onCancel();
             }}
         >
             <section
@@ -66,7 +68,7 @@ export function ConfirmEditModal({
                     <button
                         type="button"
                         onClick={onCancel}
-                        disabled={isLoading}
+                        disabled={isLoading || disabled}
                         className="cursor-pointer rounded-[20px] bg-neutral-400 px-5 py-2 text-sm font-semibold text-white transition hover:bg-neutral-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-500 disabled:cursor-not-allowed disabled:opacity-60 sm:px-6 sm:py-2 sm:text-lg"
                     >
                         {cancelLabel}
@@ -74,7 +76,7 @@ export function ConfirmEditModal({
                     <button
                         type="button"
                         onClick={onConfirm}
-                        disabled={isLoading}
+                        disabled={isLoading || disabled}
                         className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[20px] bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:cursor-not-allowed disabled:opacity-60 sm:gap-3 sm:px-6 sm:py-2 sm:text-lg"
                     >
                         {isLoading ? 'Memproses...' : confirmLabel}

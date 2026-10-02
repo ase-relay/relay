@@ -4,20 +4,21 @@ import { FormEvent, useEffect, useState } from 'react';
 import Image from 'next/image';
 import { HiChevronDown, HiMap, HiOutlinePencilSquare, HiXMark } from 'react-icons/hi2';
 import SearchIcon from '@/components/icons/common/SearchIcon';
-import type { Halte, HalteInput, HalteStatus } from '@/lib/types/halte';
+import type { Halte, HalteInput } from '@/lib/types/halte';
 
 export type HalteFormModalProps = {
     isOpen: boolean;
     initial?: Halte | null;
     onCancel: () => void;
     onSave: (input: HalteInput) => void;
+    disabled?: boolean;
 };
 
 type LokasiMode = 'peta' | 'manual';
 
-const statusOptions: { value: HalteStatus; label: string }[] = [
-    { value: 'AKTIF', label: 'Aktif' },
-    { value: 'TIDAK_AKTIF', label: 'Tidak Aktif' },
+const statusOptions: { value: string; label: string }[] = [
+    { value: 'true', label: 'Aktif' },
+    { value: 'false', label: 'Tidak Aktif' },
 ];
 
 const pickedLocation = {
@@ -42,12 +43,12 @@ function MapPin() {
     );
 }
 
-export function HalteFormModal({ isOpen, initial = null, onCancel, onSave }: HalteFormModalProps) {
-    const [nama, setNama] = useState(initial?.nama ?? '');
+export function HalteFormModal({ isOpen, initial = null, onCancel, onSave, disabled = false }: HalteFormModalProps) {
+    const [nama, setNama] = useState(initial?.namaHalte ?? '');
     const [alamat, setAlamat] = useState(initial?.alamat ?? '');
-    const [latitude, setLatitude] = useState(initial?.latitude ?? '');
-    const [longitude, setLongitude] = useState(initial?.longitude ?? '');
-    const [status, setStatus] = useState<HalteStatus>(initial?.status ?? 'AKTIF');
+    const [latitude, setLatitude] = useState(initial ? String(initial.latitude) : '');
+    const [longitude, setLongitude] = useState(initial ? String(initial.longitude) : '');
+    const [isActive, setIsActive] = useState(initial?.isActive ?? true);
     const [lokasiMode, setLokasiMode] = useState<LokasiMode>(initial ? 'manual' : 'peta');
     const [mapOpen, setMapOpen] = useState(false);
     const [mapQuery, setMapQuery] = useState('');
@@ -96,9 +97,22 @@ export function HalteFormModal({ isOpen, initial = null, onCancel, onSave }: Hal
 
         if (!nama.trim()) nextErrors.nama = 'Nama halte wajib diisi';
         if (!alamat.trim()) nextErrors.alamat = 'Alamat wajib diisi';
-        if (lokasiMode === 'manual') {
-            if (!latitude.trim()) nextErrors.latitude = 'Latitude wajib diisi';
-            if (!longitude.trim()) nextErrors.longitude = 'Longitude wajib diisi';
+
+        const latitudeValue = Number(latitude.trim());
+        const longitudeValue = Number(longitude.trim());
+        if (!latitude.trim()) {
+            nextErrors.latitude = 'Latitude wajib diisi';
+        } else if (!Number.isFinite(latitudeValue)) {
+            nextErrors.latitude = 'Latitude harus berupa angka';
+        } else if (latitudeValue < -90 || latitudeValue > 90) {
+            nextErrors.latitude = 'Latitude harus di antara -90 dan 90';
+        }
+        if (!longitude.trim()) {
+            nextErrors.longitude = 'Longitude wajib diisi';
+        } else if (!Number.isFinite(longitudeValue)) {
+            nextErrors.longitude = 'Longitude harus berupa angka';
+        } else if (longitudeValue < -180 || longitudeValue > 180) {
+            nextErrors.longitude = 'Longitude harus di antara -180 dan 180';
         }
 
         if (Object.keys(nextErrors).length > 0) {
@@ -107,11 +121,11 @@ export function HalteFormModal({ isOpen, initial = null, onCancel, onSave }: Hal
         }
 
         onSave({
-            nama: nama.trim(),
+            namaHalte: nama.trim(),
             alamat: alamat.trim(),
-            latitude: latitude.trim(),
-            longitude: longitude.trim(),
-            status,
+            latitude: latitudeValue,
+            longitude: longitudeValue,
+            isActive,
         });
     }
 
@@ -340,6 +354,12 @@ export function HalteFormModal({ isOpen, initial = null, onCancel, onSave }: Hal
                             {lokasiMode === 'peta' && errors.alamat && (
                                 <p className={errorClass}>{errors.alamat}</p>
                             )}
+                            {lokasiMode === 'peta' && errors.latitude && (
+                                <p className={errorClass}>{errors.latitude}</p>
+                            )}
+                            {lokasiMode === 'peta' && errors.longitude && (
+                                <p className={errorClass}>{errors.longitude}</p>
+                            )}
                         </div>
                     </div>
 
@@ -350,9 +370,10 @@ export function HalteFormModal({ isOpen, initial = null, onCancel, onSave }: Hal
                         <div className="relative">
                             <select
                                 id="halte-status"
-                                value={status}
-                                onChange={(event) => setStatus(event.target.value as HalteStatus)}
-                                className={`${inputClass} cursor-pointer appearance-none pr-12`}
+                                value={isActive ? 'true' : 'false'}
+                                onChange={(event) => setIsActive(event.target.value === 'true')}
+                                disabled={disabled}
+                                className={`${inputClass} cursor-pointer appearance-none pr-12 disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
                                 {statusOptions.map((option) => (
                                     <option key={option.value} value={option.value}>
@@ -371,13 +392,15 @@ export function HalteFormModal({ isOpen, initial = null, onCancel, onSave }: Hal
                         <button
                             type="button"
                             onClick={onCancel}
-                            className="cursor-pointer rounded-full bg-neutral-400 px-5 py-2 text-sm font-semibold text-white transition hover:bg-neutral-500 sm:px-6 sm:py-2.5 sm:text-base"
+                            disabled={disabled}
+                            className="cursor-pointer rounded-full bg-neutral-400 px-5 py-2 text-sm font-semibold text-white transition hover:bg-neutral-500 disabled:opacity-50 disabled:cursor-not-allowed sm:px-6 sm:py-2.5 sm:text-base"
                         >
                             Batal
                         </button>
                         <button
                             type="submit"
-                            className="cursor-pointer rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 sm:px-6 sm:py-2.5 sm:text-base"
+                            disabled={disabled}
+                            className="cursor-pointer rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed sm:px-6 sm:py-2.5 sm:text-base"
                         >
                             {initial ? 'Simpan' : 'Tambah'}
                         </button>

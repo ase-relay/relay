@@ -26,7 +26,7 @@ export default function LoginPage() {
     const [isGoogleLogin, setIsGoogleLogin] = useState(false);
     const [googleError, setGoogleError] = useState("");
     const googleBtnRef = useRef<HTMLDivElement>(null);
-    const [googleBtnWidth, setGoogleBtnWidth] = useState(400);
+    const [googleBtnWidth, setGoogleBtnWidth] = useState(240);
     const { login, googleLogin } = useAuth();
     const router = useRouter();
     const ActiveSlide = slides[activeSlide];
@@ -119,24 +119,24 @@ export default function LoginPage() {
                 </div>
             </section>
 
-            <section className="flex items-center justify-center px-6 py-10 sm:px-12 lg:px-16 xl:px-18">
-                <div className="w-full max-w-lg">
+            <section className="flex items-center justify-center px-4 py-10 sm:px-12 lg:px-16 xl:px-18">
+                <div className="w-full max-w-md">
                     <Link href="/">
-                        <Image src="/logo/logo.svg" alt="Otewe" width={160} height={48} priority className="mb-12 h-auto w-40 lg:hidden cursor-pointer" />
+                        <Image src="/logo/logo.svg" alt="Otewe" width={160} height={48} priority className="mb-8 h-auto w-32 lg:hidden cursor-pointer" />
                     </Link>
                     <h2 className="text-2xl font-extrabold tracking-tight text-black">Mau Otewe kemana?</h2>
                     <p className="mt-2 text-sm text-neutral-600">Ongkos, Transportasi, Waktu, kita cari yang pas!</p>
-                    {error && <p role="alert" className="mt-8 text-sm text-red-600">{error}</p>}
-                    {googleError && <Alert status="error" title="Login Google Gagal" description={googleError} onClose={() => setGoogleError("")} className="mt-8" />}
+                    {error && <p role="alert" className="mt-6 text-sm text-red-600">{error}</p>}
+                    {googleError && <Alert status="error" title="Login Google Gagal" description={googleError} onClose={() => setGoogleError("")} className="mt-6" />}
 
-                    <form onSubmit={handleSubmit} className="mt-7 space-y-5">
+                    <form onSubmit={handleSubmit} className="mt-6 space-y-4">
                         <div><label htmlFor="identifier" className="text-sm font-semibold text-black">Email atau username</label><div className="relative mt-2"><HiOutlineUser className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-neutral-400" /><input id="identifier" type="text" autoComplete="username" value={form.identifier} onChange={(event) => setForm({ ...form, identifier: event.target.value })} placeholder="Masukkan email atau username" className="w-full rounded-xl border border-neutral-300 py-3 pr-4 pl-11 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-primary-600 focus:ring-1 focus:ring-primary-600" /></div></div>
                         <div><label htmlFor="password" className="text-sm font-semibold text-black">Kata Sandi</label><div className="relative mt-2"><HiOutlineLockClosed className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-neutral-400" /><input id="password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Masukkan kata sandi" className="w-full rounded-xl border border-neutral-300 py-3 pr-11 pl-11 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-primary-600 focus:ring-1 focus:ring-primary-600" /><button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"} className="absolute top-1/2 right-4 -translate-y-1/2 cursor-pointer text-neutral-400">{showPassword ? <HiOutlineEyeSlash className="h-4 w-4" /> : <HiOutlineEye className="h-4 w-4" />}</button></div></div>
                         <div className="flex justify-end"><Link href="/lupa-password" className="text-sm font-medium text-primary-600 hover:underline">Lupa kata sandi?</Link></div>
                         <button type="submit" disabled={isSubmitting} className="w-full cursor-pointer rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">{isSubmitting ? "Memproses..." : "Masuk"}</button>
                     </form>
-                    <div className="my-6 flex items-center gap-4"><span className="h-px flex-1 bg-neutral-400" /><span className="text-sm text-neutral-500">atau</span><span className="h-px flex-1 bg-neutral-400" /></div>
-                    <div ref={googleBtnRef} className="flex w-full justify-center">
+                    <div className="my-5 flex items-center gap-4"><span className="h-px flex-1 bg-neutral-400" /><span className="text-sm text-neutral-500">atau</span><span className="h-px flex-1 bg-neutral-400" /></div>
+                    <div ref={googleBtnRef} className="flex w-full justify-center min-w-0">
                         {!isGoogleLogin ? (
                             <GoogleLogin
                                 onSuccess={handleGoogleLogin}
@@ -153,7 +153,7 @@ export default function LoginPage() {
                             </div>
                         )}
                     </div>
-                    <p className="mt-6 text-center text-sm text-neutral-500">Belum memiliki akun? <Link href="/register" className="font-medium text-primary-600 underline">Daftar</Link></p>
+                    <p className="mt-5 text-center text-sm text-neutral-500">Belum memiliki akun? <Link href="/register" className="font-medium text-primary-600 underline">Daftar</Link></p>
                 </div>
             </section>
         </main>

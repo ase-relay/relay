@@ -20,6 +20,7 @@ export interface CreateHalteDTO {
   alamat?: string;
   kota?: string;
   isTransit?: boolean;
+  isActive?: boolean;
 }
 
 export interface UpdateHalteDTO {
@@ -29,6 +30,7 @@ export interface UpdateHalteDTO {
   alamat?: string;
   kota?: string;
   isTransit?: boolean;
+  isActive?: boolean;
 }
 
 // Rute Interfaces
@@ -40,7 +42,6 @@ export interface RuteFilter {
 
 export interface StopInputDTO {
   halteId: number;
-  urutan: number;
   estimasiMenit?: number;
   jarakMeter?: number;
 }
@@ -60,4 +61,5 @@ export interface UpdateRuteDTO {
   deskripsi?: string;
   modaId?: number;
   isActive?: boolean;
+  stops?: StopInputDTO[];
 }

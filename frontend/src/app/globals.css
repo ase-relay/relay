@@ -60,6 +60,8 @@ html {
   scrollbar-width: thin;
   scrollbar-color: #d4d4d8 transparent;
   background-color: var(--background);
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 body {
@@ -67,6 +69,8 @@ body {
   padding: 0;
   color: var(--foreground);
   font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .skeleton-shimmer {

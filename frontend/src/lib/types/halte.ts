@@ -1,12 +1,21 @@
-export type HalteStatus = 'AKTIF' | 'TIDAK_AKTIF';
-
 export interface Halte {
-    id: string;
-    nama: string;
-    alamat: string;
-    latitude: string;
-    longitude: string;
-    status: HalteStatus;
+    id: number;
+    namaHalte: string;
+    alamat: string | null;
+    latitude: number;
+    longitude: number;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+    _count?: {
+        ruteStops: number;
+    };
 }
 
-export type HalteInput = Omit<Halte, 'id'>;
+export interface HalteInput {
+    namaHalte: string;
+    alamat?: string;
+    latitude: number;
+    longitude: number;
+    isActive: boolean;
+}

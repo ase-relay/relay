@@ -1,4 +1,5 @@
 import { prisma } from '../config/db';
+import { invalidateRoutingNetworkCache } from './routing-network';
 import {
   HalteFilter,
   NearbyHalteQuery,
@@ -97,8 +98,9 @@ export class HalteService {
   static async getNearby(query: NearbyHalteQuery) {
     const { lat, lng, radius = 2000 } = query; // default radius 2km (2000m)
 
-    // Ambil seluruh halte untuk filtering spasial
+    // Ambil seluruh halte AKTIF untuk filtering spasial (halte nonaktif disembunyikan dari user)
     const allHalte = await prisma.halte.findMany({
+      where: { isActive: true },
       include: {
         ruteStops: {
           include: {
@@ -128,7 +130,7 @@ export class HalteService {
    * Menambahkan data halte baru
    */
   static async create(data: CreateHalteDTO) {
-    return prisma.halte.create({
+    const created = await prisma.halte.create({
       data: {
         namaHalte: data.namaHalte,
         latitude: data.latitude,
@@ -136,8 +138,12 @@ export class HalteService {
         alamat: data.alamat,
         kota: data.kota || 'Bandung',
         isTransit: data.isTransit || false,
+        isActive: data.isActive ?? true,
       },
     });
+
+    invalidateRoutingNetworkCache();
+    return created;
   }
 
   /**
@@ -146,20 +152,40 @@ export class HalteService {
   static async update(id: number, data: UpdateHalteDTO) {
     await this.getById(id);
 
-    return prisma.halte.update({
+    const updated = await prisma.halte.update({
       where: { id },
       data,
     });
+
+    invalidateRoutingNetworkCache();
+    return updated;
   }
 
   /**
-   * Menghapus halte
+   * Menghapus halte. Diblok bila halte masih dipakai rute (service-level,
+   * aturan onDelete di schema TIDAK diubah).
    */
   static async delete(id: number) {
     await this.getById(id);
 
-    return prisma.halte.delete({
-      where: { id },
+    const usedRoutes = await prisma.ruteStop.findMany({
+      where: { halteId: id },
+      select: { ruteId: true },
+      distinct: ['ruteId'],
     });
+
+    if (usedRoutes.length > 0) {
+      throw new Error(
+        `Halte masih dipakai oleh ${usedRoutes.length} rute. Nonaktifkan saja.`
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.halte.delete({
+        where: { id },
+      });
+    });
+
+    invalidateRoutingNetworkCache();
   }
 }

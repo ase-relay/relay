@@ -33,7 +33,7 @@ export default function RegisterPage() {
     const { register: registerUser, googleLogin } = useAuth();
     const router = useRouter();
     const googleBtnRef = useRef<HTMLDivElement>(null);
-    const [googleBtnWidth, setGoogleBtnWidth] = useState(400);
+    const [googleBtnWidth, setGoogleBtnWidth] = useState(240);
     const ActiveSlide = slides[activeSlide];
     const usernameValid = usernamePattern.test(form.username);
     const passwordValid = passwordPattern.test(form.password);
@@ -128,26 +128,26 @@ export default function RegisterPage() {
                 </div>
             </section>
 
-            <section className="flex items-center justify-center px-6 py-10 sm:px-12 lg:px-16 xl:px-18">
-                <div className="w-full max-w-lg">
+            <section className="flex items-center justify-center px-4 py-10 sm:px-12 lg:px-16 xl:px-18">
+                <div className="w-full max-w-md">
                     <Link href="/">
-                        <Image src="/logo/logo.svg" alt="Otewe" width={160} height={48} priority className="mb-12 h-auto w-40 lg:hidden cursor-pointer" />
+                        <Image src="/logo/logo.svg" alt="Otewe" width={160} height={48} priority className="mb-8 h-auto w-32 lg:hidden cursor-pointer" />
                     </Link>
                     <h2 className="text-2xl font-extrabold tracking-tight text-black">Siap buat Otewe?</h2>
                     <p className="mt-2 text-sm text-neutral-600">Daftar dan pilih transportasi yang pas buatmu.</p>
-                    {apiError && <p role="alert" className="mt-8 text-sm text-red-600">{apiError}</p>}
-                    {googleError && <Alert status="error" title="Login Google Gagal" description={googleError} onClose={() => setGoogleError("")} className="mt-8" />}
+                    {apiError && <p role="alert" className="mt-6 text-sm text-red-600">{apiError}</p>}
+                    {googleError && <Alert status="error" title="Login Google Gagal" description={googleError} onClose={() => setGoogleError("")} className="mt-6" />}
 
-                    <form onSubmit={handleSubmit} noValidate className="mt-7 space-y-4">
+                    <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-3">
                         <div><label htmlFor="email" className="text-sm font-semibold text-black">Email</label><div className="relative mt-2"><HiOutlineEnvelope className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-neutral-400" /><input id="email" type="email" autoComplete="email" value={form.email} onChange={(event) => updateField("email", event.target.value)} placeholder="Masukkan email aktif" className={inputClass(submitted && !form.email)} /></div></div>
                         <div><label htmlFor="username" className="text-sm font-semibold text-black">Username</label><div className="relative mt-2"><HiOutlineUser className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-neutral-400" /><input id="username" type="text" autoComplete="username" value={form.username} onChange={(event) => updateField("username", event.target.value)} placeholder="Buat username" className={inputClass(submitted && !usernameValid)} /></div><p className={`mt-1 text-xs ${submitted && !usernameValid ? "text-red-600" : "text-neutral-400"}`}>{submitted && !usernameValid ? "*3-20 karakter, hanya huruf, angka, dan underscore" : "3-20 karakter, hanya huruf, angka, dan underscore"}</p></div>
                         <div><label htmlFor="password" className="text-sm font-semibold text-black">Kata Sandi</label><div className="relative mt-2"><HiOutlineLockClosed className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-neutral-400" /><input id="password" type={showPassword ? "text" : "password"} autoComplete="new-password" value={form.password} onChange={(event) => updateField("password", event.target.value)} placeholder="Buat kata sandi" className={inputClass(submitted && !passwordValid)} /><button type="button" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"} className="absolute top-1/2 right-4 -translate-y-1/2 cursor-pointer text-neutral-400">{showPassword ? <HiOutlineEyeSlash className="h-4 w-4" /> : <HiOutlineEye className="h-4 w-4" />}</button></div><p className={`mt-1 text-xs ${submitted && !passwordValid ? "text-red-600" : "text-neutral-400"}`}>Minimal 8 karakter dengan kombinasi huruf dan angka</p></div>
                         <div><label htmlFor="confirmation" className="text-sm font-semibold text-black">Konfirmasi Kata Sandi</label><div className="relative mt-2"><HiOutlineLockClosed className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-neutral-400" /><input id="confirmation" type={showConfirmation ? "text" : "password"} autoComplete="new-password" value={form.confirmation} onChange={(event) => updateField("confirmation", event.target.value)} placeholder="Ulangi kata sandi" className={inputClass(submitted && !confirmationValid)} /><button type="button" onClick={() => setShowConfirmation((current) => !current)} aria-label={showConfirmation ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"} className="absolute top-1/2 right-4 -translate-y-1/2 cursor-pointer text-neutral-400">{showConfirmation ? <HiOutlineEyeSlash className="h-4 w-4" /> : <HiOutlineEye className="h-4 w-4" />}</button></div></div>
-                        <div className="flex items-center gap-3 pt-2"><input id="terms" type="checkbox" checked={agreedToTerms} onChange={(event) => setAgreedToTerms(event.target.checked)} className="h-5 w-5 shrink-0 cursor-pointer accent-primary-600" /><label htmlFor="terms" className="cursor-pointer text-sm text-neutral-700">Saya menyetujui <Link href="/syarat-ketentuan" className="font-medium text-primary-600">Syarat &amp; Ketentuan</Link> dan <Link href="/kebijakan-privasi" className="font-medium text-primary-600">Kebijakan Privasi</Link></label></div>
+                        <div className="flex items-start gap-3 pt-2"><input id="terms" type="checkbox" checked={agreedToTerms} onChange={(event) => setAgreedToTerms(event.target.checked)} className="h-5 w-5 shrink-0 cursor-pointer accent-primary-600 mt-0.5" /><label htmlFor="terms" className="cursor-pointer text-sm text-neutral-700 leading-snug">Saya menyetujui <Link href="/syarat-ketentuan" className="font-medium text-primary-600">Syarat &amp; Ketentuan</Link> dan <Link href="/kebijakan-privasi" className="font-medium text-primary-600">Kebijakan Privasi</Link></label></div>
                         <button type="submit" disabled={!formValid || isSubmitting} className="w-full cursor-pointer rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-neutral-400 disabled:hover:bg-neutral-400 disabled:opacity-50">{isSubmitting ? "Memproses..." : "Daftar"}</button>
                     </form>
-                    <div className="my-6 flex items-center gap-4"><span className="h-px flex-1 bg-neutral-400" /><span className="text-sm text-neutral-500">atau</span><span className="h-px flex-1 bg-neutral-400" /></div>
-                    <div ref={googleBtnRef} className="flex w-full justify-center">
+                    <div className="my-5 flex items-center gap-4"><span className="h-px flex-1 bg-neutral-400" /><span className="text-sm text-neutral-500">atau</span><span className="h-px flex-1 bg-neutral-400" /></div>
+                    <div ref={googleBtnRef} className="flex w-full justify-center min-w-0">
                         {!isGoogleLogin ? (
                             <GoogleLogin
                                 onSuccess={handleGoogleLogin}
@@ -164,7 +164,7 @@ export default function RegisterPage() {
                             </div>
                         )}
                     </div>
-                    <p className="mt-6 text-center text-sm text-neutral-500">Sudah memiliki akun? <Link href="/login" className="font-medium text-primary-600 underline">Masuk</Link></p>
+                    <p className="mt-5 text-center text-sm text-neutral-500">Sudah memiliki akun? <Link href="/login" className="font-medium text-primary-600 underline">Masuk</Link></p>
                 </div>
             </section>
         </main>

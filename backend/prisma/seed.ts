@@ -328,6 +328,46 @@ async function main() {
   }
 
   console.log('✅ Seeded All RuteStops (Urutan & Interkoneksi Transit Antar Moda).');
+
+  // 6. Selaraskan sequence ID autoincrement (aman untuk tabel kosong).
+  //    Sequence TIDAK PERNAH diturunkan: setval hanya dipanggil bila MAX(id)
+  //    ada dan (MAX(id) > last_value ATAU sequence belum pernah dipakai).
+  //    Tabel kosong: tidak diapa-apakan.
+  const sequenceTables = [
+    'User',
+    'ModaTransportasi',
+    'Halte',
+    'Rute',
+    'RuteStop',
+    'Tarif',
+    'SearchHistory',
+  ];
+
+  for (const table of sequenceTables) {
+    const maxRows = await prisma.$queryRawUnsafe<Array<{ max: number | null }>>(
+      `SELECT MAX(id) AS max FROM "${table}"`
+    );
+    const maxId = maxRows[0]?.max ?? null;
+    if (maxId === null) continue;
+
+    const seqRows = await prisma.$queryRawUnsafe<Array<{ seq: string | null }>>(
+      `SELECT pg_get_serial_sequence('"${table}"', 'id') AS seq`
+    );
+    const seqName = seqRows[0]?.seq ?? null;
+    if (!seqName) continue;
+
+    const stateRows = await prisma.$queryRawUnsafe<Array<{ last_value: bigint; is_called: boolean }>>(
+      `SELECT last_value, is_called FROM ${seqName}`
+    );
+    const lastValue = Number(stateRows[0]?.last_value ?? 0);
+    const isCalled = stateRows[0]?.is_called ?? false;
+
+    if (maxId > lastValue || !isCalled) {
+      await prisma.$executeRawUnsafe(`SELECT setval('${seqName}', ${maxId}, true)`);
+    }
+  }
+
+  console.log('✅ Sequence ID autoincrement diselaraskan (tidak pernah diturunkan).');
   console.log('🎉 Database seeding completed successfully!');
 }
 

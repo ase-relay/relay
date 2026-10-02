@@ -80,8 +80,9 @@ let refreshPromise: Promise<CachedNetworkData> | null = null;
 
 async function fetchAndCache(): Promise<CachedNetworkData> {
   const [modas, stops, rutes, tarifs] = await Promise.all([
-    prisma.modaTransportasi.findMany(),
+    prisma.modaTransportasi.findMany({ where: { isActive: true } }),
     prisma.halte.findMany({
+      where: { isActive: true },
       select: {
         id: true,
         namaHalte: true,
@@ -109,6 +110,7 @@ async function fetchAndCache(): Promise<CachedNetworkData> {
     category: categorizeModa(m.namaModa, m.tipeModa),
   }));
   const modaById = new Map(networkModas.map((m) => [m.id, m]));
+  const activeModaIds = new Set(networkModas.map((m) => m.id));
 
   const networkStops: NetworkStop[] = stops.map((h) => ({
     id: h.id,
@@ -119,22 +121,42 @@ async function fetchAndCache(): Promise<CachedNetworkData> {
   }));
 
   const networkRutes: NetworkRute[] = [];
+  const activeRuteIds = new Set<number>();
   for (const r of rutes) {
     const moda = modaById.get(r.modaId);
     if (!moda) continue;
-    const stopsOrdered: NetworkRuteStop[] = r.stops.map((s) => ({
-      halteId: s.halteId,
-      urutan: s.urutan,
-      estimasiMenit: s.estimasiMenit,
-      jarakMeter: s.jarakMeter,
-      halte: {
-        id: s.halte.id,
-        nama: s.halte.namaHalte,
-        lat: s.halte.latitude,
-        lng: s.halte.longitude,
-        isTransit: s.halte.isTransit,
-      },
-    }));
+    // Halte nonaktif dilewati (tidak masuk graph), tetapi rute tetap ada.
+    // estimasiMenit/jarakMeter bersifat PER SEGMEN antar halte (edge dari halte
+    // ini ke halte berikutnya; halte terakhir 0/0 — lihat pemakaian di
+    // route-candidates.ts buildRideSegment). Karena itu edge baru antar halte
+    // tetangga = PENJUMLAHAN edge-edge yang dilewati agar waktu & jarak tetap
+    // benar. Bila salah satu edge tidak diketahui (null/0), pakai null supaya
+    // fallback haversine/kecepatan yang dipakai.
+    const stopsOrdered: NetworkRuteStop[] = [];
+    for (const s of r.stops) {
+      if (s.halte.isActive !== false) {
+        stopsOrdered.push({
+          halteId: s.halteId,
+          urutan: s.urutan,
+          estimasiMenit: s.estimasiMenit,
+          jarakMeter: s.jarakMeter,
+          halte: {
+            id: s.halte.id,
+            nama: s.halte.namaHalte,
+            lat: s.halte.latitude,
+            lng: s.halte.longitude,
+            isTransit: s.halte.isTransit,
+          },
+        });
+      } else if (stopsOrdered.length > 0) {
+        const prev = stopsOrdered[stopsOrdered.length - 1];
+        prev.jarakMeter = sumEdges(prev.jarakMeter, s.jarakMeter);
+        prev.estimasiMenit = sumEdges(prev.estimasiMenit, s.estimasiMenit);
+      }
+      // Halte nonaktif di awal rute (belum ada tetangga aktif): tidak ada
+      // edge yang perlu diakumulasi.
+    }
+    if (stopsOrdered.length < 2) continue;
     networkRutes.push({
       id: r.id,
       nama: r.namaRute,
@@ -143,17 +165,20 @@ async function fetchAndCache(): Promise<CachedNetworkData> {
       stops: stopsOrdered,
       positions: buildPositions(stopsOrdered),
     });
+    activeRuteIds.add(r.id);
   }
 
-  const networkTarifs: NetworkTarif[] = tarifs.map((t) => ({
-    modaId: t.modaId,
-    ruteId: t.ruteId,
-    tipeTarif: t.tipeTarif,
-    nominalDasar: t.nominalDasar,
-    nominalPerKm: t.nominalPerKm,
-    jarakMinimumKm: t.jarakMinimumKm,
-    keterangan: t.keterangan,
-  }));
+  const networkTarifs: NetworkTarif[] = tarifs
+    .filter((t) => activeModaIds.has(t.modaId) && (t.ruteId === null || activeRuteIds.has(t.ruteId)))
+    .map((t) => ({
+      modaId: t.modaId,
+      ruteId: t.ruteId,
+      tipeTarif: t.tipeTarif,
+      nominalDasar: t.nominalDasar,
+      nominalPerKm: t.nominalPerKm,
+      jarakMinimumKm: t.jarakMinimumKm,
+      keterangan: t.keterangan,
+    }));
 
   cachedNetwork = {
     modas: networkModas,
@@ -204,6 +229,12 @@ export function categorizeModa(namaModa: string, tipeModa: string | null): ModaC
   if (tipe === 'RIDE_HAILING' || /ojek|ojol|gojek|grab|ride/.test(nama)) return 'OJEK';
   if (tipe === 'COMMUTER_TRAIN' || /kereta|krl|commuter|train/.test(nama)) return 'KERETA';
   return 'BUS';
+}
+
+/** Jumlahkan dua edge per-segmen; null bila salah satu tidak diketahui (fallback haversine). */
+export function sumEdges(base: number | null, add: number | null): number | null {
+  if (base === null || base <= 0 || add === null || add <= 0) return null;
+  return base + add;
 }
 
 /** Peta halteId -> indeks urutan rute. */
