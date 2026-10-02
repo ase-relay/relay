@@ -12,6 +12,7 @@ export const getHealthCheck = async (req: Request, res: Response) => {
 export const getModaList = async (req: Request, res: Response) => {
   try {
     const modas = await prisma.modaTransportasi.findMany({
+      where: { isActive: true },
       include: {
         tarifs: true,
       },

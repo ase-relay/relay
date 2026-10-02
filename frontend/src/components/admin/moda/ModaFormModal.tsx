@@ -2,23 +2,19 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { HiXMark } from 'react-icons/hi2';
-import type { Moda, ModaInput, ModaStatus } from '@/lib/types/moda';
+import type { Moda, ModaInput } from '@/lib/types/moda';
 
 export type ModaFormModalProps = {
     isOpen: boolean;
     initial?: Moda | null;
     onCancel: () => void;
     onSave: (input: ModaInput) => void;
+    disabled?: boolean;
 };
 
-const statusOptions: { value: ModaStatus; label: string }[] = [
-    { value: 'AKTIF', label: 'Aktif' },
-    { value: 'TIDAK_AKTIF', label: 'Tidak Aktif' },
-];
-
-export function ModaFormModal({ isOpen, initial = null, onCancel, onSave }: ModaFormModalProps) {
-    const [nama, setNama] = useState(initial?.nama ?? '');
-    const [status, setStatus] = useState<ModaStatus>(initial?.status ?? 'AKTIF');
+export function ModaFormModal({ isOpen, initial = null, onCancel, onSave, disabled = false }: ModaFormModalProps) {
+    const [nama, setNama] = useState(initial?.namaModa ?? '');
+    const [isActive, setIsActive] = useState(initial?.isActive ?? true);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
@@ -48,7 +44,7 @@ export function ModaFormModal({ isOpen, initial = null, onCancel, onSave }: Moda
             return;
         }
 
-        onSave({ nama: nama.trim(), status });
+        onSave({ namaModa: nama.trim(), isActive });
     }
 
     return (
@@ -77,7 +73,8 @@ export function ModaFormModal({ isOpen, initial = null, onCancel, onSave }: Moda
                         type="button"
                         onClick={onCancel}
                         aria-label="Tutup modal"
-                        className="-mt-1 shrink-0 cursor-pointer rounded-lg p-1 text-neutral-900 transition hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+                        disabled={disabled}
+                        className="-mt-1 shrink-0 cursor-pointer rounded-lg p-1 text-neutral-900 transition hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <HiXMark className="h-5 w-5 sm:h-6 sm:w-6" />
                     </button>
@@ -86,7 +83,7 @@ export function ModaFormModal({ isOpen, initial = null, onCancel, onSave }: Moda
                 <form onSubmit={handleSubmit} className="mt-4 space-y-4 sm:mt-6 sm:space-y-5">
                     <div>
                         <label htmlFor="moda-nama" className={labelClass}>
-                            Moda
+                            Nama Moda
                         </label>
                         <input
                             id="moda-nama"
@@ -94,6 +91,7 @@ export function ModaFormModal({ isOpen, initial = null, onCancel, onSave }: Moda
                             value={nama}
                             onChange={(event) => setNama(event.target.value)}
                             placeholder="Masukkan nama moda"
+                            disabled={disabled}
                             className={inputClass}
                         />
                         {errors.nama && <p className={errorClass}>{errors.nama}</p>}
@@ -105,15 +103,13 @@ export function ModaFormModal({ isOpen, initial = null, onCancel, onSave }: Moda
                         </label>
                         <select
                             id="moda-status"
-                            value={status}
-                            onChange={(event) => setStatus(event.target.value as ModaStatus)}
-                            className={`${inputClass} cursor-pointer appearance-none bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%238E8E93' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m5 7.5 5 5 5-5'/%3E%3C/svg%3E")] bg-size-[20px_20px] bg-position-[right_16px_center] bg-no-repeat pr-10 sm:bg-position-[right_28px_center] sm:pr-12`}
+                            value={isActive ? 'true' : 'false'}
+                            onChange={(event) => setIsActive(event.target.value === 'true')}
+                            disabled={disabled}
+                            className={`${inputClass} cursor-pointer appearance-none bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%238E8E93' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m5 7.5 5 5 5-5'/%3E%3C/svg%3E")] bg-size-[20px_20px] bg-position-[right_16px_center] bg-no-repeat pr-10 sm:bg-position-[right_28px_center] sm:pr-12 disabled:opacity-50 disabled:cursor-not-allowed`}
                         >
-                            {statusOptions.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
+                            <option value="true">Aktif</option>
+                            <option value="false">Tidak Aktif</option>
                         </select>
                     </div>
 
@@ -121,13 +117,15 @@ export function ModaFormModal({ isOpen, initial = null, onCancel, onSave }: Moda
                         <button
                             type="button"
                             onClick={onCancel}
-                            className="cursor-pointer rounded-full bg-neutral-400 px-5 py-2 text-sm font-semibold text-white transition hover:bg-neutral-500 sm:px-6 sm:py-2.5 sm:text-base"
+                            disabled={disabled}
+                            className="cursor-pointer rounded-full bg-neutral-400 px-5 py-2 text-sm font-semibold text-white transition hover:bg-neutral-500 disabled:opacity-50 disabled:cursor-not-allowed sm:px-6 sm:py-2.5 sm:text-base"
                         >
                             Batal
                         </button>
                         <button
                             type="submit"
-                            className="cursor-pointer rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 sm:px-6 sm:py-2.5 sm:text-base"
+                            disabled={disabled}
+                            className="cursor-pointer rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed sm:px-6 sm:py-2.5 sm:text-base"
                         >
                             {initial ? 'Simpan' : 'Tambah'}
                         </button>

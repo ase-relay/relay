@@ -29,16 +29,17 @@ model User {
 // 2. Model Moda Transportasi (FR-ADM-04)
 // Contoh: Bus (TMB/TMP), Angkot, Kereta (KRD), Ojol
 model ModaTransportasi {
-  id        Int      @id @default(autoincrement())
-  namaModa  String   @unique // Bus, Angkot, Kereta, Ojek Online
-  tipeModa  String? // BRT, FEEDEER, COMMUTER_TRAIN, RIDE_HAILING
-  ikon      String? // URL atau nama identifier icon SVG
-  deskripsi String?
+  id                   Int      @id @default(autoincrement())
+  namaModa             String   @unique // Bus, Angkot, Kereta, Ojek Online
+  tipeModa             String? // BRT, FEEDEER, COMMUTER_TRAIN, RIDE_HAILING
+  ikon                 String? // URL atau nama identifier icon SVG
+  deskripsi            String?
   // ESTIMASI kecepatan rata-rata (km/jam) untuk perhitungan durasi mesin routing.
   // Null = pakai konstanta default di src/config/routing.config.ts.
   rataRataKecepatanKmh Float?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   rutes  Rute[]
   tarifs Tarif[]
@@ -54,6 +55,7 @@ model Halte {
   alamat    String?
   kota      String   @default("Bandung") // Bandung, Cimahi, Kab. Bandung, dll
   isTransit Boolean  @default(false) // Apakah titik hubung transit antar moda
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -102,18 +104,18 @@ enum TipeTarif {
 }
 
 model Tarif {
-  id           Int       @id @default(autoincrement())
-  modaId       Int
-  ruteId       Int? // Opsional jika tarif berlaku khusus pada rute tertentu
-  tipeTarif    TipeTarif @default(FLAT)
-  nominalDasar Float     @default(0) // Base fare / tarif minimum (jarak <= jarakMinimumKm)
-  nominalPerKm Float?    @default(0) // Biaya per km jika tipe PER_KM
+  id             Int       @id @default(autoincrement())
+  modaId         Int
+  ruteId         Int? // Opsional jika tarif berlaku khusus pada rute tertentu
+  tipeTarif      TipeTarif @default(FLAT)
+  nominalDasar   Float     @default(0) // Base fare / tarif minimum (jarak <= jarakMinimumKm)
+  nominalPerKm   Float?    @default(0) // Biaya per km jika tipe PER_KM
   // Khusus tipe PER_KM (mis. ojek): jarak maksimum yang ditutup nominalDasar.
   // Null/0 = nominalDasar berlaku sebagai tarif dasar biasa.
   jarakMinimumKm Float?
-  keterangan   String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  keterangan     String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   moda ModaTransportasi @relation(fields: [modaId], references: [id], onDelete: Cascade)
   rute Rute?            @relation(fields: [ruteId], references: [id], onDelete: SetNull)

@@ -1,9 +1,19 @@
-export type ModaStatus = 'AKTIF' | 'TIDAK_AKTIF';
-
 export interface Moda {
-    id: string;
-    nama: string;
-    status: ModaStatus;
+    id: number;
+    namaModa: string;
+    tipeModa: string | null;
+    deskripsi: string | null;
+    rataRataKecepatanKmh: number | null;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+    _count?: {
+        rutes: number;
+        tarifs: number;
+    };
 }
 
-export type ModaInput = Omit<Moda, 'id'>;
+export interface ModaInput {
+    namaModa: string;
+    isActive: boolean;
+}
