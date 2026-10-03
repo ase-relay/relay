@@ -42,14 +42,6 @@ async function main() {
     rataRataKecepatanKmh: 20, // ESTIMASI km/jam (placeholder, disesuaikan kebutuhan)
   });
 
-  const angkot = await upsertModa({
-    namaModa: 'Angkutan Kota (Angkot)',
-    tipeModa: 'FEEDER',
-    ikon: 'car',
-    deskripsi: 'Angkutan kota mikrolet trayek Bandung Raya.',
-    rataRataKecepatanKmh: 15, // ESTIMASI km/jam (placeholder, disesuaikan kebutuhan)
-  });
-
   const krd = await upsertModa({
     namaModa: 'Commuter Line Bandung Raya',
     tipeModa: 'COMMUTER_TRAIN',
@@ -67,7 +59,7 @@ async function main() {
     rataRataKecepatanKmh: 22, // ESTIMASI km/jam (placeholder, disesuaikan kebutuhan)
   });
 
-  console.log('✅ Seeded 4 Moda Transportasi: Bus, Angkot, Kereta, Ojek Online.');
+  console.log('✅ Seeded 3 Moda Transportasi: Bus, Kereta, Ojek Online.');
 
   // 2b. Tarif per moda (satu moda satu tarif) — idempoten via upsert modaId.
   // Ojek PER_KM (NILAI PLACEHOLDER)
@@ -109,16 +101,6 @@ async function main() {
   });
 
   await upsertTarif({
-    modaId: angkot.id,
-    tipeTarif: TipeTarif.FLAT,
-    nominalDasar: 5000,
-    nominalPerKm: 0,
-    jarakMinimumKm: null,
-    biayaLayanan: 0,
-    keterangan: 'Tarif flat angkot dalam kota Bandung (Rp 5.000)',
-  });
-
-  await upsertTarif({
     modaId: krd.id,
     tipeTarif: TipeTarif.FLAT,
     nominalDasar: 5000,
@@ -128,7 +110,7 @@ async function main() {
     keterangan: 'Tarif flat tiket KRD Commuter Line (Rp 5.000)',
   });
 
-  console.log('✅ Seeded tarif per moda (ojek PER_KM, bus/angkot/kereta FLAT).');
+  console.log('✅ Seeded tarif per moda (ojek PER_KM, bus/kereta FLAT).');
 
   // 3. Seed Halte & Stasiun Strategis Bandung (Koordinat Presisi OpenStreetMap)
   const halteData = [
@@ -262,18 +244,7 @@ async function main() {
     },
   });
 
-  // Rute 3: Angkot Trayek Kalapa - Dago (Leuwipanjang / Alun-alun - Dago)
-  const ruteAngkotDago = await prisma.rute.create({
-    data: {
-      namaRute: 'Angkot Kalapa - Dago (via Alun-Alun, BEC & ITB)',
-      kodeRute: 'ANGKOT-KLP-DGO',
-      deskripsi: 'Angkutan kota menghubungkan pusat kota (Alun-Alun), area kampus ITB hingga Simpang Dago.',
-      modaId: angkot.id,
-      isActive: true,
-    },
-  });
-
-  // Rute 4: KRD Commuter Line Bandung Raya (Cimahi - Stasiun Hall - Kiaracondong)
+  // Rute 3: KRD Commuter Line Bandung Raya (Cimahi - Stasiun Hall - Kiaracondong)
   const ruteKrd = await prisma.rute.create({
     data: {
       namaRute: 'Commuter Line Bandung Raya (Cimahi - Bandung - Kiaracondong)',
@@ -284,7 +255,7 @@ async function main() {
     },
   });
 
-  console.log('✅ Seeded 4 Rute Transportasi (TMP-3D, TMP-2D, Angkot Dago, KRD).');
+  console.log('✅ Seeded 3 Rute Transportasi (TMP-3D, TMP-2D, KRD).');
 
   // 5. Seed RuteStops (Jalur urutan pemberhentian per rute)
 
@@ -308,17 +279,6 @@ async function main() {
   ];
   for (const s of stopsTmp2) {
     await prisma.ruteStop.create({ data: { ruteId: ruteTmp2.id, ...s } });
-  }
-
-  // Stops Angkot Dago: Alun-Alun (1) -> BEC (2) -> ITB (3) -> Simpang Dago (4)
-  const stopsAngkot = [
-    { halteId: 3, urutan: 1, estimasiMenit: 8, jarakMeter: 1900 },
-    { halteId: 6, urutan: 2, estimasiMenit: 10, jarakMeter: 2400 },
-    { halteId: 8, urutan: 3, estimasiMenit: 5, jarakMeter: 1100 },
-    { halteId: 9, urutan: 4, estimasiMenit: 0, jarakMeter: 0 },
-  ];
-  for (const s of stopsAngkot) {
-    await prisma.ruteStop.create({ data: { ruteId: ruteAngkotDago.id, ...s } });
   }
 
   // Stops KRD Bandung Raya: Cimahi (1) -> Stasiun Hall (2) -> Kiaracondong (3)

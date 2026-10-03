@@ -1,7 +1,16 @@
+export type TipeModa = 'BUS' | 'KERETA' | 'OJEK_ONLINE';
+
+export const TIPE_MODA_LABELS: Record<TipeModa, string> = {
+    BUS: 'Bus',
+    KERETA: 'Kereta',
+    OJEK_ONLINE: 'Ojek online',
+};
+
 export interface Moda {
     id: number;
     namaModa: string;
     tipeModa: string | null;
+    ikon: string | null;
     deskripsi: string | null;
     rataRataKecepatanKmh: number | null;
     isActive: boolean;
@@ -14,5 +23,8 @@ export interface Moda {
 
 export interface ModaInput {
     namaModa: string;
+    tipeModa: TipeModa;
+    deskripsi: string | null;
+    rataRataKecepatanKmh: number | null;
     isActive: boolean;
 }

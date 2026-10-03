@@ -220,12 +220,12 @@ async function loadNetworkData(): Promise<CachedNetworkData> {
   return cachedNetwork;
 }
 
-/** Kategori moda berdasar tipe/nama (asumsi: BRT/Angkot -> BUS). */
+/** Kategori moda berdasar tipe/nama (tipe tak dikenal -> BUS). */
 export function categorizeModa(namaModa: string, tipeModa: string | null): ModaCategory {
   const tipe = (tipeModa ?? '').toUpperCase();
   const nama = namaModa.toLowerCase();
-  if (tipe === 'RIDE_HAILING' || /ojek|ojol|gojek|grab|ride/.test(nama)) return 'OJEK';
-  if (tipe === 'COMMUTER_TRAIN' || /kereta|krl|commuter|train/.test(nama)) return 'KERETA';
+  if (tipe === 'RIDE_HAILING' || tipe === 'OJEK_ONLINE' || /ojek|ojol|gojek|grab|ride/.test(nama)) return 'OJEK';
+  if (tipe === 'COMMUTER_TRAIN' || tipe === 'KERETA' || /kereta|krl|commuter|train/.test(nama)) return 'KERETA';
   return 'BUS';
 }
 

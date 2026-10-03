@@ -1,6 +1,13 @@
 import { prisma } from '../config/db';
 import { invalidateRoutingNetworkCache } from './routing-network';
 
+/** Ikon otomatis per tipe moda (ditentukan server, tidak diterima dari klien). */
+export const MODA_IKON: Record<string, string> = {
+  BUS: 'bus',
+  KERETA: 'train',
+  OJEK_ONLINE: 'motorcycle',
+};
+
 export class ModaService {
   static async getAll() {
     return prisma.modaTransportasi.findMany({
@@ -38,9 +45,9 @@ export class ModaService {
 
   static async create(data: {
     namaModa: string;
-    tipeModa?: string;
-    deskripsi?: string;
-    rataRataKecepatanKmh?: number;
+    tipeModa: string;
+    deskripsi?: string | null;
+    rataRataKecepatanKmh?: number | null;
     isActive?: boolean;
   }) {
     const newModa = await prisma.$transaction(async (tx) => {
@@ -57,12 +64,14 @@ export class ModaService {
         throw new Error('Nama moda sudah ada (case-insensitive)');
       }
 
+      const trimmedDeskripsi = data.deskripsi?.trim() ?? '';
       const newModa = await tx.modaTransportasi.create({
         data: {
           namaModa: data.namaModa,
           tipeModa: data.tipeModa,
-          deskripsi: data.deskripsi,
-          rataRataKecepatanKmh: data.rataRataKecepatanKmh,
+          ikon: MODA_IKON[data.tipeModa],
+          deskripsi: trimmedDeskripsi === '' ? null : trimmedDeskripsi,
+          rataRataKecepatanKmh: data.rataRataKecepatanKmh ?? null,
           isActive: data.isActive ?? true,
         },
       });
@@ -79,8 +88,8 @@ export class ModaService {
     data: {
       namaModa?: string;
       tipeModa?: string;
-      deskripsi?: string;
-      rataRataKecepatanKmh?: number;
+      deskripsi?: string | null;
+      rataRataKecepatanKmh?: number | null;
       isActive?: boolean;
     }
   ) {
@@ -107,8 +116,10 @@ export class ModaService {
         where: { id },
         data: {
           ...(data.namaModa && { namaModa: data.namaModa }),
-          ...(data.tipeModa !== undefined && { tipeModa: data.tipeModa }),
-          ...(data.deskripsi !== undefined && { deskripsi: data.deskripsi }),
+          ...(data.tipeModa !== undefined && { tipeModa: data.tipeModa, ikon: MODA_IKON[data.tipeModa] }),
+          ...(data.deskripsi !== undefined && {
+            deskripsi: data.deskripsi === null || data.deskripsi.trim() === '' ? null : data.deskripsi.trim(),
+          }),
           ...(data.rataRataKecepatanKmh !== undefined && { rataRataKecepatanKmh: data.rataRataKecepatanKmh }),
           ...(data.isActive !== undefined && { isActive: data.isActive }),
         },

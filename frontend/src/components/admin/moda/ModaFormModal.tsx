@@ -2,7 +2,8 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { HiXMark } from 'react-icons/hi2';
-import type { Moda, ModaInput } from '@/lib/types/moda';
+import type { Moda, ModaInput, TipeModa } from '@/lib/types/moda';
+import { TIPE_MODA_LABELS } from '@/lib/types/moda';
 
 export type ModaFormModalProps = {
     isOpen: boolean;
@@ -12,8 +13,45 @@ export type ModaFormModalProps = {
     disabled?: boolean;
 };
 
+const TIPE_MODA_OPTIONS: TipeModa[] = ['BUS', 'KERETA', 'OJEK_ONLINE'];
+
+const IKON_OTOMATIS: Record<TipeModa, string> = {
+    BUS: 'bus',
+    KERETA: 'train',
+    OJEK_ONLINE: 'motorcycle',
+};
+
+const TIPE_LAMA_KE_BARU: Record<string, TipeModa> = {
+    BRT: 'BUS',
+    COMMUTER_TRAIN: 'KERETA',
+    RIDE_HAILING: 'OJEK_ONLINE',
+};
+
+function tipeAwal(tipeModa: string | null | undefined): TipeModa | '' {
+    if (tipeModa == null) return '';
+    if ((TIPE_MODA_OPTIONS as string[]).includes(tipeModa)) return tipeModa as TipeModa;
+    return TIPE_LAMA_KE_BARU[tipeModa] ?? '';
+}
+
+type Parsed = { ok: true; value: number } | { ok: false; reason: 'empty' | 'invalid' };
+
+// Membedakan kosong, valid, dan tidak valid (mis. "abc"/"1e3" tidak dikonversi diam-diam).
+function parseKecepatan(raw: string): Parsed {
+    const trimmed = raw.trim();
+    if (trimmed === '') return { ok: false, reason: 'empty' };
+    if (!/^\d+([.,]\d+)?$/.test(trimmed)) return { ok: false, reason: 'invalid' };
+    const num = Number(trimmed.replace(',', '.'));
+    if (!Number.isFinite(num)) return { ok: false, reason: 'invalid' };
+    return { ok: true, value: num };
+}
+
 export function ModaFormModal({ isOpen, initial = null, onCancel, onSave, disabled = false }: ModaFormModalProps) {
     const [nama, setNama] = useState(initial?.namaModa ?? '');
+    const [tipeModa, setTipeModa] = useState<TipeModa | ''>(() => tipeAwal(initial?.tipeModa));
+    const [deskripsi, setDeskripsi] = useState(initial?.deskripsi ?? '');
+    const [kecepatan, setKecepatan] = useState(
+        initial?.rataRataKecepatanKmh != null ? String(initial.rataRataKecepatanKmh) : '',
+    );
     const [isActive, setIsActive] = useState(initial?.isActive ?? true);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -32,6 +70,7 @@ export function ModaFormModal({ isOpen, initial = null, onCancel, onSave, disabl
         'mt-2 h-10 w-full rounded-xl border border-neutral-300 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-primary-600 focus:outline-none sm:h-12 sm:px-5 sm:text-base';
     const labelClass = 'block text-sm font-bold text-neutral-900 sm:text-base';
     const errorClass = 'mt-1 text-xs text-red-600 sm:text-sm';
+    const helpClass = 'mt-1 text-xs text-neutral-500 sm:text-sm';
 
     function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -39,12 +78,40 @@ export function ModaFormModal({ isOpen, initial = null, onCancel, onSave, disabl
 
         if (!nama.trim()) nextErrors.nama = 'Nama moda wajib diisi';
 
+        if (tipeModa === '') {
+            nextErrors.tipeModa = 'Tipe moda wajib dipilih';
+        }
+
+        if (deskripsi.trim().length > 500) {
+            nextErrors.deskripsi = 'Deskripsi maksimal 500 karakter';
+        }
+
+        const parsedKecepatan = parseKecepatan(kecepatan);
+        if (parsedKecepatan.ok) {
+            if (parsedKecepatan.value <= 0 || parsedKecepatan.value > 200) {
+                nextErrors.kecepatan = 'Kecepatan harus berupa angka lebih dari 0 dan maksimal 200 (contoh: 20 atau 22,5)';
+            }
+        } else if (parsedKecepatan.reason === 'invalid') {
+            nextErrors.kecepatan = 'Kecepatan harus berupa angka lebih dari 0 dan maksimal 200 (contoh: 20 atau 22,5)';
+        }
+
         if (Object.keys(nextErrors).length > 0) {
             setErrors(nextErrors);
             return;
         }
 
-        onSave({ namaModa: nama.trim(), isActive });
+        if (tipeModa === '') return;
+        const kecepatanParsed = parseKecepatan(kecepatan);
+        if (!kecepatanParsed.ok && kecepatanParsed.reason === 'invalid') return;
+        const deskripsiTrimmed = deskripsi.trim();
+
+        onSave({
+            namaModa: nama.trim(),
+            tipeModa,
+            deskripsi: deskripsiTrimmed === '' ? null : deskripsiTrimmed,
+            rataRataKecepatanKmh: !kecepatanParsed.ok ? null : kecepatanParsed.value,
+            isActive,
+        });
     }
 
     return (
@@ -95,6 +162,68 @@ export function ModaFormModal({ isOpen, initial = null, onCancel, onSave, disabl
                             className={inputClass}
                         />
                         {errors.nama && <p className={errorClass}>{errors.nama}</p>}
+                    </div>
+
+                    <div>
+                        <label htmlFor="moda-tipe" className={labelClass}>
+                            Tipe moda
+                        </label>
+                        <select
+                            id="moda-tipe"
+                            value={tipeModa}
+                            onChange={(event) => setTipeModa(event.target.value as TipeModa | '')}
+                            disabled={disabled}
+                            className={`${inputClass} cursor-pointer appearance-none pr-10 sm:pr-12 disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                            <option value="" disabled hidden>
+                                Pilih tipe moda
+                            </option>
+                            {TIPE_MODA_OPTIONS.map((option) => (
+                                <option key={option} value={option}>
+                                    {TIPE_MODA_LABELS[option]}
+                                </option>
+                            ))}
+                        </select>
+                        <p className={helpClass}>Tipe menentukan ikon dan perlakuan moda di pencarian rute</p>
+                        {tipeModa !== '' && (
+                            <p className={helpClass}>Ikon: {IKON_OTOMATIS[tipeModa]}</p>
+                        )}
+                        {errors.tipeModa && <p className={errorClass}>{errors.tipeModa}</p>}
+                    </div>
+
+                    <div>
+                        <label htmlFor="moda-deskripsi" className={labelClass}>
+                            Deskripsi (opsional)
+                        </label>
+                        <textarea
+                            id="moda-deskripsi"
+                            value={deskripsi}
+                            onChange={(event) => setDeskripsi(event.target.value)}
+                            placeholder="Deskripsi moda ..."
+                            maxLength={500}
+                            disabled={disabled}
+                            rows={3}
+                            className={`${inputClass} h-auto py-3 sm:py-3`}
+                        />
+                        {errors.deskripsi && <p className={errorClass}>{errors.deskripsi}</p>}
+                    </div>
+
+                    <div>
+                        <label htmlFor="moda-kecepatan" className={labelClass}>
+                            Kecepatan rata-rata (km/jam, opsional)
+                        </label>
+                        <input
+                            id="moda-kecepatan"
+                            type="text"
+                            inputMode="decimal"
+                            value={kecepatan}
+                            onChange={(event) => setKecepatan(event.target.value)}
+                            placeholder="Kosongkan untuk otomatis"
+                            disabled={disabled}
+                            className={inputClass}
+                        />
+                        <p className={helpClass}>Kosongkan untuk memakai kecepatan standar mesin routing (bus 20, ojek 22, kereta 35 km/jam)</p>
+                        {errors.kecepatan && <p className={errorClass}>{errors.kecepatan}</p>}
                     </div>
 
                     <div>
