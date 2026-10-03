@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { HiOutlineEye, HiOutlineEyeSlash, HiOutlineLockClosed, HiOutlineUser } from "react-icons/hi2";
 import axios from "axios";
 import { AuthSlideBudget } from "@/components/auth/AuthSlideBudget";
@@ -14,6 +14,8 @@ import { useAuth } from "@/context/AuthContext";
 import { CredentialResponse, GoogleLogin } from "@react-oauth/google";
 import { jwtDecode } from "jwt-decode";
 import Alert from "@/components/ui/Alert";
+import { AlertViewport } from "@/components/ui/AlertViewport";
+import { getApiErrorMessage } from "@/lib/utils/apiError";
 
 const slides = [AuthSlideBudget, AuthSlideTransport, AuthSlideRoute];
 
@@ -29,6 +31,7 @@ export default function LoginPage() {
     const [googleBtnWidth, setGoogleBtnWidth] = useState(240);
     const { login, googleLogin } = useAuth();
     const router = useRouter();
+    const handleCloseGoogleError = useCallback(() => setGoogleError(""), []);
     const ActiveSlide = slides[activeSlide];
 
     useEffect(() => {
@@ -64,7 +67,7 @@ export default function LoginPage() {
                 if (err.response?.status === 401) {
                     setError(err.response.data.message || "Email/username atau password salah");
                 } else if (err.response?.status === 400) {
-                    setError(err.response.data.message || "Data yang dimasukkan tidak valid");
+                    setError(getApiErrorMessage(err, "Data yang dimasukkan tidak valid"));
                 } else {
                     setError("Terjadi kesalahan, silakan coba lagi");
                 }
@@ -97,6 +100,9 @@ export default function LoginPage() {
 
     return (
         <main className="grid min-h-screen bg-white lg:grid-cols-[3fr_2fr]">
+            <AlertViewport>
+                {googleError && <Alert status="error" title="Login Google Gagal" description={googleError} onClose={handleCloseGoogleError} />}
+            </AlertViewport>
             <section className="relative hidden min-h-screen overflow-hidden border-r border-neutral-200 bg-[linear-gradient(180deg,#fff_0%,#edf6ff_100%)] px-10 py-10 lg:block xl:px-14">
                 <Link href="/">
                     <Image src="/logo/logo.svg" alt="Otewe" width={160} height={48} priority className="relative z-10 h-auto w-36 cursor-pointer" />
@@ -127,7 +133,6 @@ export default function LoginPage() {
                     <h2 className="text-2xl font-extrabold tracking-tight text-black">Mau Otewe kemana?</h2>
                     <p className="mt-2 text-sm text-neutral-600">Ongkos, Transportasi, Waktu, kita cari yang pas!</p>
                     {error && <p role="alert" className="mt-6 text-sm text-red-600">{error}</p>}
-                    {googleError && <Alert status="error" title="Login Google Gagal" description={googleError} onClose={() => setGoogleError("")} className="mt-6" />}
 
                     <form onSubmit={handleSubmit} className="mt-6 space-y-4">
                         <div><label htmlFor="identifier" className="text-sm font-semibold text-black">Email atau username</label><div className="relative mt-2"><HiOutlineUser className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-neutral-400" /><input id="identifier" type="text" autoComplete="username" value={form.identifier} onChange={(event) => setForm({ ...form, identifier: event.target.value })} placeholder="Masukkan email atau username" className="w-full rounded-xl border border-neutral-300 py-3 pr-4 pl-11 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-primary-600 focus:ring-1 focus:ring-primary-600" /></div></div>
