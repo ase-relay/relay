@@ -74,15 +74,15 @@ async function upsertDemoRute(data: {
         },
       });
 
-  // Tarif rute (FLAT) bila belum ada
-  const tarif = await prisma.tarif.findFirst({ where: { ruteId: rute.id } });
+  // Tarif per moda (FLAT) bila belum ada
+  const tarif = await prisma.tarif.findUnique({ where: { modaId: data.modaId } });
   if (!tarif) {
     await prisma.tarif.create({
       data: {
         modaId: data.modaId,
-        ruteId: rute.id,
         tipeTarif: TipeTarif.FLAT,
         nominalDasar: data.tarifDasar,
+        biayaLayanan: 0,
         keterangan: 'Tarif demo (verifikasi sebelum dipakai).',
       },
     });

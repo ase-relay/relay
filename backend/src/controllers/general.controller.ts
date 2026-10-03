@@ -14,7 +14,7 @@ export const getModaList = async (req: Request, res: Response) => {
     const modas = await prisma.modaTransportasi.findMany({
       where: { isActive: true },
       include: {
-        tarifs: true,
+        tarif: true,
       },
     });
     res.json({ success: true, data: modas });

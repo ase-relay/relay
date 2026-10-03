@@ -27,11 +27,11 @@ function makeModa(speed: number | null, id = 1): NetworkModa {
 
 const busTarif: NetworkTarif = {
   modaId: 1,
-  ruteId: 201,
   tipeTarif: 'FLAT',
   nominalDasar: 4900,
   nominalPerKm: 0,
   jarakMinimumKm: null,
+  biayaLayanan: 0,
   keterangan: 'test',
 };
 
@@ -61,8 +61,7 @@ function makeNetwork(
     ojekModa: null,
     ojekTarif: null,
     transferNeighbors: new Map(),
-    tarifByRute: new Map([[201, busTarif]]),
-    tarifByModaDefault: new Map(),
+    tarifByModa: new Map([[1, busTarif]]),
   };
 }
 

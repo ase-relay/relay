@@ -52,29 +52,29 @@ const ojekModa: NetworkModa = {
 
 const busTarif: NetworkTarif = {
   modaId: 1,
-  ruteId: 11,
   tipeTarif: 'FLAT',
   nominalDasar: 4900,
   nominalPerKm: 0,
   jarakMinimumKm: null,
+  biayaLayanan: 0,
   keterangan: 'test',
 };
 const keretaTarif: NetworkTarif = {
   modaId: 2,
-  ruteId: 12,
   tipeTarif: 'FLAT',
   nominalDasar: 5000,
   nominalPerKm: 0,
   jarakMinimumKm: null,
+  biayaLayanan: 0,
   keterangan: 'test',
 };
 const ojekTarif: NetworkTarif = {
   modaId: 3,
-  ruteId: null,
   tipeTarif: 'PER_KM',
   nominalDasar: 10000,
   nominalPerKm: 2500,
   jarakMinimumKm: 2,
+  biayaLayanan: 0,
   keterangan: 'test',
 };
 
@@ -107,14 +107,10 @@ function makeNetwork(): RoutingNetwork {
     ojekModa,
     ojekTarif,
     transferNeighbors: buildTransferNeighbors(STOPS),
-    tarifByRute: new Map([
-      [11, busTarif],
-      [12, keretaTarif],
-      [13, { ...busTarif, ruteId: 13 }],
-    ]),
-    tarifByModaDefault: new Map([
+    tarifByModa: new Map([
       [1, busTarif],
       [2, keretaTarif],
+      [3, ojekTarif],
     ]),
   };
 }

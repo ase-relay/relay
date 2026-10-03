@@ -6,6 +6,7 @@ import routingRoutes from './routing.routes';
 import modaRoutes from './moda.routes';
 import halteRoutes from './halte.routes';
 import ruteRoutes from './rute.routes';
+import tarifRoutes from './tarif.routes';
 
 const router = Router();
 
@@ -21,6 +22,9 @@ router.use('/transport/halte', halteRoutes);
 
 // Rute Routes (Admin CRUD)
 router.use('/transport/rute', ruteRoutes);
+
+// Tarif Routes (Admin CRUD)
+router.use('/transport/tarif', tarifRoutes);
 
 // Auth Routes (FR-REG-01, FR-LGN-01)
 router.use('/auth', authRoutes);

@@ -9,7 +9,7 @@ import { GeoPoint, haversineMeters } from '../utils/geo';
  */
 
 export type ModaCategory = 'BUS' | 'KERETA' | 'OJEK';
-export type TarifTipe = 'FLAT' | 'PER_KM' | 'PER_STASIUN';
+export type TarifTipe = 'FLAT' | 'PER_KM';
 
 export interface NetworkModa {
   id: number;
@@ -48,11 +48,11 @@ export interface NetworkRute {
 
 export interface NetworkTarif {
   modaId: number;
-  ruteId: number | null;
   tipeTarif: TarifTipe;
   nominalDasar: number;
   nominalPerKm: number | null;
   jarakMinimumKm: number | null;
+  biayaLayanan: number;
   keterangan: string | null;
 }
 
@@ -63,8 +63,8 @@ export interface RoutingNetwork {
   ojekTarif: NetworkTarif | null;
   /** Halte lain yang bisa dicapai jalan kaki untuk pindah kendaraan. */
   transferNeighbors: Map<number, NetworkStop[]>;
-  tarifByRute: Map<number, NetworkTarif>;
-  tarifByModaDefault: Map<number, NetworkTarif>;
+  /** Tarif per moda (satu moda satu tarif). */
+  tarifByModa: Map<number, NetworkTarif>;
 }
 
 interface CachedNetworkData {
@@ -121,7 +121,6 @@ async function fetchAndCache(): Promise<CachedNetworkData> {
   }));
 
   const networkRutes: NetworkRute[] = [];
-  const activeRuteIds = new Set<number>();
   for (const r of rutes) {
     const moda = modaById.get(r.modaId);
     if (!moda) continue;
@@ -165,18 +164,17 @@ async function fetchAndCache(): Promise<CachedNetworkData> {
       stops: stopsOrdered,
       positions: buildPositions(stopsOrdered),
     });
-    activeRuteIds.add(r.id);
   }
 
   const networkTarifs: NetworkTarif[] = tarifs
-    .filter((t) => activeModaIds.has(t.modaId) && (t.ruteId === null || activeRuteIds.has(t.ruteId)))
+    .filter((t) => activeModaIds.has(t.modaId))
     .map((t) => ({
       modaId: t.modaId,
-      ruteId: t.ruteId,
       tipeTarif: t.tipeTarif,
       nominalDasar: t.nominalDasar,
       nominalPerKm: t.nominalPerKm,
       jarakMinimumKm: t.jarakMinimumKm,
+      biayaLayanan: t.biayaLayanan,
       keterangan: t.keterangan,
     }));
 
@@ -280,18 +278,14 @@ export async function getRoutingNetwork(allowedModa?: number[]): Promise<Routing
 
   const ojekModa = modas.find((m) => m.category === 'OJEK') ?? null;
   const ojekTarif = ojekModa
-    ? data.tarifs.find((t) => t.modaId === ojekModa.id && t.ruteId === null) ?? null
+    ? data.tarifs.find((t) => t.modaId === ojekModa.id) ?? null
     : null;
 
-  const tarifByRute = new Map<number, NetworkTarif>();
-  const tarifByModaDefault = new Map<number, NetworkTarif>();
+  const tarifByModa = new Map<number, NetworkTarif>();
   const tarifScope = allowed ? data.tarifs.filter((t) => allowed.has(t.modaId)) : data.tarifs;
   for (const t of tarifScope) {
-    if (t.ruteId !== null && !tarifByRute.has(t.ruteId)) {
-      tarifByRute.set(t.ruteId, t);
-    }
-    if (t.ruteId === null && !tarifByModaDefault.has(t.modaId)) {
-      tarifByModaDefault.set(t.modaId, t);
+    if (!tarifByModa.has(t.modaId)) {
+      tarifByModa.set(t.modaId, t);
     }
   }
 
@@ -301,7 +295,6 @@ export async function getRoutingNetwork(allowedModa?: number[]): Promise<Routing
     ojekModa,
     ojekTarif,
     transferNeighbors: buildTransferNeighbors(data.stops),
-    tarifByRute,
-    tarifByModaDefault,
+    tarifByModa,
   };
 }

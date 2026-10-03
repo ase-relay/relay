@@ -42,7 +42,7 @@ model ModaTransportasi {
   updatedAt            DateTime @updatedAt
 
   rutes  Rute[]
-  tarifs Tarif[]
+  tarif Tarif?
 }
 
 // 3. Model Halte / Titik Pemberhentian (FR-ADM-03, FR-USR-04)
@@ -75,7 +75,6 @@ model Rute {
 
   moda   ModaTransportasi @relation(fields: [modaId], references: [id], onDelete: Cascade)
   stops  RuteStop[]
-  tarifs Tarif[]
 }
 
 // 5. Junction Model: Urutan Halte dalam Rute (FR-USR-04, FR-USR-05)
@@ -100,25 +99,23 @@ model RuteStop {
 enum TipeTarif {
   FLAT // Tarif tetap jauh-dekat (Contoh: Bus Rp 4.900, Angkot Rp 5.000)
   PER_KM // Tarif berbasis jarak (Contoh: Ojol Rp 2.500 / km)
-  PER_STASIUN // Tarif berbasis jumlah halte/stasiun yang dilewati
 }
 
 model Tarif {
   id             Int       @id @default(autoincrement())
-  modaId         Int
-  ruteId         Int? // Opsional jika tarif berlaku khusus pada rute tertentu
+  modaId         Int       @unique
   tipeTarif      TipeTarif @default(FLAT)
   nominalDasar   Float     @default(0) // Base fare / tarif minimum (jarak <= jarakMinimumKm)
   nominalPerKm   Float?    @default(0) // Biaya per km jika tipe PER_KM
   // Khusus tipe PER_KM (mis. ojek): jarak maksimum yang ditutup nominalDasar.
   // Null/0 = nominalDasar berlaku sebagai tarif dasar biasa.
   jarakMinimumKm Float?
+  biayaLayanan   Float     @default(0)
   keterangan     String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   moda ModaTransportasi @relation(fields: [modaId], references: [id], onDelete: Cascade)
-  rute Rute?            @relation(fields: [ruteId], references: [id], onDelete: SetNull)
 }
 
 // 7. Model Riwayat Pencarian Pengguna (FR-USR-01)

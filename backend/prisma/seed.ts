@@ -13,13 +13,10 @@ async function main() {
 
   // 1. Bersihkan data relasi seeder lama (jika ada)
   await prisma.ruteStop.deleteMany({});
-  // Tarif terikat rute harus dihapus SEBELUM rute dihapus (onDelete: SetNull,
-  // jadi tanpa ini baris lama menumpuk dan menjadi tarif default moda).
-  await prisma.tarif.deleteMany({ where: { ruteId: { not: null } } });
   await prisma.rute.deleteMany({});
   await prisma.halte.deleteMany({});
-  // Moda TIDAK dihapus (deleteMany) agar data tambahan idempoten —
-  // mis. "Ojek Online" tetap ada meski seed dijalankan berulang.
+  // Moda dan Tarif TIDAK dihapus (deleteMany) agar data tambahan idempoten —
+  // tarif ditulis per moda via upsert di bawah.
 
   console.log('🧹 Cleaned up existing transport master data.');
 
@@ -72,27 +69,66 @@ async function main() {
 
   console.log('✅ Seeded 4 Moda Transportasi: Bus, Angkot, Kereta, Ojek Online.');
 
-  // 2b. Tarif default ojek (moda-level, ruteId = null) — NILAI PLACEHOLDER
-  const existingOjekTarif = await prisma.tarif.findFirst({
-    where: { modaId: ojek.id, ruteId: null },
-  });
-  const ojekTarifData = {
+  // 2b. Tarif per moda (satu moda satu tarif) — idempoten via upsert modaId.
+  // Ojek PER_KM (NILAI PLACEHOLDER)
+  const upsertTarif = (data: {
+    modaId: number;
+    tipeTarif: TipeTarif;
+    nominalDasar: number;
+    nominalPerKm: number;
+    jarakMinimumKm: number | null;
+    biayaLayanan: number;
+    keterangan: string;
+  }) =>
+    prisma.tarif.upsert({
+      where: { modaId: data.modaId },
+      update: data,
+      create: data,
+    });
+
+  await upsertTarif({
     modaId: ojek.id,
     tipeTarif: TipeTarif.PER_KM,
     nominalDasar: 10000, // tarif minimum (berlaku s/d jarakMinimumKm)
     nominalPerKm: 2500, // tarif per km setelah jarak minimum
     jarakMinimumKm: 2,
+    biayaLayanan: 0,
     keterangan:
       'PLACEHOLDER — tarif minimum 2 km Rp 10.000 + Rp 2.500/km (dibulatkan ke atas kelipatan Rp 500). ' +
       'GANTI dengan tarif resmi terbaru Bandung (ojek online) sebelum dipakai.',
-  };
-  if (existingOjekTarif) {
-    await prisma.tarif.update({ where: { id: existingOjekTarif.id }, data: ojekTarifData });
-  } else {
-    await prisma.tarif.create({ data: ojekTarifData });
-  }
+  });
 
-  console.log('✅ Seeded tarif ojek (PLACEHOLDER — ganti tarif resmi terbaru Bandung).');
+  await upsertTarif({
+    modaId: bus.id,
+    tipeTarif: TipeTarif.FLAT,
+    nominalDasar: 4900,
+    nominalPerKm: 0,
+    jarakMinimumKm: null,
+    biayaLayanan: 0,
+    keterangan: 'Tarif integrasi Teman Bus Trans Metro Pasundan (Flat Rp 4.900)',
+  });
+
+  await upsertTarif({
+    modaId: angkot.id,
+    tipeTarif: TipeTarif.FLAT,
+    nominalDasar: 5000,
+    nominalPerKm: 0,
+    jarakMinimumKm: null,
+    biayaLayanan: 0,
+    keterangan: 'Tarif flat angkot dalam kota Bandung (Rp 5.000)',
+  });
+
+  await upsertTarif({
+    modaId: krd.id,
+    tipeTarif: TipeTarif.FLAT,
+    nominalDasar: 5000,
+    nominalPerKm: 0,
+    jarakMinimumKm: null,
+    biayaLayanan: 0,
+    keterangan: 'Tarif flat tiket KRD Commuter Line (Rp 5.000)',
+  });
+
+  console.log('✅ Seeded tarif per moda (ojek PER_KM, bus/angkot/kereta FLAT).');
 
   // 3. Seed Halte & Stasiun Strategis Bandung (Koordinat Presisi OpenStreetMap)
   const halteData = [
@@ -212,14 +248,6 @@ async function main() {
       deskripsi: 'Rute menghubungkan Kabupaten Bandung selatan ke pusat kota Bandung via Tel-U dan Leuwipanjang.',
       modaId: bus.id,
       isActive: true,
-      tarifs: {
-        create: {
-          modaId: bus.id,
-          tipeTarif: TipeTarif.FLAT,
-          nominalDasar: 4900,
-          keterangan: 'Tarif integrasi Teman Bus Trans Metro Pasundan (Flat Rp 4.900)',
-        },
-      },
     },
   });
 
@@ -231,14 +259,6 @@ async function main() {
       deskripsi: 'Koridor barat menghubungkan Alun-Alun Bandung, Pasar Baru, Stasiun Hall menuju Kota Cimahi.',
       modaId: bus.id,
       isActive: true,
-      tarifs: {
-        create: {
-          modaId: bus.id,
-          tipeTarif: TipeTarif.FLAT,
-          nominalDasar: 4900,
-          keterangan: 'Tarif integrasi Teman Bus Trans Metro Pasundan (Flat Rp 4.900)',
-        },
-      },
     },
   });
 
@@ -250,14 +270,6 @@ async function main() {
       deskripsi: 'Angkutan kota menghubungkan pusat kota (Alun-Alun), area kampus ITB hingga Simpang Dago.',
       modaId: angkot.id,
       isActive: true,
-      tarifs: {
-        create: {
-          modaId: angkot.id,
-          tipeTarif: TipeTarif.FLAT,
-          nominalDasar: 5000,
-          keterangan: 'Tarif flat angkot dalam kota Bandung (Rp 5.000)',
-        },
-      },
     },
   });
 
@@ -269,14 +281,6 @@ async function main() {
       deskripsi: 'Kereta komuter lokal menghubungkan Cimahi, Stasiun Bandung Hall, hingga Kiaracondong.',
       modaId: krd.id,
       isActive: true,
-      tarifs: {
-        create: {
-          modaId: krd.id,
-          tipeTarif: TipeTarif.FLAT,
-          nominalDasar: 5000,
-          keterangan: 'Tarif flat tiket KRD Commuter Line (Rp 5.000)',
-        },
-      },
     },
   });
 

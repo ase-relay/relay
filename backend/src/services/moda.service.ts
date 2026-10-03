@@ -6,7 +6,7 @@ export class ModaService {
     return prisma.modaTransportasi.findMany({
       include: {
         _count: {
-          select: { rutes: true, tarifs: true },
+          select: { rutes: true },
         },
       },
       orderBy: { namaModa: 'asc' },
@@ -23,10 +23,9 @@ export class ModaService {
               include: { halte: true },
               orderBy: { urutan: 'asc' },
             },
-            tarifs: true,
           },
         },
-        tarifs: true,
+        tarif: true,
       },
     });
 

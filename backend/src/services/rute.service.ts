@@ -36,7 +36,6 @@ export class RuteService {
       orderBy: { namaRute: 'asc' },
       include: {
         moda: true,
-        tarifs: true,
         _count: {
           select: { stops: true },
         },
@@ -52,7 +51,6 @@ export class RuteService {
       where: { id },
       include: {
         moda: true,
-        tarifs: true,
         stops: {
           orderBy: { urutan: 'asc' },
           include: {
@@ -96,7 +94,6 @@ export class RuteService {
       orderBy: { namaRute: 'asc' },
       include: {
         moda: true,
-        tarifs: true,
         _count: {
           select: { stops: true },
         },
@@ -112,7 +109,6 @@ export class RuteService {
       where: { id },
       include: {
         moda: true,
-        tarifs: true,
         stops: {
           orderBy: { urutan: 'asc' },
           include: {
@@ -373,18 +369,11 @@ export class RuteService {
     const result = await prisma.$transaction(async (tx) => {
       const existing = await tx.rute.findUnique({
         where: { id },
-        include: {
-          tarifs: true,
-        },
+        select: { id: true },
       });
 
       if (!existing) {
         throw new HttpError('Rute tidak ditemukan', 404);
-      }
-
-      // Cek apakah ada tarif yang mereferensikan rute ini
-      if (existing.tarifs.length > 0) {
-        throw new HttpError(`Rute ${existing.namaRute} masih punya ${existing.tarifs.length} tarif. Hapus tarifnya dulu atau nonaktifkan rute saja.`, 409);
       }
 
       await tx.rute.delete({

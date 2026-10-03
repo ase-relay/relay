@@ -1,8 +1,7 @@
 import { ROUTING_CONFIG, minutesFromKmh } from '../config/routing.config';
 import { haversineMeters, nearestWithin, roadDistanceMeters } from '../utils/geo';
-import { calculateOjekFare, calculateTransitFare, OjekFareTarif, TransitFareTarif } from './fare-calculator';
+import { calculateFare, FareTarif } from './fare-calculator';
 import {
-  ModaCategory,
   NetworkModa,
   NetworkRute,
   NetworkRuteStop,
@@ -117,17 +116,8 @@ function assembleCandidate(segments: InternalSegment[]): RouteCandidate | null {
   };
 }
 
-function rideFare(
-  category: ModaCategory,
-  tarif: (TransitFareTarif & OjekFareTarif) | null,
-  distanceMeters: number,
-  passedStopsCount: number
-): number {
-  if (!tarif) return ROUTING_CONFIG.defaultTransitFare;
-  if (category === 'OJEK' && tarif.tipeTarif === 'PER_KM') {
-    return calculateOjekFare(distanceMeters, tarif);
-  }
-  return calculateTransitFare(tarif, { distanceMeters, passedStopsCount });
+function rideFare(tarif: FareTarif | null, distanceMeters: number): number {
+  return calculateFare(tarif, distanceMeters);
 }
 
 function buildRideSegment(
@@ -176,7 +166,7 @@ function buildRideSegment(
     travelMinutes += hopMinutes;
   }
 
-  const tarif = network.tarifByRute.get(rute.id) ?? network.tarifByModaDefault.get(rute.moda.id) ?? null;
+  const tarif = network.tarifByModa.get(rute.moda.id) ?? null;
   const first = slice[0].halte;
   const last = slice[slice.length - 1].halte;
 
@@ -189,7 +179,7 @@ function buildRideSegment(
     to: { id: last.id, name: last.nama, lat: last.lat, lng: last.lng },
     distanceMeters,
     durationMinutes: Math.max(2, travelMinutes) + waitMinutes,
-    cost: rideFare(category, tarif, distanceMeters, slice.length),
+    cost: rideFare(tarif, distanceMeters),
     namaRute: rute.nama,
     kodeRute: rute.kode ?? undefined,
     halteAwal: first.nama,
@@ -216,7 +206,7 @@ function buildOjekDirectSegment(
     distanceMeters,
     durationMinutes:
       minutesFromKmh(distanceMeters, speedKmh) + ROUTING_CONFIG.ojekPickupWaitMinutes,
-    cost: calculateOjekFare(distanceMeters, tarif),
+    cost: calculateFare(tarif, distanceMeters),
     moda,
   };
 }
@@ -335,7 +325,7 @@ export function buildRouteCandidates(input: CandidateSearchInput): CandidateSear
         distanceMeters,
         durationMinutes:
           minutesFromKmh(distanceMeters, speedKmh) + ROUTING_CONFIG.ojekPickupWaitMinutes,
-        cost: ojekTarif ? calculateOjekFare(distanceMeters, ojekTarif) : 0,
+        cost: ojekTarif ? calculateFare(ojekTarif, distanceMeters) : 0,
         moda: ojekModa ?? undefined,
       };
     }
