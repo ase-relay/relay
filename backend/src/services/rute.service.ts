@@ -161,14 +161,22 @@ export class RuteService {
       throw new HttpError(`Halte dengan ID ${missingIds.join(', ')} tidak ditemukan`, 400);
     }
 
-    // Validasi estimasiMenit dan jarakMeter untuk segmen non-terakhir
+    // Validasi estimasiMenit dan jarakMeter untuk segmen non-terakhir:
+    // null/undefined = hitung otomatis (disimpan null); bila terisi harus bulat > 0.
+    // Dua field independen. Stop terakhir dipaksa 0/0 di bawah apa pun inputnya.
     for (let i = 0; i < stops.length - 1; i++) {
       const stop = stops[i];
-      if (stop.estimasiMenit === undefined || stop.estimasiMenit === null || stop.estimasiMenit <= 0) {
-        throw new HttpError(`Segmen ${i + 1}: estimasiMenit/jarakMeter wajib diisi dan lebih besar dari 0`, 400);
+      const menit = stop.estimasiMenit;
+      if (menit !== undefined && menit !== null) {
+        if (!Number.isInteger(menit) || menit <= 0) {
+          throw new HttpError(`Segmen ${i + 1}: estimasiMenit harus bilangan bulat lebih besar dari 0`, 400);
+        }
       }
-      if (stop.jarakMeter === undefined || stop.jarakMeter === null || stop.jarakMeter <= 0) {
-        throw new HttpError(`Segmen ${i + 1}: estimasiMenit/jarakMeter wajib diisi dan lebih besar dari 0`, 400);
+      const meter = stop.jarakMeter;
+      if (meter !== undefined && meter !== null) {
+        if (!Number.isInteger(meter) || meter <= 0) {
+          throw new HttpError(`Segmen ${i + 1}: jarakMeter harus bilangan bulat lebih besar dari 0`, 400);
+        }
       }
     }
 
@@ -184,8 +192,8 @@ export class RuteService {
           ruteId,
           halteId: s.halteId,
           urutan: index + 1,
-          estimasiMenit: index === stops.length - 1 ? 0 : s.estimasiMenit,
-          jarakMeter: index === stops.length - 1 ? 0 : s.jarakMeter,
+          estimasiMenit: index === stops.length - 1 ? 0 : (s.estimasiMenit ?? null),
+          jarakMeter: index === stops.length - 1 ? 0 : (s.jarakMeter ?? null),
         })),
       });
     }

@@ -7,7 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "tsx --test src/services/__tests__/routing.engine.test.ts src/services/__tests__/routing.fare.test.ts src/services/__tests__/routing.timeline.test.ts src/services/__tests__/routing.geometry.test.ts",
+    "test": "tsx --test src/services/__tests__/routing.engine.test.ts src/services/__tests__/routing.fare.test.ts src/services/__tests__/routing.timeline.test.ts src/services/__tests__/routing.geometry.test.ts src/services/__tests__/routing.null-segments.test.ts",
     "seed": "tsx prisma/seed.ts",
     "create-admin": "tsx prisma/create-admin.ts"
   },

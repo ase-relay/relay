@@ -31,9 +31,10 @@ function extractErrorMessages(obj: unknown, messages: Set<string>): void {
 }
 
 export function getApiErrorMessage(err: unknown, fallback: string): string {
+    if (err === null || err === undefined) return fallback;
     const apiErr = err as ApiErrorResponse;
 
-    const message = apiErr.response?.data?.message || apiErr.message || fallback;
+    const message = apiErr?.response?.data?.message || apiErr?.message || fallback;
 
     const errors = apiErr.response?.data?.errors;
     if (errors) {

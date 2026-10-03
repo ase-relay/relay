@@ -42,8 +42,8 @@ export interface RuteFilter {
 
 export interface StopInputDTO {
   halteId: number;
-  estimasiMenit?: number;
-  jarakMeter?: number;
+  estimasiMenit?: number | null;
+  jarakMeter?: number | null;
 }
 
 export interface CreateRuteDTO {

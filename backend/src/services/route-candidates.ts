@@ -139,13 +139,19 @@ function buildRideSegment(
   const slice = rute.stops.slice(fromIdx, toIdx + 1);
   const category = rute.moda.category;
 
-  const speedKmh =
-    rute.moda.rataRataKecepatanKmh ??
-    (category === 'KERETA'
+  const rawSpeed = rute.moda.rataRataKecepatanKmh;
+  const defaultSpeed =
+    category === 'KERETA'
       ? ROUTING_CONFIG.keretaSpeedKmh
       : category === 'OJEK'
         ? ROUTING_CONFIG.ojekSpeedKmh
-        : ROUTING_CONFIG.busSpeedKmh);
+        : ROUTING_CONFIG.busSpeedKmh;
+  // Guard J1-X: pakai kecepatan DB hanya bila berhingga dan > 0; selain itu default kategori.
+  // Mencegah Infinity dari minutesFromKmh bila moda berkecepatan 0/negatif/NaN.
+  const speedKmh =
+    typeof rawSpeed === 'number' && Number.isFinite(rawSpeed) && rawSpeed > 0
+      ? rawSpeed
+      : defaultSpeed;
   const waitMinutes =
     category === 'KERETA'
       ? ROUTING_CONFIG.keretaWaitMinutes

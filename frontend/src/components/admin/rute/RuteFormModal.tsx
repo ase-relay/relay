@@ -122,6 +122,17 @@ export function RuteFormModal({
         return `${fromId}>${toId}`;
     }
 
+    // Parse input segmen: kosong -> null (otomatis); selain itu harus bulat > 0.
+    // Mengembalikan 'invalid' untuk NaN, "abc", "1.5", "0", "-5" agar form
+    // menampilkan error Indonesia dan tidak pernah mengirim NaN ke backend.
+    function parseSegmentField(raw: string | undefined): number | null | 'invalid' {
+        const trimmed = (raw ?? '').trim();
+        if (trimmed === '') return null;
+        const num = Number(trimmed);
+        if (!Number.isInteger(num) || num <= 0) return 'invalid';
+        return num;
+    }
+
     function handleSegmentChange(fromId: number, toId: number, field: 'menit' | 'meter', value: string) {
         const key = getSegmentKey(fromId, toId);
         setSegmentValues((prev) => ({
@@ -166,14 +177,14 @@ export function RuteFormModal({
             const key = getSegmentKey(fromId, toId);
             const segment = segmentValues[key];
 
-            const menitNum = Number(segment?.menit || 0);
-            const meterNum = Number(segment?.meter || 0);
+            const menit = parseSegmentField(segment?.menit);
+            const meter = parseSegmentField(segment?.meter);
 
-            if (isNaN(menitNum) || menitNum <= 0) {
-                nextErrors[`segment_${i}`] = 'Estimasi menit harus bilangan bulat lebih besar dari 0';
+            if (menit === 'invalid') {
+                nextErrors[`segment_${i}`] = 'Estimasi menit harus bilangan bulat lebih besar dari 0 atau dikosongkan untuk otomatis';
             }
-            if (isNaN(meterNum) || meterNum <= 0) {
-                nextErrors[`segment_${i}_meter`] = 'Jarak meter harus bilangan bulat lebih besar dari 0';
+            if (meter === 'invalid') {
+                nextErrors[`segment_${i}_meter`] = 'Jarak meter harus bilangan bulat lebih besar dari 0 atau dikosongkan untuk otomatis';
             }
         }
 
@@ -189,10 +200,12 @@ export function RuteFormModal({
             const toId = selectedHalteIds[index + 1];
             const key = getSegmentKey(halteId, toId);
             const segment = segmentValues[key];
+            const menit = parseSegmentField(segment?.menit);
+            const meter = parseSegmentField(segment?.meter);
             return {
                 halteId,
-                estimasiMenit: Number(segment?.menit || 0),
-                jarakMeter: Number(segment?.meter || 0),
+                estimasiMenit: menit === 'invalid' ? null : menit,
+                jarakMeter: meter === 'invalid' ? null : meter,
             };
         });
 
@@ -524,7 +537,7 @@ export function RuteFormModal({
                             </div>
 
                             <p className="mt-3 text-xs text-neutral-500 sm:mt-4 sm:text-sm">
-                                Isi estimasi waktu (menit) dan jarak (meter) dari halte ini ke halte berikutnya.
+                                Kosongkan untuk dihitung otomatis dari jarak garis lurus antar halte dan kecepatan rata-rata moda.
                             </p>
                         </div>
                     )}

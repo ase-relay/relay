@@ -1,9 +1,33 @@
 import { z } from 'zod';
 
+// Nilai segmen per halte: bilangan bulat > 0 bila terisi; null/undefined = hitung otomatis.
+// Angka 0 diizinkan di level Zod agar stop terakhir 0/0 (round-trip GET -> PUT) lolos;
+// penegakan "0 ditolak pada segmen non-terakhir" dilakukan di RuteService.replaceStops
+// per posisi (lihat J3-d/J3-e).
+const segmenMenitSchema = z.union([
+  z
+    .number({ error: 'Estimasi menit harus berupa angka' })
+    .int({ error: 'Estimasi menit harus bilangan bulat' })
+    .positive({ error: 'Estimasi menit harus bilangan bulat lebih besar dari 0' }),
+  z.null(),
+  z.undefined(),
+  z.literal(0),
+]);
+
+const segmenMeterSchema = z.union([
+  z
+    .number({ error: 'Jarak meter harus berupa angka' })
+    .int({ error: 'Jarak meter harus bilangan bulat' })
+    .positive({ error: 'Jarak meter harus bilangan bulat lebih besar dari 0' }),
+  z.null(),
+  z.undefined(),
+  z.literal(0),
+]);
+
 export const stopInputSchema = z.object({
   halteId: z.number({ error: 'ID Halte harus berupa angka' }).int({ error: 'ID Halte harus integer' }).positive('ID Halte harus positif'),
-  estimasiMenit: z.number({ error: 'Estimasi menit harus berupa angka' }).int({ error: 'Estimasi menit harus integer' }).nonnegative('Estimasi menit tidak boleh negatif').optional(),
-  jarakMeter: z.number({ error: 'Jarak meter harus berupa angka' }).int({ error: 'Jarak meter harus integer' }).nonnegative('Jarak meter tidak boleh negatif').optional(),
+  estimasiMenit: segmenMenitSchema.optional(),
+  jarakMeter: segmenMeterSchema.optional(),
 });
 
 export const createRuteSchema = z.object({
