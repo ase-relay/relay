@@ -54,7 +54,6 @@ export function TarifFormModal({ isOpen, moda, initial = null, onCancel, onSubmi
     const [layanan, setLayanan] = useState(
         initial?.biayaLayanan != null ? String(initial.biayaLayanan) : '',
     );
-    const [keterangan, setKeterangan] = useState(initial?.keterangan ?? '');
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
@@ -124,9 +123,6 @@ export function TarifFormModal({ isOpen, moda, initial = null, onCancel, onSubmi
             return;
         }
 
-        const keteranganTrimmed = keterangan.trim();
-        const isEdit = initial != null;
-        const keteranganField = keteranganTrimmed !== '' ? { keterangan: keteranganTrimmed } : isEdit ? { keterangan: null } : {};
         if (skema === 'FLAT') {
             const parsed = parseRupiah(harga);
             if (!parsed.ok) return;
@@ -134,7 +130,6 @@ export function TarifFormModal({ isOpen, moda, initial = null, onCancel, onSubmi
                 modaId: moda.id,
                 tipeTarif: 'FLAT',
                 nominalDasar: parsed.value,
-                ...keteranganField,
             });
             return;
         }
@@ -153,7 +148,6 @@ export function TarifFormModal({ isOpen, moda, initial = null, onCancel, onSubmi
             nominalPerKm: perKm.value,
             jarakMinimumKm: batas === null ? null : batas.value,
             biayaLayanan: layananParsed === null ? 0 : layananParsed.value,
-            ...keteranganField,
         });
     }
 
@@ -348,21 +342,6 @@ export function TarifFormModal({ isOpen, moda, initial = null, onCancel, onSubmi
                                 </p>
                             </div>
                         )}
-                    </div>
-
-                    <div>
-                        <label htmlFor="tarif-keterangan" className={labelClass}>
-                            Keterangan (opsional)
-                        </label>
-                        <input
-                            id="tarif-keterangan"
-                            type="text"
-                            value={keterangan}
-                            onChange={(event) => setKeterangan(event.target.value)}
-                            placeholder="Keterangan tarif ..."
-                            disabled={submitting}
-                            className={inputClass}
-                        />
                     </div>
 
                     <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end sm:gap-3 sm:pt-4">

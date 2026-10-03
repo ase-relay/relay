@@ -25,5 +25,4 @@ export interface TarifInput {
     nominalPerKm?: number;
     jarakMinimumKm?: number | null;
     biayaLayanan?: number;
-    keterangan?: string | null;
 }
