@@ -48,7 +48,6 @@ function parseKecepatan(raw: string): Parsed {
 export function ModaFormModal({ isOpen, initial = null, onCancel, onSave, disabled = false }: ModaFormModalProps) {
     const [nama, setNama] = useState(initial?.namaModa ?? '');
     const [tipeModa, setTipeModa] = useState<TipeModa | ''>(() => tipeAwal(initial?.tipeModa));
-    const [deskripsi, setDeskripsi] = useState(initial?.deskripsi ?? '');
     const [kecepatan, setKecepatan] = useState(
         initial?.rataRataKecepatanKmh != null ? String(initial.rataRataKecepatanKmh) : '',
     );
@@ -82,10 +81,6 @@ export function ModaFormModal({ isOpen, initial = null, onCancel, onSave, disabl
             nextErrors.tipeModa = 'Tipe moda wajib dipilih';
         }
 
-        if (deskripsi.trim().length > 500) {
-            nextErrors.deskripsi = 'Deskripsi maksimal 500 karakter';
-        }
-
         const parsedKecepatan = parseKecepatan(kecepatan);
         if (parsedKecepatan.ok) {
             if (parsedKecepatan.value <= 0 || parsedKecepatan.value > 200) {
@@ -103,12 +98,10 @@ export function ModaFormModal({ isOpen, initial = null, onCancel, onSave, disabl
         if (tipeModa === '') return;
         const kecepatanParsed = parseKecepatan(kecepatan);
         if (!kecepatanParsed.ok && kecepatanParsed.reason === 'invalid') return;
-        const deskripsiTrimmed = deskripsi.trim();
 
         onSave({
             namaModa: nama.trim(),
             tipeModa,
-            deskripsi: deskripsiTrimmed === '' ? null : deskripsiTrimmed,
             rataRataKecepatanKmh: !kecepatanParsed.ok ? null : kecepatanParsed.value,
             isActive,
         });
@@ -189,23 +182,6 @@ export function ModaFormModal({ isOpen, initial = null, onCancel, onSave, disabl
                             <p className={helpClass}>Ikon: {IKON_OTOMATIS[tipeModa]}</p>
                         )}
                         {errors.tipeModa && <p className={errorClass}>{errors.tipeModa}</p>}
-                    </div>
-
-                    <div>
-                        <label htmlFor="moda-deskripsi" className={labelClass}>
-                            Deskripsi (opsional)
-                        </label>
-                        <textarea
-                            id="moda-deskripsi"
-                            value={deskripsi}
-                            onChange={(event) => setDeskripsi(event.target.value)}
-                            placeholder="Deskripsi moda ..."
-                            maxLength={500}
-                            disabled={disabled}
-                            rows={3}
-                            className={`${inputClass} h-auto py-3 sm:py-3`}
-                        />
-                        {errors.deskripsi && <p className={errorClass}>{errors.deskripsi}</p>}
                     </div>
 
                     <div>

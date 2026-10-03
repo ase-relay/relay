@@ -24,7 +24,6 @@ export interface Moda {
 export interface ModaInput {
     namaModa: string;
     tipeModa: TipeModa;
-    deskripsi: string | null;
     rataRataKecepatanKmh: number | null;
     isActive: boolean;
 }
