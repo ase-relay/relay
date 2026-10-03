@@ -316,7 +316,7 @@ function CariRutePageContent() {
                   className={`grid gap-5 py-6 md:grid-cols-[minmax(220px,1.45fr)_minmax(110px,0.7fr)_minmax(110px,0.7fr)_minmax(150px,0.9fr)_auto] md:items-center md:gap-6 ${index > 0 ? 'border-t border-neutral-200' : ''}`}
                 >
                   <div className="flex items-center gap-4">
-                    <VehicleIcon type={route.type} className="h-[54px] w-[54px] shrink-0" />
+                    <VehicleIcon type={route.type} className="h-13.5 w-13.5 shrink-0" />
                     <div className="min-w-0">
                       <p className="font-bold text-black">{route.transportName}</p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">

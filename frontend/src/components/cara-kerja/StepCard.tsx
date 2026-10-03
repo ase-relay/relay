@@ -9,7 +9,7 @@ interface StepCardProps {
 
 export function StepCard({ step, title, description, children }: StepCardProps) {
   return (
-    <article className="w-full max-w-[550px] rounded-[20px] border border-neutral-200/80 bg-white px-5 pt-8 pb-9 shadow-[0_10px_30px_rgba(15,23,42,0.07)] sm:px-10">
+    <article className="w-full max-w-137.5 rounded-[20px] border border-neutral-200/80 bg-white px-5 pt-8 pb-9 shadow-[0_10px_30px_rgba(15,23,42,0.07)] sm:px-10">
       <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-600 text-lg font-bold text-white">
         {step}
       </span>

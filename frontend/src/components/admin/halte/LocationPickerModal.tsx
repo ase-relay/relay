@@ -236,7 +236,7 @@ export function LocationPickerModal({ isOpen, initial = null, onCancel, onPick }
                         className="h-10 w-full rounded-xl border border-neutral-300 bg-white pr-4 pl-10 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-primary-600 focus:outline-none sm:h-12 sm:rounded-2xl sm:pr-5 sm:pl-12 sm:text-base"
                     />
                     {(searching || results.length > 0 || notice !== '') && (
-                        <div className="absolute top-full right-0 left-0 z-[1200] mt-1 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg">
+                        <div className="absolute top-full right-0 left-0 z-1200 mt-1 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg">
                             {searching && <p className="px-4 py-2.5 text-xs text-neutral-500 sm:text-sm">Mencari ...</p>}
                             {!searching &&
                                 results.map((item, index) => (
