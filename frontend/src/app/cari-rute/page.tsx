@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense, useEffect, useState, type ReactElement } from 'react';
+import { Suspense, useEffect, useState, useCallback, type ReactElement } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { VehicleIcon } from '@/components/icons/vehicle/VehicleIcon';
 import { Alert } from '@/components/ui/Alert';
+import { AlertViewport } from '@/components/ui/AlertViewport';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { searchRoutes } from '@/lib/api';
 import { mapApiRouteToRouteResultCard, RouteRecommendation } from '@/lib/mappers/routeMapper';
@@ -81,6 +82,7 @@ function CariRutePageContent() {
   const [routes, setRoutes] = useState<RouteRecommendation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const handleCloseAlert = useCallback(() => setErrorMessage(''), []);
   // Data lokasi tidak ada/rusak (mis. refresh atau buka URL langsung) → state khusus
   // dengan tombol kembali, tanpa memanggil backend sama sekali.
   const [missingLocations, setMissingLocations] = useState(false);
@@ -160,6 +162,11 @@ function CariRutePageContent() {
   return (
     <div className="flex min-h-screen flex-col text-neutral-900">
       <Navbar />
+      <AlertViewport>
+        {errorMessage && (
+          <Alert status="error" title="Pencarian rute gagal" description={errorMessage} onClose={handleCloseAlert} />
+        )}
+      </AlertViewport>
 
       <main className="mx-auto w-full max-w-292.5 flex-1 px-4 pb-12 pt-8 sm:px-8 xl:px-0">
         <Link href="/beranda" className="inline-flex items-center gap-3 text-sm font-medium text-primary-600 transition-colors hover:text-primary-700">
@@ -275,8 +282,7 @@ function CariRutePageContent() {
           )}
 
           {errorMessage && (
-            <div className="mt-6 space-y-4">
-              <Alert status="error" title="Pencarian rute gagal" description={errorMessage} onClose={() => setErrorMessage('')} />
+            <div className="mt-6">
               <button type="button" onClick={() => setReloadKey((key) => key + 1)} className="rounded-full bg-primary-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700">Coba Lagi</button>
             </div>
           )}

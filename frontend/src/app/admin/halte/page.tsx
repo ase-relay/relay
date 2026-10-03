@@ -1,18 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { HalteFormModal } from '@/components/admin/halte/HalteFormModal';
 import ConfirmEditModal from '@/components/admin/ConfirmEditModal';
 import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
 import Alert from '@/components/ui/Alert';
+import { AlertViewport } from '@/components/ui/AlertViewport';
 import SearchIcon from '@/components/icons/common/SearchIcon';
 import PlusIcon from '@/components/icons/common/PlusIcon';
 import AdminEditIcon from '@/components/icons/admin/AdminEditIcon';
 import TrashIcon from '@/components/icons/common/TrashIcon';
 import type { Halte, HalteInput } from '@/lib/types/halte';
 import { useAdminList } from '@/hooks/useAdminList';
+import { Skeleton } from '@/components/ui/Skeleton';
 import api from '@/lib/api';
+
+const SKELETON_ROWS = 5;
 
 interface ApiError {
     response?: {
@@ -50,6 +54,8 @@ export default function AdminHaltePage() {
     const [deleting, setDeleting] = useState<Halte | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [alert, setAlert] = useState<{ title: string; description: string; type?: 'success' | 'error' } | null>(null);
+
+    const handleCloseAlert = useCallback(() => setAlert(null), []);
 
     const normalizedQuery = query.trim().toLowerCase();
     const filtered = haltes.filter(
@@ -243,88 +249,120 @@ export default function AdminHaltePage() {
                 </button>
             </div>
 
-            {loading ? (
-                <div className="mt-9 flex items-center justify-center py-12">
-                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent" />
-                </div>
-            ) : (
-                <div className="mt-9 overflow-x-auto rounded-2xl border border-neutral-200">
-                    <table className="w-full min-w-225 border-collapse text-left">
-                        <thead className="bg-primary-600 text-white">
-                            <tr>
-                                <th className="w-19 px-6 py-5 text-[17px] font-semibold">
-                                    No.
-                                </th>
-                                <th className="w-75 px-6 py-5 text-[17px] font-semibold">
-                                    Nama Halte
-                                </th>
-                                <th className="px-6 py-5 text-[17px] font-semibold">
-                                    Alamat
-                                </th>
-                                <th className="w-41.25 px-6 py-5 text-[17px] font-semibold">
-                                    Status
-                                </th>
-                                <th className="w-30 px-6 py-5 text-[17px] font-semibold">
-                                    Aksi
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filtered.length === 0 && (
+            <div className="mt-9 overflow-x-auto rounded-2xl border border-neutral-200">
+                <table className="w-full min-w-225 border-collapse text-left">
+                    <thead className="bg-primary-600 text-white">
+                        <tr>
+                            <th className="w-19 px-6 py-5 text-[17px] font-semibold">
+                                No.
+                            </th>
+                            <th className="w-75 px-6 py-5 text-[17px] font-semibold">
+                                Nama Halte
+                            </th>
+                            <th className="px-6 py-5 text-[17px] font-semibold">
+                                Alamat
+                            </th>
+                            <th className="w-41.25 px-6 py-5 text-[17px] font-semibold">
+                                Status
+                            </th>
+                            <th className="w-30 px-6 py-5 text-[17px] font-semibold">
+                                Aksi
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {loading ? (
+                            <>
                                 <tr>
-                                    <td
-                                        colSpan={5}
-                                        className="px-6 py-10 text-center text-base text-neutral-500"
+                                    <td colSpan={5} className="sr-only">
+                                        <span role="status">Memuat data halte...</span>
+                                    </td>
+                                </tr>
+                                {Array.from({ length: SKELETON_ROWS }).map((_, index) => (
+                                    <tr
+                                        key={`halte-skeleton-${index}`}
+                                        aria-hidden="true"
+                                        className={index > 0 ? 'border-t border-neutral-200' : ''}
                                     >
-                                        Tidak ada data halte yang cocok.
-                                    </td>
-                                </tr>
-                            )}
-                            {filtered.map((halte, index) => (
-                                <tr
-                                    key={halte.id}
-                                    className={index > 0 ? 'border-t border-neutral-200' : ''}
-                                >
-                                    <td className="px-6 py-5 align-middle text-base text-neutral-900">
-                                        {index + 1}
-                                    </td>
-                                    <td className="px-6 py-5 align-middle text-base font-medium text-neutral-900">
-                                        {halte.namaHalte}
-                                    </td>
-                                    <td className="px-6 py-5 align-middle text-base text-neutral-900">
-                                        {halte.alamat}
-                                    </td>
-                                    <td className="px-6 py-5 align-middle">
-                                        <StatusBadge isActive={halte.isActive} />
-                                    </td>
-                                    <td className="px-6 py-5 align-middle">
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleEdit(halte)}
-                                                aria-label={`Edit halte ${halte.namaHalte}`}
-                                                disabled={submitting}
-                                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-primary-600 transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                <AdminEditIcon />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setDeleting(halte)}
-                                                aria-label={`Hapus halte ${halte.namaHalte}`}
-                                                disabled={submitting}
-                                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-red-600 transition hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                <TrashIcon />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                                        <td className="px-6 py-5 align-middle">
+                                            <Skeleton variant="text" className="h-5 w-8" />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <Skeleton variant="text" className="h-5 w-44 max-w-full" />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <Skeleton variant="text" className="h-5 w-full max-w-72" />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <Skeleton variant="rounded" className="h-8 w-24" />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <div className="flex items-center gap-2">
+                                                <Skeleton variant="rounded" className="h-9 w-9" />
+                                                <Skeleton variant="rounded" className="h-9 w-9" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </>
+                        ) : (
+                            <>
+                                {filtered.length === 0 && (
+                                    <tr>
+                                        <td
+                                            colSpan={5}
+                                            className="px-6 py-10 text-center text-base text-neutral-500"
+                                        >
+                                            Tidak ada data halte yang cocok.
+                                        </td>
+                                    </tr>
+                                )}
+                                {filtered.map((halte, index) => (
+                                    <tr
+                                        key={halte.id}
+                                        className={index > 0 ? 'border-t border-neutral-200' : ''}
+                                    >
+                                        <td className="px-6 py-5 align-middle text-base text-neutral-900">
+                                            {index + 1}
+                                        </td>
+                                        <td className="px-6 py-5 align-middle text-base font-medium text-neutral-900">
+                                            {halte.namaHalte}
+                                        </td>
+                                        <td className="px-6 py-5 align-middle text-base text-neutral-900">
+                                            {halte.alamat}
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <StatusBadge isActive={halte.isActive} />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleEdit(halte)}
+                                                    aria-label={`Edit halte ${halte.namaHalte}`}
+                                                    disabled={submitting}
+                                                    className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-primary-600 transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    <AdminEditIcon />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDeleting(halte)}
+                                                    aria-label={`Hapus halte ${halte.namaHalte}`}
+                                                    disabled={submitting}
+                                                    className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-red-600 transition hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    <TrashIcon />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </>
+                        )}
+                    </tbody>
+                </table>
+            </div>
 
             {formOpen && (
                 <HalteFormModal
@@ -367,16 +405,17 @@ export default function AdminHaltePage() {
                 disabled={submitting}
             />
 
-            {alert && (
-                <Alert
-                    status={alert.type || 'success'}
-                    title={alert.title}
-                    description={alert.description}
-                    onClose={() => setAlert(null)}
-                    autoDismissMs={4000}
-                    className="fixed top-28 right-6 z-40 shadow-[0_10px_25px_rgba(15,23,42,0.14)]"
-                />
-            )}
+            <AlertViewport>
+                {alert && (
+                    <Alert
+                        status={alert.type || 'success'}
+                        title={alert.title}
+                        description={alert.description}
+                        onClose={handleCloseAlert}
+                        autoDismissMs={4000}
+                    />
+                )}
+            </AlertViewport>
         </>
     );
 }

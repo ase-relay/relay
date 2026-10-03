@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { TarifFormModal } from '@/components/admin/tarif/TarifFormModal';
+import ConfirmEditModal from '@/components/admin/ConfirmEditModal';
 import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
 import { Alert } from '@/components/ui/Alert';
+import { AlertViewport } from '@/components/ui/AlertViewport';
 import SearchIcon from '@/components/icons/common/SearchIcon';
 import PlusIcon from '@/components/icons/common/PlusIcon';
 import AdminEditIcon from '@/components/icons/admin/AdminEditIcon';
@@ -12,8 +14,11 @@ import TrashIcon from '@/components/icons/common/TrashIcon';
 import type { Tarif, TarifInput } from '@/lib/types/tarif';
 import type { Moda } from '@/lib/types/moda';
 import { useAdminList } from '@/hooks/useAdminList';
+import { Skeleton } from '@/components/ui/Skeleton';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/utils/apiError';
+
+const SKELETON_ROWS = 5;
 
 const skemaLabels: Record<Tarif['tipeTarif'], string> = {
     FLAT: 'Fixed price',
@@ -62,9 +67,12 @@ export default function AdminTarifPage() {
     const [query, setQuery] = useState('');
     const [formModa, setFormModa] = useState<Moda | null>(null);
     const [editing, setEditing] = useState<Tarif | null>(null);
+    const [pendingEdit, setPendingEdit] = useState<TarifInput | null>(null);
     const [deleting, setDeleting] = useState<Tarif | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [alert, setAlert] = useState<{ title: string; description: string; type?: 'success' | 'error' } | null>(null);
+
+    const handleCloseAlert = useCallback(() => setAlert(null), []);
 
     const loading = loadingTarif || loadingModa;
     const error = tarifError ?? modaError;
@@ -113,26 +121,13 @@ export default function AdminTarifPage() {
     }
 
     async function handleFormSave(input: TarifInput) {
+        if (editing) {
+            // Update: langsung tampilkan konfirmasi, PUT menyusul di handleConfirmEdit
+            setPendingEdit(input);
+            return;
+        }
         try {
             setSubmitting(true);
-
-            if (editing) {
-                const response = await api.put<{ success: boolean; data: Tarif; message: string }>(
-                    `/transport/tarif/${editing.id}`,
-                    input,
-                );
-                if (response.data.success) {
-                    refetchAll();
-                    handleCloseForm();
-                    setAlert({
-                        title: 'Data Tarif Berhasil Diperbarui',
-                        description: `Data tarif ${formModa?.namaModa ?? ''} berhasil diperbarui`,
-                        type: 'success',
-                    });
-                    return;
-                }
-                throw new Error(response.data.message || 'Gagal memperbarui tarif');
-            }
 
             const response = await api.post<{ success: boolean; data: Tarif; message: string }>(
                 '/transport/tarif',
@@ -153,6 +148,40 @@ export default function AdminTarifPage() {
             const message = getApiErrorMessage(err, 'Gagal menyimpan data tarif');
             setAlert({
                 title: 'Gagal Menyimpan',
+                description: message,
+                type: 'error',
+            });
+            handleAuthError(err);
+        } finally {
+            setSubmitting(false);
+        }
+    }
+
+    async function handleConfirmEdit() {
+        if (!pendingEdit || !editing) return;
+        try {
+            setSubmitting(true);
+
+            const response = await api.put<{ success: boolean; data: Tarif; message: string }>(
+                `/transport/tarif/${editing.id}`,
+                pendingEdit,
+            );
+            if (response.data.success) {
+                refetchAll();
+                handleCloseForm();
+                setAlert({
+                    title: 'Data Tarif Berhasil Diperbarui',
+                    description: `Data tarif ${formModa?.namaModa ?? ''} berhasil diperbarui`,
+                    type: 'success',
+                });
+                setPendingEdit(null);
+                return;
+            }
+            throw new Error(response.data.message || 'Gagal memperbarui tarif');
+        } catch (err: unknown) {
+            const message = getApiErrorMessage(err, 'Gagal memperbarui tarif');
+            setAlert({
+                title: 'Gagal Memperbarui',
                 description: message,
                 type: 'error',
             });
@@ -236,116 +265,148 @@ export default function AdminTarifPage() {
                 </div>
             </div>
 
-            {loading ? (
-                <div className="mt-9 flex items-center justify-center py-12">
-                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent" />
-                </div>
-            ) : (
-                <div className="mt-9 overflow-x-auto rounded-2xl border border-neutral-200">
-                    <table className="w-full min-w-200 border-collapse text-left">
-                        <thead className="bg-primary-600 text-white">
-                            <tr>
-                                <th className="w-19 px-6 py-5 text-[17px] font-semibold">
-                                    No.
-                                </th>
-                                <th className="w-46.5 px-6 py-5 text-[17px] font-semibold">
-                                    Moda
-                                </th>
-                                <th className="w-44 px-6 py-5 text-[17px] font-semibold">
-                                    Skema Tarif
-                                </th>
-                                <th className="px-6 py-5 text-[17px] font-semibold">
-                                    Detail Tarif
-                                </th>
-                                <th className="w-30 px-6 py-5 text-[17px] font-semibold">
-                                    Aksi
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filtered.length === 0 && (
+            <div className="mt-9 overflow-x-auto rounded-2xl border border-neutral-200">
+                <table className="w-full min-w-200 table-fixed border-collapse text-left">
+                    <thead className="bg-primary-600 text-white">
+                        <tr>
+                            <th className="w-[7%] px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
+                                No.
+                            </th>
+                            <th className="w-[23%] px-6 py-5 text-[17px] font-semibold">
+                                Moda
+                            </th>
+                            <th className="w-[17%] px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
+                                Skema Tarif
+                            </th>
+                            <th className="w-[41%] px-6 py-5 text-[17px] font-semibold">
+                                Detail Tarif
+                            </th>
+                            <th className="w-[12%] px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
+                                Aksi
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {loading ? (
+                            <>
                                 <tr>
-                                    <td
-                                        colSpan={5}
-                                        className="px-6 py-10 text-center text-base text-neutral-500"
-                                    >
-                                        {query ? 'Tidak ada data moda yang cocok.' : 'Tidak ada data moda.'}
+                                    <td colSpan={5} className="sr-only">
+                                        <span role="status">Memuat data tarif...</span>
                                     </td>
                                 </tr>
-                            )}
-                            {filtered.map((moda, index) => {
-                                const tarif = tarifByModa.get(moda.id);
-                                return (
+                                {Array.from({ length: SKELETON_ROWS }).map((_, index) => (
                                     <tr
-                                        key={moda.id}
+                                        key={`tarif-skeleton-${index}`}
+                                        aria-hidden="true"
                                         className={index > 0 ? 'border-t border-neutral-200' : ''}
                                     >
-                                        <td className="px-6 py-5 align-middle text-base text-neutral-900">
-                                            {index + 1}
-                                        </td>
-                                        <td className="px-6 py-5 align-middle text-base font-medium text-neutral-900">
-                                            {moda.namaModa}
-                                            {!moda.isActive && (
-                                                <span className="ml-2 rounded-lg bg-neutral-200 px-2 py-0.5 text-xs font-semibold text-neutral-600">
-                                                    Nonaktif
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-5 align-middle text-base text-neutral-900">
-                                            {tarif ? skemaLabels[tarif.tipeTarif] : '-'}
-                                        </td>
-                                        <td className="px-6 py-5 align-middle text-base text-neutral-900">
-                                            {tarif ? <DetailTarifCell tarif={tarif} /> : '-'}
+                                        <td className="px-6 py-5 align-middle">
+                                            <Skeleton variant="text" className="h-5 w-8" />
                                         </td>
                                         <td className="px-6 py-5 align-middle">
-                                            {tarif ? (
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleEdit(tarif)}
-                                                        aria-label={`Edit tarif ${moda.namaModa}`}
-                                                        disabled={submitting}
-                                                        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-primary-600 transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                                    >
-                                                        <AdminEditIcon />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setDeleting(tarif)}
-                                                        aria-label={`Hapus tarif ${moda.namaModa}`}
-                                                        disabled={submitting}
-                                                        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-red-600 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                                    >
-                                                        <TrashIcon />
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleAturTarif(moda)}
-                                                        disabled={submitting || !moda.isActive}
-                                                        title={moda.isActive ? undefined : 'Aktifkan moda dulu'}
-                                                        className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                                    >
-                                                        <PlusIcon />
-                                                        Atur tarif
-                                                    </button>
-                                                    {!moda.isActive && (
-                                                        <p className="mt-1 text-xs text-neutral-500">
-                                                            Aktifkan moda dulu
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            )}
+                                            <Skeleton variant="text" className="h-5 w-36 max-w-full" />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <Skeleton variant="text" className="h-5 w-28 max-w-full" />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <Skeleton variant="text" className="h-5 w-full max-w-80" />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <div className="flex items-center gap-2">
+                                                <Skeleton variant="rounded" className="h-9 w-9" />
+                                                <Skeleton variant="rounded" className="h-9 w-9" />
+                                            </div>
                                         </td>
                                     </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                                ))}
+                            </>
+                        ) : (
+                            <>
+                                {filtered.length === 0 && (
+                                    <tr>
+                                        <td
+                                            colSpan={5}
+                                            className="px-6 py-10 text-center text-base text-neutral-500"
+                                        >
+                                            {query ? 'Tidak ada data moda yang cocok.' : 'Tidak ada data moda.'}
+                                        </td>
+                                    </tr>
+                                )}
+                                {filtered.map((moda, index) => {
+                                    const tarif = tarifByModa.get(moda.id);
+                                    return (
+                                        <tr
+                                            key={moda.id}
+                                            className={index > 0 ? 'border-t border-neutral-200' : ''}
+                                        >
+                                            <td className="px-6 py-5 align-middle text-base whitespace-nowrap text-neutral-900">
+                                                {index + 1}
+                                            </td>
+                                            <td className="px-6 py-5 align-middle text-base font-medium text-neutral-900">
+                                                {moda.namaModa}
+                                                {!moda.isActive && (
+                                                    <span className="ml-2 rounded-lg bg-neutral-200 px-2 py-0.5 text-xs font-semibold text-neutral-600">
+                                                        Nonaktif
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-5 align-middle text-base whitespace-nowrap text-neutral-900">
+                                                {tarif ? skemaLabels[tarif.tipeTarif] : '-'}
+                                            </td>
+                                            <td className="px-6 py-5 align-middle text-base text-neutral-900">
+                                                {tarif ? <DetailTarifCell tarif={tarif} /> : '-'}
+                                            </td>
+                                            <td className="px-6 py-5 align-middle whitespace-nowrap">
+                                                {tarif ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleEdit(tarif)}
+                                                            aria-label={`Edit tarif ${moda.namaModa}`}
+                                                            disabled={submitting}
+                                                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-primary-600 transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                        >
+                                                            <AdminEditIcon />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setDeleting(tarif)}
+                                                            aria-label={`Hapus tarif ${moda.namaModa}`}
+                                                            disabled={submitting}
+                                                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-red-600 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                        >
+                                                            <TrashIcon />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleAturTarif(moda)}
+                                                            disabled={submitting || !moda.isActive}
+                                                            title={moda.isActive ? undefined : 'Aktifkan moda dulu'}
+                                                            className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold whitespace-nowrap text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                        >
+                                                            <PlusIcon />
+                                                            Atur tarif
+                                                        </button>
+                                                        {!moda.isActive && (
+                                                            <p className="mt-1 text-xs text-neutral-500">
+                                                                Aktifkan moda dulu
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </>
+                        )}
+                    </tbody>
+                </table>
+            </div>
 
             {formModa && (
                 <TarifFormModal
@@ -358,6 +419,21 @@ export default function AdminTarifPage() {
                     submitting={submitting}
                 />
             )}
+
+            <ConfirmEditModal
+                isOpen={pendingEdit != null}
+                title="Simpan Tarif?"
+                description={
+                    <>
+                        Apakah kamu yakin ingin menyimpan perubahan tarif{' '}
+                        <strong>{formModa?.namaModa}</strong>? Data yang telah diubah tidak dapat
+                        dikembalikan.
+                    </>
+                }
+                onCancel={() => setPendingEdit(null)}
+                onConfirm={handleConfirmEdit}
+                disabled={submitting}
+            />
 
             <ConfirmDeleteModal
                 isOpen={deleting != null}
@@ -373,16 +449,17 @@ export default function AdminTarifPage() {
                 onConfirm={handleDelete}
             />
 
-            {alert && (
-                <Alert
-                    status={alert.type || 'success'}
-                    title={alert.title}
-                    description={alert.description}
-                    onClose={() => setAlert(null)}
-                    autoDismissMs={4000}
-                    className="fixed top-28 right-6 z-40 shadow-[0_10px_25px_rgba(15,23,42,0.14)]"
-                />
-            )}
+            <AlertViewport>
+                {alert && (
+                    <Alert
+                        status={alert.type || 'success'}
+                        title={alert.title}
+                        description={alert.description}
+                        onClose={handleCloseAlert}
+                        autoDismissMs={4000}
+                    />
+                )}
+            </AlertViewport>
         </>
     );
 }

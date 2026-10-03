@@ -1,18 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ModaFormModal } from '@/components/admin/moda/ModaFormModal';
 import ConfirmEditModal from '@/components/admin/ConfirmEditModal';
 import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
 import { Alert } from '@/components/ui/Alert';
+import { AlertViewport } from '@/components/ui/AlertViewport';
 import SearchIcon from '@/components/icons/common/SearchIcon';
 import PlusIcon from '@/components/icons/common/PlusIcon';
 import AdminEditIcon from '@/components/icons/admin/AdminEditIcon';
 import TrashIcon from '@/components/icons/common/TrashIcon';
 import type { Moda, ModaInput } from '@/lib/types/moda';
+import { TIPE_MODA_LABELS } from '@/lib/types/moda';
 import { useAdminList } from '@/hooks/useAdminList';
+import { Skeleton } from '@/components/ui/Skeleton';
 import api from '@/lib/api';
+
+const SKELETON_ROWS = 5;
 
 interface ApiError {
     response?: {
@@ -40,6 +45,20 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
     );
 }
 
+function labelTipeModa(tipeModa: string | null): string {
+    if (tipeModa == null) return '-';
+    if (tipeModa in TIPE_MODA_LABELS) {
+        return TIPE_MODA_LABELS[tipeModa as keyof typeof TIPE_MODA_LABELS];
+    }
+    const legacy: Record<string, string> = {
+        BRT: 'Bus',
+        FEEDER: 'Angkot',
+        COMMUTER_TRAIN: 'Kereta',
+        RIDE_HAILING: 'Ojek online',
+    };
+    return legacy[tipeModa] ?? tipeModa;
+}
+
 export default function AdminModaPage() {
     const router = useRouter();
     const { data: modas, loading, error, refetch } = useAdminList<Moda>({ endpoint: '/transport/moda' });
@@ -50,6 +69,8 @@ export default function AdminModaPage() {
     const [deleting, setDeleting] = useState<Moda | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [alert, setAlert] = useState<{ title: string; description: string; type?: 'success' | 'error' } | null>(null);
+
+    const handleCloseAlert = useCallback(() => setAlert(null), []);
 
     const filtered = modas.filter((moda) =>
         moda.namaModa.toLowerCase().includes(query.trim().toLowerCase()),
@@ -66,39 +87,31 @@ export default function AdminModaPage() {
     }
 
     async function handleFormSave(input: ModaInput) {
+        if (editing) {
+            // Update: langsung tampilkan konfirmasi, PUT menyusul di handleConfirmEdit
+            setPendingEdit(input);
+            return;
+        }
         try {
             setSubmitting(true);
 
-            if (editing) {
-                // Update
-                const response = await api.put<{ success: boolean; data: Moda; message: string }>(
-                    `/transport/moda/${editing.id}`,
-                    input
-                );
-                if (response.data.success) {
-                    setPendingEdit(input);
-                    return;
-                }
-                throw new Error(response.data.message || 'Gagal memperbarui moda');
-            } else {
-                // Create
-                const response = await api.post<{ success: boolean; data: Moda; message: string }>(
-                    '/transport/moda',
-                    input
-                );
-                if (response.data.success) {
-                    refetch();
-                    setFormOpen(false);
-                    setEditing(null);
-                    setAlert({
-                        title: 'Moda Berhasil Ditambahkan',
-                        description: `Moda ${input.namaModa} berhasil ditambahkan`,
-                        type: 'success',
-                    });
-                    return;
-                }
-                throw new Error(response.data.message || 'Gagal menambahkan moda');
+            // Create
+            const response = await api.post<{ success: boolean; data: Moda; message: string }>(
+                '/transport/moda',
+                input
+            );
+            if (response.data.success) {
+                refetch();
+                setFormOpen(false);
+                setEditing(null);
+                setAlert({
+                    title: 'Moda Berhasil Ditambahkan',
+                    description: `Moda ${input.namaModa} berhasil ditambahkan`,
+                    type: 'success',
+                });
+                return;
             }
+            throw new Error(response.data.message || 'Gagal menambahkan moda');
         } catch (err: unknown) {
             const error = err as ApiError;
             const message = error.response?.data?.message || error.message || 'Gagal menyimpan data moda';
@@ -246,82 +259,131 @@ export default function AdminModaPage() {
                 </button>
             </div>
 
-            {loading ? (
-                <div className="mt-9 flex items-center justify-center py-12">
-                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent" />
-                </div>
-            ) : (
-                <div className="mt-9 overflow-x-auto rounded-2xl border border-neutral-200">
-                    <table className="w-full min-w-180 border-collapse text-left">
-                        <thead className="bg-primary-600 text-white">
-                            <tr>
-                                <th className="w-19 px-6 py-5 text-[17px] font-semibold">
-                                    No.
-                                </th>
-                                <th className="px-6 py-5 text-[17px] font-semibold">
-                                    Nama Moda
-                                </th>
-                                <th className="w-41.25 px-6 py-5 text-[17px] font-semibold">
-                                    Status
-                                </th>
-                                <th className="w-30 px-6 py-5 text-[17px] font-semibold">
-                                    Aksi
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filtered.length === 0 && (
+            <div className="mt-9 overflow-x-auto rounded-2xl border border-neutral-200">
+                <table className="w-full min-w-260 table-fixed border-collapse text-left">
+                    <thead className="bg-primary-600 text-white">
+                        <tr>
+                            <th className="w-[6%] px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
+                                No.
+                            </th>
+                            <th className="px-6 py-5 text-[17px] font-semibold">
+                                Nama Moda
+                            </th>
+                            <th className="w-[16%] px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
+                                Tipe Moda
+                            </th>
+                            <th className="w-[20%] px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
+                                Kecepatan Rata-rata
+                            </th>
+                            <th className="w-[14%] px-6 py-5 text-[17px] font-semibold">
+                                Status
+                            </th>
+                            <th className="w-30 px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
+                                Aksi
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {loading ? (
+                            <>
                                 <tr>
-                                    <td
-                                        colSpan={4}
-                                        className="px-6 py-10 text-center text-base text-neutral-500"
+                                    <td colSpan={6} className="sr-only">
+                                        <span role="status">Memuat data moda...</span>
+                                    </td>
+                                </tr>
+                                {Array.from({ length: SKELETON_ROWS }).map((_, index) => (
+                                    <tr
+                                        key={`moda-skeleton-${index}`}
+                                        aria-hidden="true"
+                                        className={index > 0 ? 'border-t border-neutral-200' : ''}
                                     >
-                                        {query ? 'Tidak ada data moda yang cocok.' : 'Tidak ada data moda.'}
-                                    </td>
-                                </tr>
-                            )}
-                            {filtered.map((moda, index) => (
-                                <tr
-                                    key={moda.id}
-                                    className={index > 0 ? 'border-t border-neutral-200' : ''}
-                                >
-                                    <td className="px-6 py-5 align-middle text-base text-neutral-900">
-                                        {index + 1}
-                                    </td>
-                                    <td className="px-6 py-5 align-middle text-base font-medium text-neutral-900">
-                                        {moda.namaModa}
-                                    </td>
-                                    <td className="px-6 py-5 align-middle">
-                                        <StatusBadge isActive={moda.isActive} />
-                                    </td>
-                                    <td className="px-6 py-5 align-middle">
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleEdit(moda)}
-                                                aria-label={`Edit moda ${moda.namaModa}`}
-                                                disabled={submitting}
-                                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-primary-600 transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                <AdminEditIcon />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setDeleting(moda)}
-                                                aria-label={`Hapus moda ${moda.namaModa}`}
-                                                disabled={submitting}
-                                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-red-600 transition hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                <TrashIcon />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                                        <td className="px-6 py-5 align-middle">
+                                            <Skeleton variant="text" className="h-5 w-8" />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <Skeleton variant="text" className="h-5 w-40 max-w-full" />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <Skeleton variant="text" className="h-5 w-24" />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <Skeleton variant="text" className="h-5 w-28" />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <Skeleton variant="rounded" className="h-8 w-24" />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <div className="flex items-center gap-2">
+                                                <Skeleton variant="rounded" className="h-9 w-9" />
+                                                <Skeleton variant="rounded" className="h-9 w-9" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </>
+                        ) : (
+                            <>
+                                {filtered.length === 0 && (
+                                    <tr>
+                                        <td
+                                            colSpan={6}
+                                            className="px-6 py-10 text-center text-base text-neutral-500"
+                                        >
+                                            {query ? 'Tidak ada data moda yang cocok.' : 'Tidak ada data moda.'}
+                                        </td>
+                                    </tr>
+                                )}
+                                {filtered.map((moda, index) => (
+                                    <tr
+                                        key={moda.id}
+                                        className={index > 0 ? 'border-t border-neutral-200' : ''}
+                                    >
+                                        <td className="px-6 py-5 align-middle text-base whitespace-nowrap text-neutral-900">
+                                            {index + 1}
+                                        </td>
+                                        <td className="px-6 py-5 align-middle text-base font-medium text-neutral-900">
+                                            {moda.namaModa}
+                                        </td>
+                                        <td className="px-6 py-5 align-middle text-base whitespace-nowrap text-neutral-900">
+                                            {labelTipeModa(moda.tipeModa)}
+                                        </td>
+                                        <td className="px-6 py-5 align-middle text-base whitespace-nowrap text-neutral-900">
+                                            {moda.rataRataKecepatanKmh != null
+                                                ? `${moda.rataRataKecepatanKmh} km/jam`
+                                                : 'Otomatis'}
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <StatusBadge isActive={moda.isActive} />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleEdit(moda)}
+                                                    aria-label={`Edit moda ${moda.namaModa}`}
+                                                    disabled={submitting}
+                                                    className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-primary-600 transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    <AdminEditIcon />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDeleting(moda)}
+                                                    aria-label={`Hapus moda ${moda.namaModa}`}
+                                                    disabled={submitting}
+                                                    className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-red-600 transition hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    <TrashIcon />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </>
+                        )}
+                    </tbody>
+                </table>
+            </div>
 
             {formOpen && (
                 <ModaFormModal
@@ -367,16 +429,17 @@ export default function AdminModaPage() {
                 disabled={submitting}
             />
 
-            {alert && (
-                <Alert
-                    status={alert.type || 'success'}
-                    title={alert.title}
-                    description={alert.description}
-                    onClose={() => setAlert(null)}
-                    autoDismissMs={4000}
-                    className="fixed top-28 left-1/2 z-40 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 shadow-[0_10px_25px_rgba(15,23,42,0.14)] sm:top-30"
-                />
-            )}
+            <AlertViewport>
+                {alert && (
+                    <Alert
+                        status={alert.type || 'success'}
+                        title={alert.title}
+                        description={alert.description}
+                        onClose={handleCloseAlert}
+                        autoDismissMs={4000}
+                    />
+                )}
+            </AlertViewport>
         </>
     );
 }

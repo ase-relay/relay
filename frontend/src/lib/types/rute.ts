@@ -31,6 +31,7 @@ export interface Rute {
 
 export interface RuteInput {
     namaRute: string;
+    kodeRute?: string;
     modaId: number;
     isActive: boolean;
     stops: {

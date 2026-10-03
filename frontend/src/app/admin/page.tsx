@@ -13,6 +13,7 @@ import type { Moda } from '@/lib/types/moda';
 import type { Halte } from '@/lib/types/halte';
 import type { Rute } from '@/lib/types/rute';
 import type { Tarif } from '@/lib/types/tarif';
+import { Skeleton } from '@/components/ui/Skeleton';
 import api from '@/lib/api';
 
 interface DashboardCounts {
@@ -127,8 +128,25 @@ export default function AdminDashboardPage() {
             </p>
 
             {loading ? (
-                <div className="mt-9 flex items-center justify-center py-12">
-                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent" />
+                <div className="mt-9 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+                    <span role="status" className="sr-only">
+                        Memuat ringkasan data...
+                    </span>
+                    {Array.from({ length: 4 }).map((_, index) => (
+                        <div
+                            key={`dashboard-skeleton-${index}`}
+                            aria-hidden="true"
+                            className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-[0_1px_3px_rgba(15,23,42,0.05)]"
+                        >
+                            <Skeleton variant="rounded" className="h-14 w-14" />
+                            <Skeleton variant="text" className="mt-6 h-5 w-32" />
+                            <div className="mt-2 flex items-center justify-between">
+                                <Skeleton variant="text" className="h-10 w-16" />
+                                <Skeleton variant="circle" className="h-5 w-5" />
+                            </div>
+                            <Skeleton variant="text" className="mt-1 h-4 w-24" />
+                        </div>
+                    ))}
                 </div>
             ) : (
                 <div className="mt-9 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">

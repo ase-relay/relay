@@ -53,13 +53,13 @@ export function ConfirmEditModal({
             >
                 <h2
                     id="confirm-edit-title"
-                    className="text-2xl font-bold tracking-tight text-orange-500 sm:text-3xl"
+                    className="text-xl font-bold tracking-tight text-orange-500 sm:text-2xl"
                 >
                     {title}
                 </h2>
                 <div
                     id="confirm-edit-description"
-                    className="mt-4 text-base leading-relaxed text-neutral-950 sm:mt-7 sm:text-lg sm:leading-snug"
+                    className="mt-4 text-sm leading-relaxed text-neutral-950 sm:mt-7 sm:text-base sm:leading-snug"
                 >
                     {description}
                 </div>

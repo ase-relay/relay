@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { RuteFormModal } from '@/components/admin/rute/RuteFormModal';
 import ConfirmEditModal from '@/components/admin/ConfirmEditModal';
 import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
 import Alert from '@/components/ui/Alert';
+import { AlertViewport } from '@/components/ui/AlertViewport';
 import SearchIcon from '@/components/icons/common/SearchIcon';
 import PlusIcon from '@/components/icons/common/PlusIcon';
 import AdminEditIcon from '@/components/icons/admin/AdminEditIcon';
@@ -14,8 +15,11 @@ import type { Rute, RuteInput } from '@/lib/types/rute';
 import type { Halte } from '@/lib/types/halte';
 import type { Moda } from '@/lib/types/moda';
 import { useAdminList } from '@/hooks/useAdminList';
+import { Skeleton } from '@/components/ui/Skeleton';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/utils/apiError';
+
+const SKELETON_ROWS = 5;
 
 function StatusBadge({ isActive }: { isActive: boolean }) {
     if (isActive) {
@@ -47,6 +51,8 @@ export default function AdminRutePage() {
     const [alert, setAlert] = useState<{ title: string; description: string; type?: 'success' | 'error' } | null>(null);
     const [loadingDetail, setLoadingDetail] = useState(false);
 
+    const handleCloseAlert = useCallback(() => setAlert(null), []);
+
     const normalizedQuery = query.trim().toLowerCase();
     const filtered = rutes.filter(
         (rute) =>
@@ -60,28 +66,32 @@ export default function AdminRutePage() {
         setFormOpen(true);
     }
 
-    async function handleEdit(rute: Rute) {
-        try {
-            setLoadingDetail(true);
-            const response = await api.get<{ success: boolean; data: Rute; message: string }>(
-                `/transport/rute/${rute.id}`,
-            );
+    function handleEdit(rute: Rute) {
+        // Buka modal langsung dari data baris agar instan; detail (urutan
+        // halte + segmen) menyusul di background selagi admin di langkah 1.
+        setEditing(rute);
+        setFormOpen(true);
+        setLoadingDetail(true);
+        api.get<{ success: boolean; data: Rute; message: string }>(
+            `/transport/rute/${rute.id}`,
+        ).then((response) => {
             if (response.data.success) {
                 setEditing(response.data.data);
-                setFormOpen(true);
             } else {
                 throw new Error(response.data.message || 'Gagal mengambil detail rute');
             }
-        } catch (err: unknown) {
+        }).catch((err: unknown) => {
             const message = getApiErrorMessage(err, 'Gagal mengambil detail rute');
             setAlert({
                 title: 'Gagal Memuat Data',
                 description: message,
                 type: 'error',
             });
-        } finally {
+            setFormOpen(false);
+            setEditing(null);
+        }).finally(() => {
             setLoadingDetail(false);
-        }
+        });
     }
 
     function handleCloseForm() {
@@ -256,98 +266,133 @@ export default function AdminRutePage() {
                 </button>
             </div>
 
-            {loading ? (
-                <div className="mt-9 flex items-center justify-center py-12">
-                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent" />
-                </div>
-            ) : (
-                <div className="mt-9 overflow-x-auto rounded-2xl border border-neutral-200">
-                    <table className="w-full min-w-225 border-collapse text-left">
-                        <thead className="bg-primary-600 text-white">
-                            <tr>
-                                <th className="w-19 px-6 py-5 text-[17px] font-semibold">
-                                    No.
-                                </th>
-                                <th className="px-6 py-5 text-[17px] font-semibold">
-                                    Nama Jalur / Koridor
-                                </th>
-                                <th className="w-47.5 px-6 py-5 text-[17px] font-semibold">
-                                    Moda
-                                </th>
-                                <th className="w-40 px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
-                                    Jumlah Halte
-                                </th>
-                                <th className="w-41.25 px-6 py-5 text-[17px] font-semibold">
-                                    Status
-                                </th>
-                                <th className="w-30 px-6 py-5 text-[17px] font-semibold">
-                                    Aksi
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filtered.length === 0 && (
+            <div className="mt-9 overflow-x-auto rounded-2xl border border-neutral-200">
+                <table className="w-full min-w-225 border-collapse text-left">
+                    <thead className="bg-primary-600 text-white">
+                        <tr>
+                            <th className="w-19 px-6 py-5 text-[17px] font-semibold">
+                                No.
+                            </th>
+                            <th className="px-6 py-5 text-[17px] font-semibold">
+                                Nama Jalur / Koridor
+                            </th>
+                            <th className="w-47.5 px-6 py-5 text-[17px] font-semibold">
+                                Moda
+                            </th>
+                            <th className="w-40 px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
+                                Jumlah Halte
+                            </th>
+                            <th className="w-41.25 px-6 py-5 text-[17px] font-semibold">
+                                Status
+                            </th>
+                            <th className="w-30 px-6 py-5 text-[17px] font-semibold">
+                                Aksi
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {loading ? (
+                            <>
                                 <tr>
-                                    <td
-                                        colSpan={6}
-                                        className="px-6 py-10 text-center text-base text-neutral-500"
+                                    <td colSpan={6} className="sr-only">
+                                        <span role="status">Memuat data rute...</span>
+                                    </td>
+                                </tr>
+                                {Array.from({ length: SKELETON_ROWS }).map((_, index) => (
+                                    <tr
+                                        key={`rute-skeleton-${index}`}
+                                        aria-hidden="true"
+                                        className={index > 0 ? 'border-t border-neutral-200' : ''}
                                     >
-                                        Tidak ada data rute yang cocok.
-                                    </td>
-                                </tr>
-                            )}
-                            {filtered.map((rute, index) => (
-                                <tr
-                                    key={rute.id}
-                                    className={index > 0 ? 'border-t border-neutral-200' : ''}
-                                >
-                                    <td className="px-6 py-5 align-middle text-base text-neutral-900">
-                                        {index + 1}
-                                    </td>
-                                    <td className="px-6 py-5 align-middle text-base font-medium text-neutral-900">
-                                        {rute.namaRute}
-                                    </td>
-                                    <td className="px-6 py-5 align-middle text-base text-neutral-900">
-                                        {rute.moda.namaModa}
-                                    </td>
-                                    <td className="px-6 py-5 align-middle text-base text-neutral-900">
-                                        {rute._count?.stops ?? 0}
-                                    </td>
-                                    <td className="px-6 py-5 align-middle">
-                                        <StatusBadge isActive={rute.isActive} />
-                                    </td>
-                                    <td className="px-6 py-5 align-middle">
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleEdit(rute)}
-                                                aria-label={`Edit rute ${rute.namaRute}`}
-                                                disabled={submitting || loadingDetail}
-                                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-primary-600 transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                <AdminEditIcon />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setDeleting(rute)}
-                                                aria-label={`Hapus rute ${rute.namaRute}`}
-                                                disabled={submitting}
-                                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-red-600 transition hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                <TrashIcon />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                                        <td className="px-6 py-5 align-middle">
+                                            <Skeleton variant="text" className="h-5 w-8" />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <Skeleton variant="text" className="h-5 w-48 max-w-full" />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <Skeleton variant="text" className="h-5 w-32 max-w-full" />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <Skeleton variant="text" className="h-5 w-14" />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <Skeleton variant="rounded" className="h-8 w-24" />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <div className="flex items-center gap-2">
+                                                <Skeleton variant="rounded" className="h-9 w-9" />
+                                                <Skeleton variant="rounded" className="h-9 w-9" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </>
+                        ) : (
+                            <>
+                                {filtered.length === 0 && (
+                                    <tr>
+                                        <td
+                                            colSpan={6}
+                                            className="px-6 py-10 text-center text-base text-neutral-500"
+                                        >
+                                            Tidak ada data rute yang cocok.
+                                        </td>
+                                    </tr>
+                                )}
+                                {filtered.map((rute, index) => (
+                                    <tr
+                                        key={rute.id}
+                                        className={index > 0 ? 'border-t border-neutral-200' : ''}
+                                    >
+                                        <td className="px-6 py-5 align-middle text-base text-neutral-900">
+                                            {index + 1}
+                                        </td>
+                                        <td className="px-6 py-5 align-middle text-base font-medium text-neutral-900">
+                                            {rute.namaRute}
+                                        </td>
+                                        <td className="px-6 py-5 align-middle text-base text-neutral-900">
+                                            {rute.moda.namaModa}
+                                        </td>
+                                        <td className="px-6 py-5 align-middle text-base text-neutral-900">
+                                            {rute._count?.stops ?? 0}
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <StatusBadge isActive={rute.isActive} />
+                                        </td>
+                                        <td className="px-6 py-5 align-middle">
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleEdit(rute)}
+                                                    aria-label={`Edit rute ${rute.namaRute}`}
+                                                    disabled={submitting || loadingDetail}
+                                                    className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-primary-600 transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    <AdminEditIcon />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDeleting(rute)}
+                                                    aria-label={`Hapus rute ${rute.namaRute}`}
+                                                    disabled={submitting}
+                                                    className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-red-600 transition hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    <TrashIcon />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </>
+                        )}
+                    </tbody>
+                </table>
+            </div>
 
             {formOpen && (
                 <RuteFormModal
-                    key={editing?.id ?? 'baru'}
+                    key={editing ? `edit-${editing.id}-${editing.stops ? 'full' : 'row'}` : 'baru'}
                     isOpen
                     haltes={haltes}
                     modas={modas}
@@ -355,6 +400,7 @@ export default function AdminRutePage() {
                     onCancel={handleCloseForm}
                     onSubmit={handleFormSave}
                     submitting={submitting}
+                    detailLoading={loadingDetail}
                 />
             )}
 
@@ -388,16 +434,17 @@ export default function AdminRutePage() {
                 disabled={submitting}
             />
 
-            {alert && (
-                <Alert
-                    status={alert.type || 'success'}
-                    title={alert.title}
-                    description={alert.description}
-                    onClose={() => setAlert(null)}
-                    autoDismissMs={4000}
-                    className="fixed top-28 right-6 z-40 shadow-[0_10px_25px_rgba(15,23,42,0.14)]"
-                />
-            )}
+            <AlertViewport>
+                {alert && (
+                    <Alert
+                        status={alert.type || 'success'}
+                        title={alert.title}
+                        description={alert.description}
+                        onClose={handleCloseAlert}
+                        autoDismissMs={4000}
+                    />
+                )}
+            </AlertViewport>
         </>
     );
 }

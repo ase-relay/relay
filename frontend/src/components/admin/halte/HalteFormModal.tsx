@@ -1,10 +1,10 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { HiChevronDown, HiMap, HiOutlinePencilSquare, HiXMark } from 'react-icons/hi2';
-import SearchIcon from '@/components/icons/common/SearchIcon';
 import type { Halte, HalteInput } from '@/lib/types/halte';
+import type { PickedLocation } from './LocationPickerModal';
 
 export type HalteFormModalProps = {
     isOpen: boolean;
@@ -21,27 +21,11 @@ const statusOptions: { value: string; label: string }[] = [
     { value: 'false', label: 'Tidak Aktif' },
 ];
 
-const pickedLocation = {
-    alamat: 'Jl. Aceh No.36, Babakan Ciamis, Kec. Sumur Bandung, Kota Bandung, Jawa Barat 40117',
-    latitude: '-123456',
-    longitude: '684.827947',
-};
-
-function MapPin() {
-    return (
-        <svg
-            viewBox="0 0 24 34"
-            className="h-6 w-5 drop-shadow-[0_3px_4px_rgba(0,0,0,0.35)] sm:h-8 sm:w-6"
-            aria-hidden="true"
-        >
-            <path
-                d="M12 0C5.925 0 1 4.925 1 11c0 8.25 11 23 11 23s11-14.75 11-23C23 4.925 18.075 0 12 0z"
-                fill="#EA4335"
-            />
-            <circle cx="12" cy="11" r="4.2" fill="#FFFFFF" />
-        </svg>
-    );
-}
+// Leaflet hanya jalan di browser: muat modal peta tanpa SSR.
+const LocationPickerModalNoSSR = dynamic(
+    () => import('./LocationPickerModal').then((mod) => ({ default: mod.LocationPickerModal })),
+    { ssr: false },
+);
 
 export function HalteFormModal({ isOpen, initial = null, onCancel, onSave, disabled = false }: HalteFormModalProps) {
     const [nama, setNama] = useState(initial?.namaHalte ?? '');
@@ -51,7 +35,6 @@ export function HalteFormModal({ isOpen, initial = null, onCancel, onSave, disab
     const [isActive, setIsActive] = useState(initial?.isActive ?? true);
     const [lokasiMode, setLokasiMode] = useState<LokasiMode>(initial ? 'manual' : 'peta');
     const [mapOpen, setMapOpen] = useState(false);
-    const [mapQuery, setMapQuery] = useState('');
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
@@ -78,14 +61,22 @@ export function HalteFormModal({ isOpen, initial = null, onCancel, onSave, disab
     const hasLocation =
         alamat.trim() !== '' && latitude.trim() !== '' && longitude.trim() !== '';
 
+    const mapInitialLocation = (() => {
+        if (latitude.trim() === '' || longitude.trim() === '') return null;
+        const lat = Number(latitude.trim());
+        const lng = Number(longitude.trim());
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        return { lat, lng };
+    })();
+
     function clearErrors(key: string) {
         setErrors((prev) => ({ ...prev, [key]: '' }));
     }
 
-    function applyPickedLocation() {
-        setAlamat(pickedLocation.alamat);
-        setLatitude(pickedLocation.latitude);
-        setLongitude(pickedLocation.longitude);
+    function applyPickedLocation(location: PickedLocation) {
+        setAlamat(location.address);
+        setLatitude(String(location.lat));
+        setLongitude(String(location.lng));
         setLokasiMode('peta');
         setErrors((prev) => ({ ...prev, alamat: '', latitude: '', longitude: '' }));
         setMapOpen(false);
@@ -409,115 +400,12 @@ export function HalteFormModal({ isOpen, initial = null, onCancel, onSave, disab
             </section>
 
             {mapOpen && (
-                <div
-                    className="fixed inset-0 z-60 flex items-center justify-center overflow-y-auto bg-black/45 p-2.5 sm:p-4"
-                    role="presentation"
-                    onMouseDown={(event) => {
-                        if (event.target === event.currentTarget) setMapOpen(false);
-                    }}
-                >
-                    <section
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="halte-map-title"
-                        className="my-auto w-full max-w-2xl rounded-xl bg-white px-3.5 py-4 shadow-[0_16px_32px_rgba(15,23,42,0.28)] sm:max-w-3xl sm:rounded-2xl sm:px-5 sm:py-6"
-                    >
-                        <div className="flex items-start justify-between gap-3">
-                            <h2
-                                id="halte-map-title"
-                                className="text-base font-bold text-neutral-900 sm:text-lg"
-                            >
-                                Pilih Lokasi di Peta
-                            </h2>
-                            <button
-                                type="button"
-                                onClick={() => setMapOpen(false)}
-                                aria-label="Tutup peta"
-                                className="-mt-1 shrink-0 cursor-pointer rounded-lg p-1 text-neutral-900 transition hover:bg-neutral-100"
-                            >
-                                <HiXMark className="h-5 w-5 sm:h-6 sm:w-6" />
-                            </button>
-                        </div>
-
-                        <div className="relative mt-3 sm:mt-4">
-                            <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 sm:left-4">
-                                <SearchIcon />
-                            </span>
-                            <input
-                                type="search"
-                                value={mapQuery}
-                                onChange={(event) => setMapQuery(event.target.value)}
-                                placeholder="Cari lokasi, alamat, atau nama tempat ..."
-                                aria-label="Cari lokasi, alamat, atau nama tempat"
-                                className="h-10 w-full rounded-xl border border-neutral-300 bg-white pr-4 pl-10 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-primary-600 focus:outline-none sm:h-12 sm:rounded-2xl sm:pr-5 sm:pl-12 sm:text-base"
-                            />
-                        </div>
-
-                        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-5 sm:mt-4 sm:gap-4">
-                            <div className="relative aspect-4/3 overflow-hidden rounded-xl bg-neutral-100 lg:col-span-3 sm:rounded-2xl">
-                                <Image
-                                    src="/images/MapIllustration.png"
-                                    alt="Peta area Bandung"
-                                    fill
-                                    sizes="(max-width: 1024px) 100vw, 600px"
-                                    className="object-cover"
-                                />
-                                <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full">
-                                    <MapPin />
-                                </span>
-                            </div>
-
-                            <div className="rounded-xl bg-primary-50 p-3 lg:col-span-2 sm:rounded-2xl sm:p-4">
-                                <h3 className="text-xs font-bold text-neutral-900 sm:text-sm">
-                                    Detail Lokasi
-                                </h3>
-                                <div className="mt-2 space-y-2 sm:mt-3 sm:space-y-3">
-                                    <div>
-                                        <p className="text-[11px] font-semibold text-neutral-400 sm:text-xs">
-                                            Alamat
-                                        </p>
-                                        <p className="mt-0.5 text-xs text-neutral-900 sm:mt-1 sm:text-sm">
-                                            {pickedLocation.alamat}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[11px] font-semibold text-neutral-400 sm:text-xs">
-                                            Latitude
-                                        </p>
-                                        <p className="mt-0.5 text-xs text-neutral-900 sm:mt-1 sm:text-sm">
-                                            {pickedLocation.latitude}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[11px] font-semibold text-neutral-400 sm:text-xs">
-                                            Longitude
-                                        </p>
-                                        <p className="mt-0.5 text-xs text-neutral-900 sm:mt-1 sm:text-sm">
-                                            {pickedLocation.longitude}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3 sm:mt-6">
-                            <button
-                                type="button"
-                                onClick={() => setMapOpen(false)}
-                                className="cursor-pointer rounded-full bg-neutral-400 px-5 py-2 text-sm font-semibold text-white transition hover:bg-neutral-500 sm:px-6 sm:py-2.5 sm:text-base"
-                            >
-                                Kembali
-                            </button>
-                            <button
-                                type="button"
-                                onClick={applyPickedLocation}
-                                className="cursor-pointer rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 sm:px-6 sm:py-2.5 sm:text-base"
-                            >
-                                Gunakan Lokasi
-                            </button>
-                        </div>
-                    </section>
-                </div>
+                <LocationPickerModalNoSSR
+                    isOpen
+                    initial={mapInitialLocation}
+                    onCancel={() => setMapOpen(false)}
+                    onPick={applyPickedLocation}
+                />
             )}
         </div>
     );

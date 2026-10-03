@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState, type DragEvent as ReactDragEvent } from 'react';
 import { HiChevronDown, HiXMark } from 'react-icons/hi2';
 import SearchIcon from '@/components/icons/common/SearchIcon';
 import type { Rute, RuteInput } from '@/lib/types/rute';
@@ -15,6 +15,7 @@ export type RuteFormModalProps = {
     onCancel: () => void;
     onSubmit: (input: RuteInput) => void;
     submitting: boolean;
+    detailLoading?: boolean;
 };
 
 export function RuteFormModal({
@@ -25,6 +26,7 @@ export function RuteFormModal({
     onCancel,
     onSubmit,
     submitting,
+    detailLoading = false,
 }: RuteFormModalProps) {
     const isEdit = initial != null;
 
@@ -44,13 +46,20 @@ export function RuteFormModal({
 
     const [step, setStep] = useState<1 | 2>(1);
     const [namaRute, setNamaRute] = useState(() => initial?.namaRute ?? '');
+    const [kodeRute, setKodeRute] = useState(() => initial?.kodeRute ?? '');
     const [modaId, setModaId] = useState(() => initial?.modaId ?? 0);
     const [isActive, setIsActive] = useState(() => initial?.isActive ?? true);
     const [selectedHalteIds, setSelectedHalteIds] = useState(() => initialHalteIds);
     const [halteQuery, setHalteQuery] = useState('');
     const [dragIndex, setDragIndex] = useState<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [segmentValues, setSegmentValues] = useState(() => initialSegmentValues);
+    const orderListRef = useRef<HTMLDivElement | null>(null);
+    const itemRefs = useRef(new Map<number, HTMLLIElement>());
+    const prevRects = useRef(new Map<number, DOMRect>());
+    const moveTimer = useRef<number | null>(null);
+    const pendingIndex = useRef<number | null>(null);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -60,6 +69,31 @@ export function RuteFormModal({
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, onCancel]);
+
+    useEffect(
+        () => () => {
+            if (moveTimer.current !== null) window.clearTimeout(moveTimer.current);
+        },
+        [],
+    );
+
+    // Animasi FLIP searah: hanya item yang bergeser yang beranimasi    // (item yang di-drag mengikuti kursor, tidak ikut beranimasi).
+    useEffect(() => {
+        if (dragIndex == null) return;
+        const draggedId = selectedHalteIds[dragIndex];
+        itemRefs.current.forEach((el, id) => {
+            if (id === draggedId) return;
+            const prev = prevRects.current.get(id);
+            if (!el || !prev) return;
+            const dy = prev.top - el.getBoundingClientRect().top;
+            if (dy !== 0) {
+                el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }], {
+                    duration: 180,
+                    easing: 'ease-out',
+                });
+            }
+        });
+    }, [selectedHalteIds, dragIndex]);
 
     if (!isOpen) return null;
 
@@ -107,15 +141,68 @@ export function RuteFormModal({
         setSelectedHalteIds((prev) => prev.filter((_, i) => i !== index));
     }
 
-    function handleDrop(targetIndex: number) {
+    function snapshotItemPositions() {
+        const rects = new Map<number, DOMRect>();
+        itemRefs.current.forEach((el, id) => {
+            if (el) rects.set(id, el.getBoundingClientRect());
+        });
+        prevRects.current = rects;
+    }
+
+    function moveDraggedTo(targetIndex: number) {
         if (dragIndex == null || dragIndex === targetIndex) return;
+        snapshotItemPositions();
         setSelectedHalteIds((prev) => {
             const next = [...prev];
             const [moved] = next.splice(dragIndex, 1);
             next.splice(targetIndex, 0, moved);
             return next;
         });
+        setDragIndex(targetIndex);
+        setDragOverIndex(targetIndex);
+    }
+
+    function autoScrollOrderList(clientY: number) {
+        const el = orderListRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const edge = 56;
+        const speed = 14;
+        if (clientY < rect.top + edge) {
+            el.scrollBy({ top: -speed });
+        } else if (clientY > rect.bottom - edge) {
+            el.scrollBy({ top: speed });
+        }
+    }
+
+    function clearPendingMove() {
+        if (moveTimer.current !== null) {
+            window.clearTimeout(moveTimer.current);
+            moveTimer.current = null;
+        }
+        pendingIndex.current = null;
+    }
+
+    function handleItemDragOver(event: ReactDragEvent<HTMLLIElement>, index: number) {
+        event.preventDefault();
+        autoScrollOrderList(event.clientY);
+        if (dragIndex == null || dragIndex === index) return;
+        // Tunda perpindahan sebentar: hanya pindah bila kursor bertahan
+        // di target yang sama, agar tidak glitch saat di perbatasan item.
+        if (pendingIndex.current === index) return;
+        clearPendingMove();
+        pendingIndex.current = index;
+        moveTimer.current = window.setTimeout(() => {
+            moveTimer.current = null;
+            pendingIndex.current = null;
+            moveDraggedTo(index);
+        }, 140);
+    }
+
+    function endDrag() {
+        clearPendingMove();
         setDragIndex(null);
+        setDragOverIndex(null);
     }
 
     function getSegmentKey(fromId: number, toId: number): string {
@@ -211,6 +298,7 @@ export function RuteFormModal({
 
         onSubmit({
             namaRute: namaRute.trim(),
+            kodeRute: kodeRute.trim() === '' ? undefined : kodeRute.trim(),
             modaId,
             isActive,
             stops,
@@ -264,7 +352,7 @@ export function RuteFormModal({
                     >
                         1
                     </button>
-                    <span className="text-xs font-bold text-neutral-900 sm:text-sm">
+                    <span className="text-xs font-bold text-neutral-900 sm:text-base">
                         Informasi Dasar
                     </span>
                     <span className="h-0.5 w-6 bg-neutral-300 sm:w-10" aria-hidden="true" />
@@ -277,7 +365,7 @@ export function RuteFormModal({
                         2
                     </button>
                     <span
-                        className={`text-xs font-bold sm:text-sm ${step === 2 ? 'text-neutral-900' : 'text-neutral-400'}`}
+                        className={`text-xs font-bold sm:text-base ${step === 2 ? 'text-neutral-900' : 'text-neutral-400'}`}
                     >
                         Daftar Halte
                     </span>
@@ -299,6 +387,20 @@ export function RuteFormModal({
                                     className={inputClass}
                                 />
                                 {errors.namaRute && <p className={errorClass}>{errors.namaRute}</p>}
+                            </div>
+
+                            <div>
+                                <label htmlFor="rute-kode" className={labelClass}>
+                                    Kode Rute (opsional)
+                                </label>
+                                <input
+                                    id="rute-kode"
+                                    type="text"
+                                    value={kodeRute}
+                                    onChange={(event) => setKodeRute(event.target.value)}
+                                    placeholder="Contoh: K3D"
+                                    className={inputClass}
+                                />
                             </div>
 
                             <div>
@@ -381,7 +483,7 @@ export function RuteFormModal({
                                         />
                                     </div>
 
-                                    <div className="mt-2 max-h-50 overflow-y-auto rounded-xl bg-white p-2 sm:mt-3 sm:max-h-62.5 sm:rounded-2xl sm:p-3">
+                                    <div className="mt-2 max-h-40 overflow-y-auto rounded-xl bg-white p-2 sm:mt-3 sm:max-h-65 sm:rounded-2xl sm:p-3">
                                         <label className="flex cursor-pointer items-center gap-2 px-2 py-2 text-xs text-neutral-900 sm:gap-3 sm:py-2.5 sm:text-sm">
                                             <input
                                                 type="checkbox"
@@ -423,9 +525,9 @@ export function RuteFormModal({
                                         Urutan Halte dalam Jalur
                                     </h4>
 
-                                    <div className="mt-2 min-h-50 rounded-xl bg-white p-2 sm:mt-3 sm:min-h-62.5 sm:rounded-2xl sm:p-3">
+                                    <div ref={orderListRef} className="mt-2 h-45 overflow-y-auto rounded-xl bg-white p-2 sm:mt-3 sm:h-80 sm:rounded-2xl sm:p-3">
                                         {selectedHalteIds.length === 0 ? (
-                                            <p className="flex min-h-45 items-center justify-center text-center text-xs text-neutral-400 sm:min-h-55 sm:text-sm">
+                                            <p className="flex h-full items-center justify-center text-center text-xs text-neutral-400 sm:text-sm">
                                                 Belum ada halte yang dipilih
                                             </p>
                                         ) : (
@@ -441,16 +543,24 @@ export function RuteFormModal({
                                                     return (
                                                         <li
                                                             key={halteId}
-                                                            className="mb-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 last:mb-0 sm:mb-3 sm:rounded-2xl sm:px-4 sm:py-3"
+                                                            ref={(el) => {
+                                                                if (el) itemRefs.current.set(halteId, el);
+                                                                else itemRefs.current.delete(halteId);
+                                                            }}
+                                                            onDragOver={(event) => handleItemDragOver(event, index)}
+                                                            onDrop={() => endDrag()}
+                                                            className={`mb-2 rounded-xl border bg-white px-3 py-2 last:mb-0 sm:mb-3 sm:rounded-2xl sm:px-4 sm:py-3 ${dragIndex === index ? 'border-primary-400 opacity-50' : 'border-neutral-200'} ${dragOverIndex === index && dragIndex !== null && dragIndex !== index ? 'ring-2 ring-primary-400' : ''}`}
                                                         >
                                                             <div className="flex items-center gap-2">
                                                                 <span
                                                                     draggable
-                                                                    onDragStart={() => setDragIndex(index)}
-                                                                    onDragOver={(event) => event.preventDefault()}
-                                                                    onDrop={() => handleDrop(index)}
-                                                                    onDragEnd={() => setDragIndex(null)}
-                                                                    className="flex h-6 w-6 shrink-0 cursor-grab items-center justify-center rounded-full bg-primary-600 text-[10px] font-bold text-white active:cursor-grabbing sm:h-8 sm:w-8 sm:text-xs"
+                                                                    onDragStart={() => {
+                                                                        snapshotItemPositions();
+                                                                        setDragIndex(index);
+                                                                        setDragOverIndex(index);
+                                                                    }}
+                                                                    onDragEnd={() => endDrag()}
+                                                                    className="flex h-6 w-6 shrink-0 cursor-grab items-center justify-center rounded-full bg-primary-600 text-[10px] font-bold text-white touch-none active:cursor-grabbing sm:h-8 sm:w-8 sm:text-xs"
                                                                 >
                                                                     {index + 1}
                                                                 </span>
@@ -555,10 +665,10 @@ export function RuteFormModal({
                         )}
                         <button
                             type="submit"
-                            disabled={submitting}
+                            disabled={submitting || (step === 1 && detailLoading)}
                             className="inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-full bg-primary-600 px-7 text-base font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
                         >
-                            {submitting ? 'Menyimpan...' : step === 1 ? 'Lanjut' : 'Simpan'}
+                            {submitting ? 'Menyimpan...' : step === 1 ? (detailLoading ? 'Memuat...' : 'Lanjut') : 'Simpan'}
                         </button>
                     </div>
                 </form>

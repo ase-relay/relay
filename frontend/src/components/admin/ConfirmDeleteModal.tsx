@@ -54,13 +54,13 @@ export function ConfirmDeleteModal({
             >
                 <h2
                     id="confirm-delete-title"
-                    className="text-2xl font-bold tracking-tight text-red-500 sm:text-3xl"
+                    className="text-xl font-bold tracking-tight text-red-500 sm:text-2xl"
                 >
                     {title}
                 </h2>
                 <div
                     id="confirm-delete-description"
-                    className="mt-4 text-base leading-relaxed text-neutral-950 sm:mt-7 sm:text-lg sm:leading-snug"
+                    className="mt-4 text-sm leading-relaxed text-neutral-950 sm:mt-7 sm:text-base sm:leading-snug"
                 >
                     {description}
                 </div>

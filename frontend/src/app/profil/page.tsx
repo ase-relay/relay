@@ -1,10 +1,11 @@
 'use client';
 
-import { FormEvent, useState, useEffect } from 'react';
+import { FormEvent, useState, useEffect, useCallback } from 'react';
 import { Footer } from '@/components/layout/Footer';
 import { Navbar } from '@/components/layout/Navbar';
 import { useAuth } from '@/context/AuthContext';
 import Alert from '@/components/ui/Alert';
+import { AlertViewport } from '@/components/ui/AlertViewport';
 import { Skeleton } from '@/components/ui/Skeleton';
 import EditIcon from '@/components/icons/common/EditIcon';
 import EmailIcon from '@/components/icons/common/EmailIcon';
@@ -57,6 +58,8 @@ export default function ProfilPage() {
     const [passwordError, setPasswordError] = useState('');
     const [shownPasswords, setShownPasswords] = useState<Record<string, boolean>>({});
     const [alert, setAlert] = useState<{ title: string; description: string } | null>(null);
+
+    const handleCloseAlert = useCallback(() => setAlert(null), []);
 
     const usernameValid = usernamePattern.test(username);
     const passwordValid = passwordPattern.test(passwords.next);
@@ -196,7 +199,9 @@ export default function ProfilPage() {
     return (
         <div className="flex min-h-screen flex-col text-neutral-900">
             <Navbar />
-            {alert && <Alert status="success" title={alert.title} description={alert.description} onClose={() => setAlert(null)} autoDismissMs={3000} className="fixed top-28 left-1/2 z-40 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 shadow-[0_10px_25px_rgba(15,23,42,0.14)] sm:top-30" />}
+            <AlertViewport>
+                {alert && <Alert status="success" title={alert.title} description={alert.description} onClose={handleCloseAlert} autoDismissMs={3000} />}
+            </AlertViewport>
             <main className="mx-auto w-full max-w-292.5 flex-1 px-4 py-6 sm:py-8 sm:px-8 lg:py-12 xl:px-0">
                 <div className={`space-y-6 ${changingPassword ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(480px,.82fr)] lg:gap-7 lg:space-y-0' : ''}`}>
                     <section className="rounded-[20px] border border-neutral-200 bg-white px-5 pt-6 shadow-[0_8px_12px_rgba(15,23,42,0.10)] sm:px-8 sm:pt-8 lg:px-12 lg:pt-10">

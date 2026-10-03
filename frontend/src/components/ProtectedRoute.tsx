@@ -7,9 +7,11 @@ import { useEffect, ReactNode } from 'react';
 interface ProtectedRouteProps {
   children: ReactNode;
   requiredRole?: 'ADMIN' | 'USER';
+  /** Tampilan pengganti saat auth masih dicek. Default: spinner tengah layar. */
+  loadingFallback?: ReactNode;
 }
 
-export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
+export function ProtectedRoute({ children, requiredRole, loadingFallback }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
 
@@ -28,6 +30,9 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
   }, [user, loading, router, requiredRole]);
 
   if (loading) {
+    if (loadingFallback) {
+      return <>{loadingFallback}</>;
+    }
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent" />
