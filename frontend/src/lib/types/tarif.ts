@@ -1,17 +1,29 @@
-export type TarifSkema = 'FIXED_PRICE' | 'BERDASARKAN_JARAK';
-
-export type TarifStatus = 'AKTIF' | 'TIDAK_AKTIF';
+export type TarifSkema = 'FLAT' | 'PER_KM';
 
 export interface Tarif {
-    id: string;
-    moda: string;
-    skema: TarifSkema;
-    hargaPerPerjalanan?: number;
-    tarifMinimum?: number;
-    batasJarakAwal?: number;
-    tarifKmBerikutnya?: number;
-    biayaLayanan?: number;
-    status: TarifStatus;
+    id: number;
+    modaId: number;
+    tipeTarif: TarifSkema;
+    nominalDasar: number;
+    nominalPerKm: number | null;
+    jarakMinimumKm: number | null;
+    biayaLayanan: number;
+    keterangan: string | null;
+    createdAt: string;
+    updatedAt: string;
+    moda: {
+        id: number;
+        namaModa: string;
+        isActive: boolean;
+    };
 }
 
-export type TarifInput = Omit<Tarif, 'id'>;
+export interface TarifInput {
+    modaId: number;
+    tipeTarif: TarifSkema;
+    nominalDasar: number;
+    nominalPerKm?: number;
+    jarakMinimumKm?: number | null;
+    biayaLayanan?: number;
+    keterangan?: string | null;
+}

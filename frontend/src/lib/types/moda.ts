@@ -9,7 +9,6 @@ export interface Moda {
     updatedAt: string;
     _count?: {
         rutes: number;
-        tarifs: number;
     };
 }
 

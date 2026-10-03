@@ -2,45 +2,59 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { HiChevronDown, HiXMark } from 'react-icons/hi2';
-import type { Tarif, TarifInput, TarifSkema, TarifStatus } from '@/lib/types/tarif';
+import type { Tarif, TarifInput, TarifSkema } from '@/lib/types/tarif';
 
 export type TarifFormModalProps = {
     isOpen: boolean;
-    modaOptions: string[];
+    moda: { id: number; namaModa: string } | null;
     initial?: Tarif | null;
     onCancel: () => void;
-    onSave: (input: TarifInput) => void;
+    onSubmit: (input: TarifInput) => void;
+    submitting: boolean;
 };
 
 const skemaOptions: { value: TarifSkema; label: string }[] = [
-    { value: 'FIXED_PRICE', label: 'Fixed price' },
-    { value: 'BERDASARKAN_JARAK', label: 'Berdasarkan jarak' },
+    { value: 'FLAT', label: 'Fixed price' },
+    { value: 'PER_KM', label: 'Berdasarkan jarak' },
 ];
 
-const statusOptions: { value: TarifStatus; label: string }[] = [
-    { value: 'AKTIF', label: 'Aktif' },
-    { value: 'TIDAK_AKTIF', label: 'Tidak Aktif' },
-];
+type Parsed = { ok: true; value: number } | { ok: false; reason: 'empty' | 'invalid' };
 
-export function TarifFormModal({ isOpen, modaOptions, initial = null, onCancel, onSave }: TarifFormModalProps) {
-    const [moda, setModa] = useState(initial?.moda ?? '');
-    const [skema, setSkema] = useState<TarifSkema>(initial?.skema ?? 'FIXED_PRICE');
-    const [hargaPerPerjalanan, setHargaPerPerjalanan] = useState(
-        initial?.hargaPerPerjalanan != null ? String(initial.hargaPerPerjalanan) : '',
+// Rupiah (harga, minimum, per km, layanan): digit murni; koma/titik/minus/1e3 ditolak.
+function parseRupiah(raw: string): Parsed {
+    const trimmed = raw.trim();
+    if (trimmed === '') return { ok: false, reason: 'empty' };
+    if (!/^\d+$/.test(trimmed)) return { ok: false, reason: 'invalid' };
+    const num = Number(trimmed);
+    if (!Number.isFinite(num)) return { ok: false, reason: 'invalid' };
+    return { ok: true, value: num };
+}
+
+// Batas jarak (km): desimal boleh, koma dibaca sebagai titik.
+function parseKm(raw: string): Parsed {
+    const trimmed = raw.trim();
+    if (trimmed === '') return { ok: false, reason: 'empty' };
+    if (!/^\d+([.,]\d+)?$/.test(trimmed)) return { ok: false, reason: 'invalid' };
+    const num = Number(trimmed.replace(',', '.'));
+    if (!Number.isFinite(num)) return { ok: false, reason: 'invalid' };
+    return { ok: true, value: num };
+}
+
+export function TarifFormModal({ isOpen, moda, initial = null, onCancel, onSubmit, submitting }: TarifFormModalProps) {
+    const [skema, setSkema] = useState<TarifSkema>(initial?.tipeTarif ?? 'FLAT');
+    const [harga, setHarga] = useState(
+        initial?.nominalDasar != null ? String(initial.nominalDasar) : '',
     );
-    const [tarifMinimum, setTarifMinimum] = useState(
-        initial?.tarifMinimum != null ? String(initial.tarifMinimum) : '',
+    const [batasJarak, setBatasJarak] = useState(
+        initial?.jarakMinimumKm != null ? String(initial.jarakMinimumKm) : '',
     );
-    const [batasJarakAwal, setBatasJarakAwal] = useState(
-        initial?.batasJarakAwal != null ? String(initial.batasJarakAwal) : '',
+    const [tarifPerKm, setTarifPerKm] = useState(
+        initial?.nominalPerKm != null ? String(initial.nominalPerKm) : '',
     );
-    const [tarifKmBerikutnya, setTarifKmBerikutnya] = useState(
-        initial?.tarifKmBerikutnya != null ? String(initial.tarifKmBerikutnya) : '',
-    );
-    const [biayaLayanan, setBiayaLayanan] = useState(
+    const [layanan, setLayanan] = useState(
         initial?.biayaLayanan != null ? String(initial.biayaLayanan) : '',
     );
-    const [status, setStatus] = useState<TarifStatus>(initial?.status ?? 'AKTIF');
+    const [keterangan, setKeterangan] = useState(initial?.keterangan ?? '');
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
@@ -62,26 +76,46 @@ export function TarifFormModal({ isOpen, modaOptions, initial = null, onCancel, 
 
     function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
+        if (moda == null) return;
         const nextErrors: Record<string, string> = {};
 
-        if (!moda) nextErrors.moda = 'Moda wajib dipilih';
-
-        if (skema === 'FIXED_PRICE') {
-            if (!hargaPerPerjalanan || Number(hargaPerPerjalanan) <= 0) {
-                nextErrors.hargaPerPerjalanan = 'Detail tarif wajib diisi';
+        if (skema === 'FLAT') {
+            const parsed = parseRupiah(harga);
+            if (!parsed.ok && parsed.reason === 'empty') {
+                nextErrors.harga = 'Harga per perjalanan wajib diisi';
+            } else if (!parsed.ok) {
+                nextErrors.harga = 'Harga per perjalanan harus berupa angka bulat tanpa titik atau koma (contoh: 4900)';
+            } else if (parsed.value <= 0) {
+                nextErrors.harga = 'Harga per perjalanan harus lebih besar dari 0';
             }
         } else {
-            if (!tarifMinimum || Number(tarifMinimum) <= 0) {
-                nextErrors.tarifMinimum = 'Tarif minimum wajib diisi';
+            const minimum = parseRupiah(harga);
+            if (!minimum.ok && minimum.reason === 'empty') {
+                nextErrors.minimum = 'Tarif minimum wajib diisi';
+            } else if (!minimum.ok) {
+                nextErrors.minimum = 'Tarif minimum harus berupa angka bulat tanpa titik atau koma (contoh: 4900)';
+            } else if (minimum.value <= 0) {
+                nextErrors.minimum = 'Tarif minimum harus lebih besar dari 0';
             }
-            if (batasJarakAwal === '' || Number.isNaN(Number(batasJarakAwal)) || Number(batasJarakAwal) < 0) {
-                nextErrors.batasJarakAwal = 'Batas jarak awal wajib diisi';
+            const perKm = parseRupiah(tarifPerKm);
+            if (!perKm.ok && perKm.reason === 'empty') {
+                nextErrors.perKm = 'Tarif per km berikutnya wajib diisi';
+            } else if (!perKm.ok) {
+                nextErrors.perKm = 'Tarif per km berikutnya harus berupa angka bulat tanpa titik atau koma (contoh: 4900)';
+            } else if (perKm.value <= 0) {
+                nextErrors.perKm = 'Tarif per km berikutnya harus lebih besar dari 0';
             }
-            if (!tarifKmBerikutnya || Number(tarifKmBerikutnya) <= 0) {
-                nextErrors.tarifKmBerikutnya = 'Tarif per km berikutnya wajib diisi';
+            if (batasJarak.trim() !== '') {
+                const batas = parseKm(batasJarak);
+                if (!batas.ok) {
+                    nextErrors.batas = 'Batas jarak awal harus berupa angka 0 atau lebih (contoh: 2 atau 2,5)';
+                }
             }
-            if (biayaLayanan === '' || Number.isNaN(Number(biayaLayanan)) || Number(biayaLayanan) < 0) {
-                nextErrors.biayaLayanan = 'Biaya layanan wajib diisi';
+            if (layanan.trim() !== '') {
+                const layananParsed = parseRupiah(layanan);
+                if (!layananParsed.ok) {
+                    nextErrors.layanan = 'Biaya layanan harus berupa angka bulat 0 atau lebih';
+                }
             }
         }
 
@@ -90,24 +124,37 @@ export function TarifFormModal({ isOpen, modaOptions, initial = null, onCancel, 
             return;
         }
 
-        if (skema === 'FIXED_PRICE') {
-            onSave({
-                moda,
-                skema,
-                hargaPerPerjalanan: Number(hargaPerPerjalanan),
-                status,
+        const keteranganTrimmed = keterangan.trim();
+        const isEdit = initial != null;
+        const keteranganField = keteranganTrimmed !== '' ? { keterangan: keteranganTrimmed } : isEdit ? { keterangan: null } : {};
+        if (skema === 'FLAT') {
+            const parsed = parseRupiah(harga);
+            if (!parsed.ok) return;
+            onSubmit({
+                modaId: moda.id,
+                tipeTarif: 'FLAT',
+                nominalDasar: parsed.value,
+                ...keteranganField,
             });
-        } else {
-            onSave({
-                moda,
-                skema,
-                tarifMinimum: Number(tarifMinimum),
-                batasJarakAwal: Number(batasJarakAwal),
-                tarifKmBerikutnya: Number(tarifKmBerikutnya),
-                biayaLayanan: Number(biayaLayanan),
-                status,
-            });
+            return;
         }
+
+        const minimum = parseRupiah(harga);
+        const perKm = parseRupiah(tarifPerKm);
+        if (!minimum.ok || !perKm.ok) return;
+        const batas = batasJarak.trim() === '' ? null : parseKm(batasJarak);
+        const layananParsed = layanan.trim() === '' ? null : parseRupiah(layanan);
+        if (batas !== null && !batas.ok) return;
+        if (layananParsed !== null && !layananParsed.ok) return;
+        onSubmit({
+            modaId: moda.id,
+            tipeTarif: 'PER_KM',
+            nominalDasar: minimum.value,
+            nominalPerKm: perKm.value,
+            jarakMinimumKm: batas === null ? null : batas.value,
+            biayaLayanan: layananParsed === null ? 0 : layananParsed.value,
+            ...keteranganField,
+        });
     }
 
     return (
@@ -129,13 +176,14 @@ export function TarifFormModal({ isOpen, modaOptions, initial = null, onCancel, 
                         id="tarif-form-title"
                         className="text-base font-bold text-neutral-900 sm:text-xl"
                     >
-                        {initial ? 'Edit Tarif' : 'Tambah Tarif'}
+                        {initial ? 'Edit Tarif' : 'Atur Tarif'}
                     </h2>
                     <button
                         type="button"
                         onClick={onCancel}
                         aria-label="Tutup"
-                        className="-mt-1 shrink-0 cursor-pointer rounded-lg p-1 text-neutral-900 transition hover:bg-neutral-100"
+                        disabled={submitting}
+                        className="-mt-1 shrink-0 cursor-pointer rounded-lg p-1 text-neutral-900 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         <HiXMark className="h-5 w-5 sm:h-6 sm:w-6" />
                     </button>
@@ -149,28 +197,22 @@ export function TarifFormModal({ isOpen, modaOptions, initial = null, onCancel, 
                         <div className="relative">
                             <select
                                 id="tarif-moda"
-                                value={moda}
-                                onChange={(event) => {
-                                    setModa(event.target.value);
-                                    setErrors((prev) => ({ ...prev, moda: '' }));
-                                }}
-                                className={`${selectClass} ${moda ? '' : 'text-neutral-400'}`}
+                                value={moda?.id ?? ''}
+                                disabled
+                                aria-label="Moda (terkunci)"
+                                className={`${selectClass} text-neutral-900 disabled:cursor-not-allowed disabled:opacity-70`}
                             >
-                                <option value="" disabled hidden>
-                                    Pilih moda
-                                </option>
-                                {modaOptions.map((option) => (
-                                    <option key={option} value={option} className="text-neutral-900">
-                                        {option}
+                                {moda && (
+                                    <option value={moda.id} className="text-neutral-900">
+                                        {moda.namaModa}
                                     </option>
-                                ))}
+                                )}
                             </select>
                             <HiChevronDown
                                 aria-hidden="true"
                                 className="pointer-events-none absolute top-1/2 right-5 h-5 w-5 -translate-y-1/2 text-neutral-500"
                             />
                         </div>
-                        {errors.moda && <p className={errorClass}>{errors.moda}</p>}
                     </div>
 
                     <div>
@@ -185,6 +227,7 @@ export function TarifFormModal({ isOpen, modaOptions, initial = null, onCancel, 
                                     setSkema(event.target.value as TarifSkema);
                                     setErrors({});
                                 }}
+                                disabled={submitting}
                                 className={selectClass}
                             >
                                 {skemaOptions.map((option) => (
@@ -203,135 +246,140 @@ export function TarifFormModal({ isOpen, modaOptions, initial = null, onCancel, 
                     <div>
                         <p className={labelClass}>Detail Tarif</p>
 
-                        {skema === 'FIXED_PRICE' ? (
+                        {skema === 'FLAT' ? (
                             <div>
+                                <label htmlFor="tarif-harga" className="mt-3 block text-xs font-bold text-neutral-900 sm:text-sm">
+                                    Harga per perjalanan
+                                </label>
                                 <input
-                                    type="number"
-                                    min={1}
-                                    value={hargaPerPerjalanan}
-                                    onChange={(event) => setHargaPerPerjalanan(event.target.value)}
+                                    id="tarif-harga"
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={harga}
+                                    onChange={(event) => setHarga(event.target.value)}
                                     placeholder="Masukkan nominal harga ..."
-                                    aria-label="Detail tarif"
-                                    className={`${inputClass} mt-3`}
+                                    disabled={submitting}
+                                    className={`${inputClass}`}
                                 />
-                                {errors.hargaPerPerjalanan && (
-                                    <p className={errorClass}>{errors.hargaPerPerjalanan}</p>
+                                {errors.harga && (
+                                    <p className={errorClass}>{errors.harga}</p>
                                 )}
                             </div>
                         ) : (
                             <div className="mt-2 grid grid-cols-1 gap-x-4 gap-y-3 sm:mt-3 sm:gap-x-6 sm:gap-y-4 sm:grid-cols-2">
                                 <div>
                                     <label htmlFor="tarif-minimum" className="block text-xs font-bold text-neutral-900 sm:text-sm">
-                                        Tarif Minimum
+                                        Tarif minimum
                                     </label>
                                     <input
                                         id="tarif-minimum"
-                                        type="number"
-                                        min={1}
-                                        value={tarifMinimum}
-                                        onChange={(event) => setTarifMinimum(event.target.value)}
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={harga}
+                                        onChange={(event) => setHarga(event.target.value)}
                                         placeholder="Isi nominal ..."
+                                        disabled={submitting}
                                         className={inputClass}
                                     />
-                                    {errors.tarifMinimum && (
-                                        <p className={errorClass}>{errors.tarifMinimum}</p>
+                                    {errors.minimum && (
+                                        <p className={errorClass}>{errors.minimum}</p>
                                     )}
                                 </div>
 
                                 <div>
                                     <label htmlFor="tarif-batas" className="block text-xs font-bold text-neutral-900 sm:text-sm">
-                                        Batas Jarak Awal (km)
+                                        Batas jarak awal (km)
                                     </label>
                                     <input
                                         id="tarif-batas"
-                                        type="number"
-                                        min={0}
-                                        value={batasJarakAwal}
-                                        onChange={(event) => setBatasJarakAwal(event.target.value)}
-                                        placeholder="0 km"
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={batasJarak}
+                                        onChange={(event) => setBatasJarak(event.target.value)}
+                                        placeholder="Kosongkan bila tidak ada batas"
+                                        disabled={submitting}
                                         className={inputClass}
                                     />
-                                    {errors.batasJarakAwal && (
-                                        <p className={errorClass}>{errors.batasJarakAwal}</p>
+                                    {errors.batas && (
+                                        <p className={errorClass}>{errors.batas}</p>
                                     )}
                                 </div>
 
                                 <div>
                                     <label htmlFor="tarif-km" className="block text-xs font-bold text-neutral-900 sm:text-sm">
-                                        Tarif per Km Berikutnya
+                                        Tarif per km berikutnya
                                     </label>
                                     <input
                                         id="tarif-km"
-                                        type="number"
-                                        min={1}
-                                        value={tarifKmBerikutnya}
-                                        onChange={(event) => setTarifKmBerikutnya(event.target.value)}
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={tarifPerKm}
+                                        onChange={(event) => setTarifPerKm(event.target.value)}
                                         placeholder="Isi nominal ..."
+                                        disabled={submitting}
                                         className={inputClass}
                                     />
-                                    {errors.tarifKmBerikutnya && (
-                                        <p className={errorClass}>{errors.tarifKmBerikutnya}</p>
+                                    {errors.perKm && (
+                                        <p className={errorClass}>{errors.perKm}</p>
                                     )}
                                 </div>
 
                                 <div>
                                     <label htmlFor="tarif-layanan" className="block text-xs font-bold text-neutral-900 sm:text-sm">
-                                        Biaya Layanan
+                                        Biaya layanan
                                     </label>
                                     <input
                                         id="tarif-layanan"
-                                        type="number"
-                                        min={0}
-                                        value={biayaLayanan}
-                                        onChange={(event) => setBiayaLayanan(event.target.value)}
-                                        placeholder="Isi nominal ..."
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={layanan}
+                                        onChange={(event) => setLayanan(event.target.value)}
+                                        placeholder="Kosongkan bila tidak ada"
+                                        disabled={submitting}
                                         className={inputClass}
                                     />
-                                    {errors.biayaLayanan && (
-                                        <p className={errorClass}>{errors.biayaLayanan}</p>
+                                    {errors.layanan && (
+                                        <p className={errorClass}>{errors.layanan}</p>
                                     )}
                                 </div>
+
+                                <p className="text-xs text-neutral-500 sm:col-span-2 sm:text-sm">
+                                    Tarif minimum berlaku sampai batas jarak awal; setelahnya ditambah tarif per km, dibulatkan ke atas kelipatan Rp500; biaya layanan ditambahkan per perjalanan setelah pembulatan; bila batas jarak kosong, tarif per km berlaku sejak km pertama.
+                                </p>
                             </div>
                         )}
                     </div>
 
                     <div>
-                        <label htmlFor="tarif-status" className={labelClass}>
-                            Status
+                        <label htmlFor="tarif-keterangan" className={labelClass}>
+                            Keterangan (opsional)
                         </label>
-                        <div className="relative">
-                            <select
-                                id="tarif-status"
-                                value={status}
-                                onChange={(event) => setStatus(event.target.value as TarifStatus)}
-                                className={selectClass}
-                            >
-                                {statusOptions.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </select>
-                            <HiChevronDown
-                                aria-hidden="true"
-                                className="pointer-events-none absolute top-1/2 right-5 h-5 w-5 -translate-y-1/2 text-neutral-500"
-                            />
-                        </div>
+                        <input
+                            id="tarif-keterangan"
+                            type="text"
+                            value={keterangan}
+                            onChange={(event) => setKeterangan(event.target.value)}
+                            placeholder="Keterangan tarif ..."
+                            disabled={submitting}
+                            className={inputClass}
+                        />
                     </div>
 
                     <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end sm:gap-3 sm:pt-4">
                         <button
                             type="button"
                             onClick={onCancel}
-                            className="cursor-pointer rounded-full bg-neutral-400 px-5 py-2 text-sm font-semibold text-white transition hover:bg-neutral-500 sm:px-6 sm:py-2.5 sm:text-base"
+                            disabled={submitting}
+                            className="cursor-pointer rounded-full bg-neutral-400 px-5 py-2 text-sm font-semibold text-white transition hover:bg-neutral-500 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6 sm:py-2.5 sm:text-base"
                         >
                             Batal
                         </button>
                         <button
                             type="submit"
-                            className="cursor-pointer rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 sm:px-6 sm:py-2.5 sm:text-base"
+                            disabled={submitting}
+                            className="cursor-pointer rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6 sm:py-2.5 sm:text-base"
                         >
-                            {initial ? 'Simpan' : 'Tambah'}
+                            {submitting ? 'Menyimpan...' : initial ? 'Simpan' : 'Tambah'}
                         </button>
                     </div>
                 </form>
