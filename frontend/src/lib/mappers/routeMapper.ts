@@ -151,7 +151,13 @@ export function mapApiRouteToJourneySegments(apiRoute: ApiRoute): JourneySegment
       stops: (leg.passedStops ?? [])
         .slice()
         .sort((first, second) => first.urutan - second.urutan)
-        .map((stop) => ({ time: stop.estimatedTime ?? UNKNOWN_TIME, stopName: stop.namaHalte })),
+        .map((stop) => ({
+          time: stop.estimatedTime ?? UNKNOWN_TIME,
+          stopName: stop.namaHalte,
+          // Koordinat dipakai TripStepList: klik nama halte -> peta zoom ke titik ini.
+          lat: typeof stop.latitude === 'number' ? stop.latitude : undefined,
+          lng: typeof stop.longitude === 'number' ? stop.longitude : undefined,
+        })),
     };
   });
 }

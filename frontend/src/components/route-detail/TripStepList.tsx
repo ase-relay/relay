@@ -3,8 +3,11 @@
 import { useState } from 'react';
 import { VehicleIcon, type VehicleType } from '@/components/icons/vehicle/VehicleIcon';
 import WalkingGlyphIcon from '@/components/icons/cari-rute/WalkingIcon';
+import { getRouteBadgeColor } from '@/lib/routeBadgeColor';
 
-export interface JourneyStop { time: string; stopName: string; }
+export interface JourneyStop { time: string; stopName: string; lat?: number; lng?: number; }
+/** Halte yang dipilih user dari daftar perhentian (untuk zoom peta). */
+export interface JourneyStopTarget { name: string; lat: number; lng: number; }
 interface BaseSegment { id: string; startTime: string; endTime: string; }
 export interface WalkSegment extends BaseSegment { type: 'WALK'; distance: number; duration: number; steps?: string[]; }
 export interface TransitSegment extends BaseSegment {
@@ -21,8 +24,14 @@ export interface TransitSegment extends BaseSegment {
 export type JourneySegment = WalkSegment | TransitSegment;
 export interface JourneyPoint { time: string; name: string; address: string; }
 
-interface TripStepListProps { origin: JourneyPoint; destination: JourneyPoint; segments: JourneySegment[]; }
-interface TimelineSegmentProps { item: JourneySegment; }
+interface TripStepListProps {
+  origin: JourneyPoint;
+  destination: JourneyPoint;
+  segments: JourneySegment[];
+  /** Dipanggil saat nama halte di daftar perhentian diklik. Tanpa prop ini nama halte tetap teks biasa. */
+  onStopSelect?: (stop: JourneyStopTarget) => void;
+}
+interface TimelineSegmentProps { item: JourneySegment; onStopSelect?: (stop: JourneyStopTarget) => void; }
 
 /** Chevron collapsible — biru mengikuti design; berputar 180° saat terbuka. */
 function Chevron({ isOpen }: { isOpen: boolean }) {
@@ -44,7 +53,7 @@ function boardingLabel(vehicleType: VehicleType): string {
   }
 }
 
-export function TimelineSegment({ item }: TimelineSegmentProps) {
+export function TimelineSegment({ item, onStopSelect }: TimelineSegmentProps) {
   const [isOpen, setIsOpen] = useState(false);
   const summary = item.type === 'WALK' ? `${item.duration} menit, ${item.distance} m` : `${item.duration} menit (${item.stopCount} perhentian)`;
 
@@ -78,7 +87,7 @@ export function TimelineSegment({ item }: TimelineSegmentProps) {
     <div className="pb-1 pl-11 pt-3 sm:pl-12">
       <div className="flex flex-wrap items-center gap-2.5">
         <VehicleIcon type={item.vehicleType} className="h-8 w-8 shrink-0" />
-        <span className="rounded-full bg-purple-700 px-2.5 py-1 text-xs font-semibold text-white">{item.routeCode}</span>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold text-white ${getRouteBadgeColor(item.routeCode)}`}>{item.routeCode}</span>
         <p className="font-semibold text-neutral-900">{item.operator}</p>
       </div>
       <p className="mt-2 text-sm text-neutral-500">Biaya: {formatCurrency(item.cost)}</p>
@@ -93,12 +102,28 @@ export function TimelineSegment({ item }: TimelineSegmentProps) {
       </button>
       <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'mt-3 grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
         <ol className="overflow-hidden space-y-3 text-sm">
-          {item.stops.map((stop) => (
-            <li key={`${item.id}-${stop.time}-${stop.stopName}`} className="flex gap-3">
-              <time className="w-11 shrink-0 text-neutral-500">{stop.time}</time>
-              <span className="font-medium text-neutral-700">{stop.stopName}</span>
-            </li>
-          ))}
+          {item.stops.map((stop) => {
+            const { lat, lng } = stop;
+            const canFocus = !!onStopSelect && typeof lat === 'number' && typeof lng === 'number';
+            return (
+              <li key={`${item.id}-${stop.time}-${stop.stopName}`} className="flex gap-3">
+                <time className="w-11 shrink-0 text-neutral-500">{stop.time}</time>
+                {canFocus ? (
+                  <button
+                    type="button"
+                    onClick={() => onStopSelect({ name: stop.stopName, lat, lng })}
+                    title="Lihat di peta"
+                    aria-label={`Lihat ${stop.stopName} di peta`}
+                    className="cursor-pointer text-left font-medium text-neutral-700 transition-colors hover:text-primary-600 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+                  >
+                    {stop.stopName}
+                  </button>
+                ) : (
+                  <span className="font-medium text-neutral-700">{stop.stopName}</span>
+                )}
+              </li>
+            );
+          })}
         </ol>
       </div>
     </div>
@@ -156,7 +181,7 @@ function PointCard({ point, type }: { point: JourneyPoint; type: 'start' | 'end'
   );
 }
 
-export function TripStepList({ origin, destination, segments }: TripStepListProps) {
+export function TripStepList({ origin, destination, segments, onStopSelect }: TripStepListProps) {
   return (
     <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-8" aria-labelledby="journey-detail-title">
       <h2 id="journey-detail-title" className="text-lg font-bold text-neutral-900">Detail Perjalanan</h2>
@@ -183,12 +208,12 @@ export function TripStepList({ origin, destination, segments }: TripStepListProp
                 </div>
               </div>
             </div>
-            <div className="pl-13 sm:pl-14"><TimelineSegment item={segment} /></div>
+            <div className="pl-13 sm:pl-14"><TimelineSegment item={segment} onStopSelect={onStopSelect} /></div>
           </div>
         ) : (
           <div key={segment.id} className="relative">
             <TimelineLine position="middle" />
-            <div className="pl-13 sm:pl-14"><TimelineSegment item={segment} /></div>
+            <div className="pl-13 sm:pl-14"><TimelineSegment item={segment} onStopSelect={onStopSelect} /></div>
           </div>
         ))}
 

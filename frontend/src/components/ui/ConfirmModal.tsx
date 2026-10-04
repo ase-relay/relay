@@ -1,7 +1,10 @@
 'use client';
 
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { HiOutlineTrash } from 'react-icons/hi2';
+
+// Harus sama dengan durasi `.confirm-modal-panel-exit` di globals.css
+const EXIT_ANIMATION_MS = 250;
 
 export interface ConfirmModalProps {
   isOpen: boolean;
@@ -29,6 +32,18 @@ export function ConfirmModal({
   variant = 'danger',
   className = '',
 }: ConfirmModalProps) {
+  // Modal tetap ada di DOM selama animasi tutup berjalan, baru di-unmount setelah selesai
+  const [rendered, setRendered] = useState(isOpen);
+
+  useEffect(() => {
+    if (isOpen) {
+      setRendered(true);
+      return;
+    }
+    const timer = setTimeout(() => setRendered(false), EXIT_ANIMATION_MS);
+    return () => clearTimeout(timer);
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -40,7 +55,7 @@ export function ConfirmModal({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, isLoading, onCancel]);
 
-  if (!isOpen) return null;
+  if (!isOpen && !rendered) return null;
 
   const isDanger = variant === 'danger';
   const confirmClass = isDanger
@@ -49,7 +64,9 @@ export function ConfirmModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-5"
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-5 ${
+        isOpen ? 'confirm-modal-overlay' : 'confirm-modal-overlay-exit pointer-events-none'
+      }`}
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !isLoading) onCancel();
@@ -60,7 +77,9 @@ export function ConfirmModal({
         aria-modal="true"
         aria-labelledby="confirm-modal-title"
         aria-describedby="confirm-modal-description"
-        className={`w-full max-w-md rounded-2xl border border-neutral-300 bg-white px-6 py-6 shadow-[0_16px_32px_rgba(15,23,42,0.22)] sm:px-8 sm:py-8 ${className}`}
+        className={`w-full max-w-md rounded-2xl border border-neutral-300 bg-white px-6 py-6 shadow-[0_16px_32px_rgba(15,23,42,0.22)] sm:px-8 sm:py-8 ${
+          isOpen ? 'confirm-modal-panel' : 'confirm-modal-panel-exit'
+        } ${className}`}
       >
         <h2 id="confirm-modal-title" className={`text-xl font-bold tracking-tight sm:text-2xl ${isDanger ? 'text-red-600' : 'text-primary-600'}`}>
           {title}

@@ -2,6 +2,7 @@
 
 import { RouteOption } from '@/lib/types/route';
 import { formatDuration, formatCurrency } from '@/lib/utils';
+import { getRouteBadgeColor } from '@/lib/routeBadgeColor';
 import { VehicleIcon } from '@/components/icons/vehicle/VehicleIcon';
 import WalkingGlyphIcon from '@/components/icons/cari-rute/WalkingIcon';
 import RightArrowIcon from '@/components/icons/cari-rute/RightArrowIcon';
@@ -27,7 +28,7 @@ export function RouteSummaryHeader({ route }: RouteSummaryHeaderProps) {
             </h1>
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
               {route.badges.map((badge) => (
-                <span key={badge} className="rounded-full bg-purple-700 px-2.5 py-0.5 text-xs font-semibold text-white">{badge}</span>
+                            <span key={badge} className={`rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${getRouteBadgeColor(badge)}`}>{badge}</span>
               ))}
               {route.operator && <span className="text-sm text-neutral-500">{route.operator}</span>}
             </div>
