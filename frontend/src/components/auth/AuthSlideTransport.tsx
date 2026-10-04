@@ -1,22 +1,19 @@
 import { VehicleIcon } from "@/components/icons/vehicle/VehicleIcon";
-import { HiOutlineUser } from "react-icons/hi2";
+import { AuthSlideText } from "@/components/auth/AuthSlideText";
+
+// Tiga lingkaran kendaraan berdiameter 85px yang saling menumpuk, sesuai desain.
+const iconClass = "absolute h-[85px] w-[85px] [&>svg]:h-full [&>svg]:w-full";
 
 export function AuthSlideTransport() {
     return (
-        <div className="grid h-full items-center gap-4 px-10 py-7 md:grid-cols-[1fr_1.15fr]">
-            <div>
-                <h3 className="text-xl leading-tight font-bold text-black">
-                    Mau Naik Apa? <br />Pilih Sesukamu!
-                </h3>
-                <p className="mt-3 max-w-xs text-base leading-relaxed text-neutral-800">
-                    Pilih jenis transportasi umum yang sesuai dengan kebutuhanmu.
-                </p>
-            </div>
-            <div className="relative mx-auto h-36 w-40">
-                <div className="absolute top-0 left-4 h-18 w-18 [&>svg]:h-full [&>svg]:w-full"><VehicleIcon type="bus" /></div>
-                <div className="absolute bottom-0 left-0 h-18 w-18 [&>svg]:h-full [&>svg]:w-full"><VehicleIcon type="motorcycle" /></div>
-                <div className="absolute bottom-0 right-0 h-18 w-18 [&>svg]:h-full [&>svg]:w-full"><VehicleIcon type="train" /></div>
-            </div>
+        <div className="relative h-full w-full">
+            <AuthSlideText
+                title={<>Mau Naik Apa? <br />Pilih Sesukamu!</>}
+                description="Pilih jenis transportasi umum yang sesuai dengan kebutuhanmu."
+            />
+            <div className={`${iconClass} top-[53px] left-[458px]`}><VehicleIcon type="bus" /></div>
+            <div className={`${iconClass} top-[95.5px] left-[524px]`}><VehicleIcon type="motorcycle" /></div>
+            <div className={`${iconClass} top-[136.5px] left-[452px]`}><VehicleIcon type="train" /></div>
         </div>
     );
 }

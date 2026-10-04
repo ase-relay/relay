@@ -6,10 +6,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { HiOutlineEye, HiOutlineEyeSlash, HiOutlineLockClosed, HiOutlineUser } from "react-icons/hi2";
 import axios from "axios";
-import { AuthSlideBudget } from "@/components/auth/AuthSlideBudget";
-import { AuthSlideRoute } from "@/components/auth/AuthSlideRoute";
-import { AuthSlideTransport } from "@/components/auth/AuthSlideTransport";
-import { CarouselNavButton } from "@/components/ui/CarouselNavButton";
 import { useAuth } from "@/context/AuthContext";
 import { CredentialResponse, GoogleLogin } from "@react-oauth/google";
 import { jwtDecode } from "jwt-decode";
@@ -17,10 +13,7 @@ import Alert from "@/components/ui/Alert";
 import { AlertViewport } from "@/components/ui/AlertViewport";
 import { getApiErrorMessage } from "@/lib/utils/apiError";
 
-const slides = [AuthSlideBudget, AuthSlideTransport, AuthSlideRoute];
-
 export default function LoginPage() {
-    const [activeSlide, setActiveSlide] = useState(0);
     const [showPassword, setShowPassword] = useState(false);
     const [form, setForm] = useState({ identifier: "", password: "" });
     const [error, setError] = useState("");
@@ -32,7 +25,6 @@ export default function LoginPage() {
     const { login, googleLogin } = useAuth();
     const router = useRouter();
     const handleCloseGoogleError = useCallback(() => setGoogleError(""), []);
-    const ActiveSlide = slides[activeSlide];
 
     useEffect(() => {
         const el = googleBtnRef.current;
@@ -43,10 +35,6 @@ export default function LoginPage() {
         observer.observe(el);
         return () => observer.disconnect();
     }, []);
-
-    function moveSlide(direction: number) {
-        setActiveSlide((current) => (current + direction + slides.length) % slides.length);
-    }
 
     async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -99,31 +87,10 @@ export default function LoginPage() {
     }
 
     return (
-        <main className="grid min-h-screen bg-white lg:grid-cols-[3fr_2fr]">
+        <>
             <AlertViewport>
                 {googleError && <Alert status="error" title="Login Google Gagal" description={googleError} onClose={handleCloseGoogleError} />}
             </AlertViewport>
-            <section className="relative hidden min-h-screen overflow-hidden border-r border-neutral-200 bg-[linear-gradient(180deg,#fff_0%,#edf6ff_100%)] px-10 py-10 lg:block xl:px-14">
-                <Link href="/">
-                    <Image src="/logo/logo.svg" alt="Otewe" width={160} height={48} priority className="relative z-10 h-auto w-36 cursor-pointer" />
-                </Link>
-                <div className="relative z-10 mt-18 max-w-md">
-                    <h1 className="text-4xl leading-tight font-extrabold tracking-tight text-black">Selamat datang di<br />otewe!</h1>
-                    <p className="mt-4 max-w-sm text-base leading-relaxed text-neutral-600">Temukan rute transportasi terbaik untuk perjalananmu dengan mudah, cepat, dan hemat.</p>
-                </div>
-                <div className="pointer-events-none absolute top-[30%] right-0 left-0 h-[46%]">
-                    <Image src="/images/Login_Onboard.png" alt="Ilustrasi bus Otewe" fill priority className="object-contain object-center" sizes="60vw" />
-                </div>
-
-                <div className="absolute right-0 bottom-8 left-0 z-10 px-20">
-                    <div className="relative mx-auto max-w-3xl rounded-2xl bg-white shadow-[0_8px_20px_rgba(15,23,42,0.12)]">
-                        <div className="h-48 overflow-hidden rounded-2xl"><ActiveSlide /></div>
-                        <CarouselNavButton direction="previous" size="sm" onClick={() => moveSlide(-1)} className="absolute top-1/2 -left-9 -translate-y-1/2" />
-                        <CarouselNavButton direction="next" size="sm" onClick={() => moveSlide(1)} className="absolute top-1/2 -right-9 -translate-y-1/2" />
-                    </div>
-                    <div className="mt-4 flex justify-center gap-3">{slides.map((_, index) => <button key={index} type="button" aria-label={`Pilih slide ${index + 1}`} onClick={() => setActiveSlide(index)} className={`h-2.5 w-2.5 rounded-full transition ${index === activeSlide ? "bg-primary-600" : "bg-neutral-300"}`} />)}</div>
-                </div>
-            </section>
 
             <section className="flex items-center justify-center px-4 py-10 sm:px-12 lg:px-16 xl:px-18">
                 <div className="w-full max-w-md">
@@ -161,6 +128,6 @@ export default function LoginPage() {
                     <p className="mt-5 text-center text-sm text-neutral-500">Belum memiliki akun? <Link href="/register" className="font-medium text-primary-600 underline">Daftar</Link></p>
                 </div>
             </section>
-        </main>
+        </>
     );
 }
