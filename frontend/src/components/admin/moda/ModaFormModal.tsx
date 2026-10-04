@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { useModalTransition } from '@/hooks/useModalTransition';
 import { HiXMark } from 'react-icons/hi2';
 import type { Moda, ModaInput, TipeModa } from '@/lib/types/moda';
 import { TIPE_MODA_LABELS } from '@/lib/types/moda';
@@ -63,7 +64,9 @@ export function ModaFormModal({ isOpen, initial = null, onCancel, onSave, disabl
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, onCancel]);
 
-    if (!isOpen) return null;
+    const { shouldRender, overlayClass, dialogClass } = useModalTransition(isOpen);
+
+    if (!shouldRender) return null;
 
     const inputClass =
         'mt-2 h-10 w-full rounded-xl border border-neutral-300 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-primary-600 focus:outline-none sm:h-12 sm:px-5 sm:text-base';
@@ -109,7 +112,7 @@ export function ModaFormModal({ isOpen, initial = null, onCancel, onSave, disabl
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-2.5 sm:p-4"
+            className={`fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-2.5 sm:p-4 ${overlayClass}`}
             role="presentation"
             onMouseDown={(event) => {
                 if (event.target === event.currentTarget) onCancel();
@@ -119,7 +122,7 @@ export function ModaFormModal({ isOpen, initial = null, onCancel, onSave, disabl
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="moda-form-title"
-                className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl bg-white px-3.5 py-4 shadow-[0_16px_32px_rgba(15,23,42,0.22)] sm:max-w-2xl sm:rounded-2xl sm:px-10 sm:py-8"
+                className={`max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl bg-white px-3.5 py-4 shadow-[0_16px_32px_rgba(15,23,42,0.22)] sm:max-w-2xl sm:rounded-2xl sm:px-10 sm:py-8 ${dialogClass}`}
             >
                 <div className="flex items-start justify-between gap-3">
                     <h2

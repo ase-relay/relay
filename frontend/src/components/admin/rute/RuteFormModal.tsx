@@ -1,6 +1,7 @@
 'use client';
 
-import { FormEvent, useEffect, useRef, useState, type DragEvent as ReactDragEvent } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState, type DragEvent as ReactDragEvent } from 'react';
+import { useModalTransition } from '@/hooks/useModalTransition';
 import { HiChevronDown, HiXMark } from 'react-icons/hi2';
 import SearchIcon from '@/components/icons/common/SearchIcon';
 import type { Rute, RuteInput } from '@/lib/types/rute';
@@ -60,6 +61,7 @@ export function RuteFormModal({
     const prevRects = useRef(new Map<number, DOMRect>());
     const moveTimer = useRef<number | null>(null);
     const pendingIndex = useRef<number | null>(null);
+    const dragPointer = useRef<{ x: number; y: number } | null>(null);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -95,7 +97,117 @@ export function RuteFormModal({
         });
     }, [selectedHalteIds, dragIndex]);
 
-    if (!isOpen) return null;
+    const snapshotItemPositions = useCallback(() => {
+        const rects = new Map<number, DOMRect>();
+        itemRefs.current.forEach((el, id) => {
+            if (el) rects.set(id, el.getBoundingClientRect());
+        });
+        prevRects.current = rects;
+    }, []);
+
+    const clearPendingMove = useCallback(() => {
+        if (moveTimer.current !== null) {
+            window.clearTimeout(moveTimer.current);
+            moveTimer.current = null;
+        }
+        pendingIndex.current = null;
+    }, []);
+
+    // Tunda perpindahan sebentar: hanya pindah bila kursor bertahan
+    // di target yang sama, agar tidak glitch saat di perbatasan item.
+    const scheduleMoveTo = useCallback(
+        (targetIndex: number) => {
+            if (dragIndex == null || dragIndex === targetIndex) return;
+            if (pendingIndex.current === targetIndex) return;
+            clearPendingMove();
+            pendingIndex.current = targetIndex;
+            moveTimer.current = window.setTimeout(() => {
+                moveTimer.current = null;
+                pendingIndex.current = null;
+                snapshotItemPositions();
+                setSelectedHalteIds((prev) => {
+                    const next = [...prev];
+                    const [moved] = next.splice(dragIndex, 1);
+                    next.splice(targetIndex, 0, moved);
+                    return next;
+                });
+                setDragIndex(targetIndex);
+                setDragOverIndex(targetIndex);
+            }, 140);
+        },
+        [dragIndex, clearPendingMove, snapshotItemPositions],
+    );
+
+    // Auto-scroll saat drag. Berjalan tiap frame selama drag aktif dan memantau
+    // posisi kursor lewat listener di document, jadi tetap scroll walau kursor
+    // keluar dari box (di atas/bawah) atau diam di tepi. Makin jauh kursor ke
+    // luar tepi, makin cepat scroll-nya.
+    useEffect(() => {
+        if (dragIndex == null) {
+            dragPointer.current = null;
+            return;
+        }
+
+        const EDGE = 56; // px zona pemicu di dalam box
+        const MAX_SPEED = 3000; // px/detik, tercapai saat kursor EDGE px di luar box
+        let frame = 0;
+        let last = performance.now();
+
+        function handleDocumentDragOver(event: DragEvent) {
+            event.preventDefault(); // cegah ikon "dilarang" saat kursor di luar box
+            dragPointer.current = { x: event.clientX, y: event.clientY };
+        }
+
+        function tick(now: number) {
+            const dt = Math.min(now - last, 50);
+            last = now;
+            const list = orderListRef.current;
+            const pointer = dragPointer.current;
+
+            if (list && pointer) {
+                const rect = list.getBoundingClientRect();
+                const y = pointer.y;
+                const step = (ratio: number) =>
+                    Math.max(1, Math.round((Math.min(ratio, 1) * MAX_SPEED * dt) / 1000));
+
+                if (y < rect.top + EDGE) {
+                    list.scrollTop -= step((rect.top + EDGE - y) / (EDGE * 2));
+                } else if (y > rect.bottom - EDGE) {
+                    list.scrollTop += step((y - (rect.bottom - EDGE)) / (EDGE * 2));
+                }
+
+                // Kursor di luar box: tidak ada <li> yang menerima dragover, jadi
+                // tentukan item tujuan dari tepi box (atas -> item paling atas yang
+                // terlihat, bawah -> item paling bawah yang terlihat).
+                if (y < rect.top || y > rect.bottom) {
+                    const clampedY = Math.min(Math.max(y, rect.top + 1), rect.bottom - 1);
+                    let targetIndex = selectedHalteIds.length - 1;
+                    for (let i = 0; i < selectedHalteIds.length; i++) {
+                        const itemRect = itemRefs.current.get(selectedHalteIds[i])?.getBoundingClientRect();
+                        if (itemRect && itemRect.bottom >= clampedY) {
+                            targetIndex = i;
+                            break;
+                        }
+                    }
+                    if (targetIndex === dragIndex) clearPendingMove();
+                    else scheduleMoveTo(targetIndex);
+                }
+            }
+
+            frame = requestAnimationFrame(tick);
+        }
+
+        document.addEventListener('dragover', handleDocumentDragOver);
+        frame = requestAnimationFrame(tick);
+        return () => {
+            document.removeEventListener('dragover', handleDocumentDragOver);
+            cancelAnimationFrame(frame);
+        };
+    }, [dragIndex, selectedHalteIds, clearPendingMove, scheduleMoveTo]);
+
+    const { shouldRender, overlayClass, dialogClass } = useModalTransition(isOpen);
+
+    if (!shouldRender) return null;
 
     const inputClass =
         'mt-2 h-10 w-full rounded-xl border border-neutral-300 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-primary-600 focus:outline-none sm:h-12 sm:px-5 sm:text-base';
@@ -141,62 +253,9 @@ export function RuteFormModal({
         setSelectedHalteIds((prev) => prev.filter((_, i) => i !== index));
     }
 
-    function snapshotItemPositions() {
-        const rects = new Map<number, DOMRect>();
-        itemRefs.current.forEach((el, id) => {
-            if (el) rects.set(id, el.getBoundingClientRect());
-        });
-        prevRects.current = rects;
-    }
-
-    function moveDraggedTo(targetIndex: number) {
-        if (dragIndex == null || dragIndex === targetIndex) return;
-        snapshotItemPositions();
-        setSelectedHalteIds((prev) => {
-            const next = [...prev];
-            const [moved] = next.splice(dragIndex, 1);
-            next.splice(targetIndex, 0, moved);
-            return next;
-        });
-        setDragIndex(targetIndex);
-        setDragOverIndex(targetIndex);
-    }
-
-    function autoScrollOrderList(clientY: number) {
-        const el = orderListRef.current;
-        if (!el) return;
-        const rect = el.getBoundingClientRect();
-        const edge = 56;
-        const speed = 14;
-        if (clientY < rect.top + edge) {
-            el.scrollBy({ top: -speed });
-        } else if (clientY > rect.bottom - edge) {
-            el.scrollBy({ top: speed });
-        }
-    }
-
-    function clearPendingMove() {
-        if (moveTimer.current !== null) {
-            window.clearTimeout(moveTimer.current);
-            moveTimer.current = null;
-        }
-        pendingIndex.current = null;
-    }
-
     function handleItemDragOver(event: ReactDragEvent<HTMLLIElement>, index: number) {
         event.preventDefault();
-        autoScrollOrderList(event.clientY);
-        if (dragIndex == null || dragIndex === index) return;
-        // Tunda perpindahan sebentar: hanya pindah bila kursor bertahan
-        // di target yang sama, agar tidak glitch saat di perbatasan item.
-        if (pendingIndex.current === index) return;
-        clearPendingMove();
-        pendingIndex.current = index;
-        moveTimer.current = window.setTimeout(() => {
-            moveTimer.current = null;
-            pendingIndex.current = null;
-            moveDraggedTo(index);
-        }, 140);
+        scheduleMoveTo(index);
     }
 
     function endDrag() {
@@ -313,7 +372,7 @@ export function RuteFormModal({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/35 p-2.5 sm:p-4"
+            className={`fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/35 p-2.5 sm:p-4 ${overlayClass}`}
             role="presentation"
             onMouseDown={(event) => {
                 if (event.target === event.currentTarget) onCancel();
@@ -323,7 +382,7 @@ export function RuteFormModal({
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="rute-form-title"
-                className="my-auto w-full max-w-2xl rounded-xl border border-neutral-300 bg-white px-3.5 py-4 shadow-[0_16px_32px_rgba(15,23,42,0.22)] sm:max-w-4xl sm:rounded-2xl sm:px-10 sm:py-8"
+                className={`my-auto w-full max-w-2xl rounded-xl border border-neutral-300 bg-white px-3.5 py-4 shadow-[0_16px_32px_rgba(15,23,42,0.22)] sm:max-w-4xl sm:rounded-2xl sm:px-10 sm:py-8 ${dialogClass}`}
             >
                 <div className="flex items-start justify-between gap-3">
                     <h2

@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { useModalTransition } from '@/hooks/useModalTransition';
 import dynamic from 'next/dynamic';
 import { HiChevronDown, HiMap, HiOutlinePencilSquare, HiXMark } from 'react-icons/hi2';
 import type { Halte, HalteInput } from '@/lib/types/halte';
@@ -48,7 +49,9 @@ export function HalteFormModal({ isOpen, initial = null, onCancel, onSave, disab
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, mapOpen, onCancel]);
 
-    if (!isOpen) return null;
+    const { shouldRender, overlayClass, dialogClass } = useModalTransition(isOpen);
+
+    if (!shouldRender) return null;
 
     const inputClass =
         'mt-2 h-10 w-full rounded-xl border border-neutral-300 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-primary-600 focus:outline-none sm:h-12 sm:px-5 sm:text-base';
@@ -127,7 +130,7 @@ export function HalteFormModal({ isOpen, initial = null, onCancel, onSave, disab
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4 sm:p-6"
+            className={`fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4 sm:p-6 ${overlayClass}`}
             role="presentation"
             onMouseDown={(event) => {
                 if (event.target === event.currentTarget) onCancel();
@@ -137,7 +140,7 @@ export function HalteFormModal({ isOpen, initial = null, onCancel, onSave, disab
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="halte-form-title"
-                className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white px-3.5 py-4 shadow-[0_16px_32px_rgba(15,23,42,0.22)] sm:max-w-3xl sm:rounded-2xl sm:px-10 sm:py-8"
+                className={`max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white px-3.5 py-4 shadow-[0_16px_32px_rgba(15,23,42,0.22)] sm:max-w-3xl sm:rounded-2xl sm:px-10 sm:py-8 ${dialogClass}`}
             >
                 <div className="flex items-start justify-between gap-3">
                     <h2 id="halte-form-title" className="text-xl font-bold text-neutral-900 sm:text-xl">

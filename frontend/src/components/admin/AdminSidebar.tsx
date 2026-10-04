@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { HiXMark } from 'react-icons/hi2';
 import { useAuth } from '@/context/AuthContext';
@@ -26,10 +26,20 @@ const dataMenus = [
     { href: '/admin/moda', label: 'Data Moda', icon: ModaIcon },
 ];
 
+const DASHBOARD_HREF = '/admin';
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
 export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
     const { logout } = useAuth();
+
+    // Blok putih penanda menu aktif: satu elemen yang bergeser mulus ke link aktif
+    const navRef = useRef<HTMLElement>(null);
+    const linkRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
+    const [indicator, setIndicator] = useState<{ top: number; height: number } | null>(null);
+    // Transisi baru dinyalakan setelah posisi pertama terpasang, supaya blok tidak "meluncur" dari atas saat load
+    const [animateIndicator, setAnimateIndicator] = useState(false);
 
     useEffect(() => {
         if (!open) return;
@@ -40,13 +50,46 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [open, onClose]);
 
+    const isDashboardActive = pathname === DASHBOARD_HREF;
+    const activeHref = isDashboardActive
+        ? DASHBOARD_HREF
+        : (dataMenus.find((menu) => menu.href === pathname)?.href ?? null);
+
+    useIsoLayoutEffect(() => {
+        const nav = navRef.current;
+        const link = activeHref ? linkRefs.current[activeHref] : null;
+        if (!nav || !link) {
+            setIndicator(null);
+            return;
+        }
+
+        function measure() {
+            if (!link) return;
+            setIndicator((prev) =>
+                prev && prev.top === link.offsetTop && prev.height === link.offsetHeight
+                    ? prev
+                    : { top: link.offsetTop, height: link.offsetHeight },
+            );
+        }
+
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(nav);
+        observer.observe(link);
+        return () => observer.disconnect();
+    }, [activeHref]);
+
+    useEffect(() => {
+        if (!indicator || animateIndicator) return;
+        const frame = requestAnimationFrame(() => setAnimateIndicator(true));
+        return () => cancelAnimationFrame(frame);
+    }, [indicator, animateIndicator]);
+
     function handleLogout() {
         logout();
         onClose?.();
         router.push('/login');
     }
-
-    const isDashboardActive = pathname === '/admin';
 
     return (
         <>
@@ -73,16 +116,31 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
                     <HiXMark className="h-6 w-6" />
                 </button>
 
-                <nav className="flex flex-1 flex-col overflow-y-auto">
+                <nav ref={navRef} className="relative flex flex-1 flex-col overflow-y-auto">
+                    {/* Blok putih yang bergeser antar menu */}
+                    {indicator && (
+                        <span
+                            aria-hidden="true"
+                            className={`pointer-events-none absolute top-0 left-0 w-full rounded-xl bg-white ${animateIndicator
+                                ? 'transition-[transform,height] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none'
+                                : ''
+                                }`}
+                            style={{ height: indicator.height, transform: `translateY(${indicator.top}px)` }}
+                        />
+                    )}
+
                     <Link
-                        href="/admin"
+                        ref={(element) => {
+                            linkRefs.current[DASHBOARD_HREF] = element;
+                        }}
+                        href={DASHBOARD_HREF}
                         onClick={onClose}
-                        className={`flex items-center gap-4 rounded-xl px-4 py-3 text-base font-semibold transition-colors ${isDashboardActive
-                            ? 'bg-white text-primary-600'
+                        className={`relative z-10 flex items-center gap-4 rounded-xl px-4 py-3 text-base font-semibold transition-colors duration-300 ${isDashboardActive
+                            ? 'text-primary-600'
                             : 'text-white hover:bg-white/10'
                             }`}
                     >
-                        <DashboardIcon color={isDashboardActive ? "#004BDC" : "white"} className="h-5 w-5 shrink-0" />
+                        <DashboardIcon color="currentColor" className="h-5 w-5 shrink-0" />
                         Dashboard
                     </Link>
 
@@ -97,14 +155,17 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
                             return (
                                 <Link
                                     key={menu.href}
+                                    ref={(element) => {
+                                        linkRefs.current[menu.href] = element;
+                                    }}
                                     href={menu.href}
                                     onClick={onClose}
-                                    className={`flex items-center gap-4 rounded-xl px-4 py-3 text-base font-medium transition-colors ${isActive
-                                        ? 'bg-white text-primary-600'
+                                    className={`relative z-10 flex items-center gap-4 rounded-xl px-4 py-3 text-base font-medium transition-colors duration-300 ${isActive
+                                        ? 'text-primary-600'
                                         : 'text-white hover:bg-white/10'
                                         }`}
                                 >
-                                    <Icon color={isActive ? '#004BDC' : 'white'} className="h-6 w-6 shrink-0" />
+                                    <Icon color="currentColor" className="h-6 w-6 shrink-0" />
                                     {menu.label}
                                 </Link>
                             );
