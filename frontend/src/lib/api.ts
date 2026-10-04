@@ -1,6 +1,6 @@
 import axios from 'axios';
 import type { RoutingSearchRequest, RoutingSearchResponse, RoutingGeometryRequest, RoutingGeometryResponse } from '@/types/api/routing';
-import type { UpdateProfileRequest, UpdateProfileResponse, UpdateProfileData, ChangePasswordRequest, ChangePasswordResponse, GoogleLoginRequest, GoogleLoginResponse, GoogleLoginData } from '@/types/api/auth';
+import type { UpdateProfileRequest, UpdateProfileResponse, UpdateProfileData, ChangePasswordRequest, ChangePasswordResponse, DeleteAccountResponse, GoogleLoginRequest, GoogleLoginResponse, GoogleLoginData } from '@/types/api/auth';
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
@@ -123,6 +123,24 @@ export async function changePassword(payload: ChangePasswordRequest): Promise<vo
 
   if (!envelope.success) {
     throw new Error(envelope.message || 'Gagal mengubah kata sandi. Silakan coba lagi.');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Endpoint: DELETE /auth/account
+// ---------------------------------------------------------------------------
+
+/**
+ * Hapus akun user yang sedang login secara permanen.
+ *
+ * Response BE menggunakan envelope pattern { success, message }.
+ */
+export async function deleteAccount(): Promise<void> {
+  const response = await api.delete<DeleteAccountResponse>('/auth/account');
+  const envelope = response.data;
+
+  if (!envelope.success) {
+    throw new Error(envelope.message || 'Gagal menghapus akun. Silakan coba lagi.');
   }
 }
 

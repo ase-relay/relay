@@ -1,11 +1,13 @@
 'use client';
 
 import { FormEvent, useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Footer } from '@/components/layout/Footer';
 import { Navbar } from '@/components/layout/Navbar';
 import { useAuth } from '@/context/AuthContext';
 import Alert from '@/components/ui/Alert';
 import { AlertViewport } from '@/components/ui/AlertViewport';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { Skeleton } from '@/components/ui/Skeleton';
 import EditIcon from '@/components/icons/common/EditIcon';
 import EmailIcon from '@/components/icons/common/EmailIcon';
@@ -18,7 +20,7 @@ import {
     HiOutlineEyeSlash,
     HiXMark,
 } from 'react-icons/hi2';
-import { updateProfile, changePassword } from '@/lib/api';
+import { updateProfile, changePassword, deleteAccount } from '@/lib/api';
 
 const usernamePattern = /^[A-Za-z0-9_]{3,30}$/;
 const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
@@ -40,7 +42,8 @@ function IconWrapper({ children, className = '' }: { children: React.ReactNode; 
 }
 
 export default function ProfilPage() {
-    const { user, checkingAuth, setUser } = useAuth();
+    const { user, checkingAuth, setUser, logout } = useAuth();
+    const router = useRouter();
     const [mounted, setMounted] = useState(false);
     const [editingUsername, setEditingUsername] = useState(false);
     const [changingPassword, setChangingPassword] = useState(false);
@@ -57,7 +60,9 @@ export default function ProfilPage() {
     const [isSavingPassword, setIsSavingPassword] = useState(false);
     const [passwordError, setPasswordError] = useState('');
     const [shownPasswords, setShownPasswords] = useState<Record<string, boolean>>({});
-    const [alert, setAlert] = useState<{ title: string; description: string } | null>(null);
+    const [alert, setAlert] = useState<{ title: string; description: string; status?: 'success' | 'error' } | null>(null);
+    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
     const handleCloseAlert = useCallback(() => setAlert(null), []);
 
@@ -117,6 +122,24 @@ export default function ProfilPage() {
             setPasswordError(error.message || 'Terjadi kesalahan, silakan coba lagi');
         } finally {
             setIsSavingPassword(false);
+        }
+    }
+
+    async function handleConfirmDeleteAccount() {
+        if (isDeletingAccount) return;
+        setIsDeletingAccount(true);
+        try {
+            await deleteAccount();
+            setConfirmDeleteOpen(false);
+            logout();
+            router.replace('/login');
+        } catch (error: unknown) {
+            const apiError = error as { response?: { data?: { message?: string } }; message?: string };
+            const message = apiError.response?.data?.message || apiError.message || 'Gagal menghapus akun, silakan coba lagi';
+            setConfirmDeleteOpen(false);
+            setAlert({ title: 'Gagal Menghapus Akun', description: message, status: 'error' });
+        } finally {
+            setIsDeletingAccount(false);
         }
     }
 
@@ -200,7 +223,7 @@ export default function ProfilPage() {
         <div className="flex min-h-screen flex-col text-neutral-900">
             <Navbar />
             <AlertViewport>
-                {alert && <Alert status="success" title={alert.title} description={alert.description} onClose={handleCloseAlert} autoDismissMs={3000} />}
+                {alert && <Alert status={alert.status ?? 'success'} title={alert.title} description={alert.description} onClose={handleCloseAlert} autoDismissMs={3000} />}
             </AlertViewport>
             <main className="mx-auto w-full max-w-292.5 flex-1 px-4 py-6 sm:py-8 sm:px-8 lg:py-12 xl:px-0">
                 <div className={`space-y-6 ${changingPassword ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(480px,.82fr)] lg:gap-7 lg:space-y-0' : ''}`}>
@@ -232,11 +255,18 @@ export default function ProfilPage() {
                             <h2 className="flex items-center gap-3 text-lg sm:text-xl font-bold text-red-600"><IconWrapper className="h-5 w-5 sm:h-6 sm:w-6"><StatusIcon type="info" color="var(--color-status-error)" /></IconWrapper>Hapus Akun</h2>
                             <p className="mt-3 text-sm sm:text-base text-neutral-400">Jika kamu tidak lagi menggunakan akun ini, kamu dapat menghapus akun secara permanen.</p>
                         </div>
-                        <IconButton className="w-full sm:w-auto shrink-0 bg-red-600"><IconWrapper className="h-4 w-4 sm:h-5 sm:w-5"><TrashIcon /></IconWrapper>Hapus Akun</IconButton>
+                        <IconButton onClick={() => setConfirmDeleteOpen(true)} className="w-full sm:w-auto shrink-0 bg-red-600"><IconWrapper className="h-4 w-4 sm:h-5 sm:w-5"><TrashIcon /></IconWrapper>Hapus Akun</IconButton>
                     </div>
                 </section>
             </main>
             <Footer />
+
+            <ConfirmModal
+                isOpen={confirmDeleteOpen}
+                onCancel={() => !isDeletingAccount && setConfirmDeleteOpen(false)}
+                onConfirm={handleConfirmDeleteAccount}
+                isLoading={isDeletingAccount}
+            />
         </div>
     );
 }

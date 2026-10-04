@@ -60,21 +60,21 @@ export function ConfirmModal({
         aria-modal="true"
         aria-labelledby="confirm-modal-title"
         aria-describedby="confirm-modal-description"
-        className={`w-full max-w-2xl rounded-[28px] border border-neutral-300 bg-white px-8 py-10 shadow-[0_16px_32px_rgba(15,23,42,0.22)] sm:px-12 sm:py-14 ${className}`}
+        className={`w-full max-w-md rounded-2xl border border-neutral-300 bg-white px-6 py-6 shadow-[0_16px_32px_rgba(15,23,42,0.22)] sm:px-8 sm:py-8 ${className}`}
       >
-        <h2 id="confirm-modal-title" className={`text-3xl font-bold tracking-tight sm:text-4xl ${isDanger ? 'text-red-600' : 'text-primary-600'}`}>
+        <h2 id="confirm-modal-title" className={`text-xl font-bold tracking-tight sm:text-2xl ${isDanger ? 'text-red-600' : 'text-primary-600'}`}>
           {title}
         </h2>
-        <div id="confirm-modal-description" className="mt-12 max-w-xl text-xl leading-relaxed text-neutral-950 sm:text-2xl">
+        <div id="confirm-modal-description" className="mt-4 max-w-sm text-base leading-relaxed text-neutral-950 sm:text-lg">
           {description}
         </div>
 
-        <div className="mt-14 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:gap-5">
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:gap-4">
           <button
             type="button"
             onClick={onCancel}
             disabled={isLoading}
-            className="cursor-pointer rounded-full bg-neutral-400 px-9 py-3 text-xl font-semibold text-white transition hover:bg-neutral-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-500 disabled:cursor-not-allowed disabled:opacity-60"
+            className="cursor-pointer rounded-full bg-neutral-400 px-6 py-2.5 text-base font-semibold text-white transition hover:bg-neutral-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {cancelLabel}
           </button>
@@ -82,9 +82,9 @@ export function ConfirmModal({
             type="button"
             onClick={onConfirm}
             disabled={isLoading}
-            className={`inline-flex cursor-pointer items-center justify-center gap-3 rounded-full px-9 py-3 text-xl font-semibold text-white transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${confirmClass}`}
+            className={`inline-flex cursor-pointer items-center justify-center gap-2 rounded-full px-6 py-2.5 text-base font-semibold text-white transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${confirmClass}`}
           >
-            {isDanger && <HiOutlineTrash className="h-6 w-6" aria-hidden="true" />}
+            {isDanger && <HiOutlineTrash className="h-5 w-5" aria-hidden="true" />}
             {isLoading ? 'Memproses...' : confirmLabel}
           </button>
         </div>
