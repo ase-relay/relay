@@ -60,6 +60,15 @@ function formatWalkingDistance(meters: number): string {
   return `${(meters / 1000).toFixed(1).replace('.', ',')} km`;
 }
 
+import { getRouteBadgeColor } from '@/lib/routeBadgeColor';
+
+// Keterangan operator untuk moda Ojek Online (tidak datang dari BE).
+const OJEK_OPERATOR_LABEL = 'GrabBike / GoRide';
+
+function isOjekRoute(transportName: string): boolean {
+  return transportName.toLowerCase().includes('ojek');
+}
+
 export default function CariRutePage() {
   // useSearchParams wajib dibungkus Suspense saat prerender.
   return (
@@ -176,7 +185,7 @@ function CariRutePageContent() {
         <h1 className="mt-6 text-3xl font-bold tracking-tight text-black">Rekomendasi Rute</h1>
 
         {/* Kartu lokasi awal → tujuan (design: kartu terpisah dari daftar rute) */}
-        <section className="mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm sm:p-7" aria-label="Lokasi awal dan tujuan">
+        <section className="relative z-1 mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm sm:p-7" aria-label="Lokasi awal dan tujuan">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <CurrentLocationIcon className="h-12 w-12 shrink-0 sm:h-15 sm:w-15" />
@@ -200,8 +209,9 @@ function CariRutePageContent() {
           </div>
         </section>
 
-        {/* Kartu filter + daftar rute */}
-        <section className="mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm sm:p-7" aria-labelledby="route-list-heading">
+        {/* Kartu filter + daftar rute: menyambung di bawah kartu lokasi. Sisi atasnya
+            terselip 32px di balik kartu lokasi (-mt-8), jadi padding atas ditambah 32px. */}
+        <section className="-mt-8 rounded-2xl border border-neutral-200 bg-white p-6 pt-17.5 shadow-sm sm:p-7 sm:pt-17.5" aria-labelledby="route-list-heading">
           <div className="mb-6">
             <p className="text-sm font-bold text-black">Urutkan rute berdasarkan</p>
             <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Urutkan rute">
@@ -321,9 +331,13 @@ function CariRutePageContent() {
                       <p className="font-bold text-black">{route.transportName}</p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         {route.badges.map((badge) => (
-                          <span key={badge} className={`rounded-full px-2.5 py-0.5 text-xs font-medium text-white ${badge === 'FD-1' ? 'bg-emerald-500' : 'bg-purple-700'}`}>{badge}</span>
+                          <span key={badge} className={`rounded-full px-2.5 py-0.5 text-xs font-medium text-white ${getRouteBadgeColor(badge)}`}>{badge}</span>
                         ))}
-                        {route.operator && <span className="text-sm text-neutral-500">{route.operator}</span>}
+                        {(route.operator || (isOjekRoute(route.transportName) ? OJEK_OPERATOR_LABEL : '')) && (
+                          <span className="text-sm text-neutral-500">
+                            {route.operator || OJEK_OPERATOR_LABEL}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -51,6 +51,20 @@
   --color-status-error: #FF0000;
   --color-status-success: #00B14F;
 
+  /* Route Badge Colors */
+  /* Kode Rute MJT */
+  --color-route-fd-1: #23B473;
+  --color-route-fd-2: #BD0100;
+  --color-route-k1: #00A54F;
+  --color-route-k2: #EB1C24;
+  --color-route-k3: #562B63;
+  --color-route-k4: #2E3192;
+  --color-route-k5: #EA028A;
+  --color-route-k6: #EF4C24;
+
+  /* Kode Rute Commuter Line */
+  --color-route-cl: #2A3B90;
+
   /* Background Colors */
   --color-bg-secondary: #f4f9fe;
 }
@@ -171,6 +185,230 @@ body {
 
   .animate-fadeIn,
   .animate-slideIn {
+    animation: none;
+  }
+}
+
+/* ===== Navbar: warna aktif yang "menyapu" antar link (hanya warna teks) ===== */
+@property --nav-accent {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #004bdc;
+}
+
+@property --nav-idle {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #0f172a;
+}
+
+.nav-link {
+  --nav-accent: #004bdc;
+  /* primary-600 */
+  --nav-idle: #0f172a;
+  /* neutral-900 */
+  display: inline-block;
+  text-align: center;
+
+  /* Gradient 3 bagian [idle | accent | idle], lalu di-clip ke bentuk teks */
+  background-image: linear-gradient(90deg, var(--nav-idle) 0 33.4%, var(--nav-accent) 33.4% 66.6%, var(--nav-idle) 66.6% 100%);
+  background-repeat: no-repeat;
+  background-size: 300% 100%;
+  background-position: 0% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+
+  /* Durasi per properti diatur lewat inline style di Navbar.tsx */
+  transition-property: background-position, --nav-accent, --nav-idle, font-weight;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  transition-duration: 400ms, 0ms, 150ms, 300ms;
+}
+
+/* Salinan tak terlihat dengan bobot semibold: mengunci lebar link agar teks
+   tidak bergeser saat bobot berubah antara normal dan semibold */
+.nav-link::after {
+  content: attr(data-label);
+  display: block;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  font-weight: 600;
+  pointer-events: none;
+  user-select: none;
+}
+
+.nav-link:hover {
+  --nav-idle: #004bdc;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-link {
+    transition-duration: 1ms !important;
+    transition-delay: 0s !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .nav-link {
+    background: none;
+    -webkit-text-fill-color: currentcolor;
+  }
+}
+
+/* ===== ConfirmModal: zoom in memantul, zoom out menciut ===== */
+@keyframes confirm-modal-overlay-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes confirm-modal-overlay-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+/* Buka: kecil -> membesar melewati ukuran normal -> mengecil dikit -> settle */
+@keyframes confirm-modal-pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+
+  55% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+
+  78% {
+    transform: scale(0.97);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Tutup: menciut sampai hilang */
+@keyframes confirm-modal-pop-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+}
+
+.confirm-modal-overlay {
+  animation: confirm-modal-overlay-in 200ms ease-out both;
+}
+
+.confirm-modal-overlay-exit {
+  animation: confirm-modal-overlay-out 250ms ease-in both;
+}
+
+.confirm-modal-panel {
+  animation: confirm-modal-pop-in 500ms ease-out both;
+}
+
+.confirm-modal-panel-exit {
+  animation: confirm-modal-pop-out 250ms ease-in both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .confirm-modal-overlay,
+  .confirm-modal-overlay-exit,
+  .confirm-modal-panel,
+  .confirm-modal-panel-exit {
+    animation: none;
+  }
+}
+
+/* ===== Form modal (Moda, Halte, Rute, Tarif): fade + slide-up halus ===== */
+@keyframes form-modal-overlay-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes form-modal-overlay-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes form-modal-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes form-modal-panel-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+
+/* Durasi keluar (160ms) harus sama dengan EXIT_DURATION_MS di useModalTransition.ts.
+   Masuk pakai "backwards" agar transform tidak menempel setelah animasi selesai. */
+.form-modal-overlay {
+  animation: form-modal-overlay-in 200ms ease-out backwards;
+}
+
+.form-modal-overlay-exit {
+  pointer-events: none;
+  animation: form-modal-overlay-out 160ms ease-in forwards;
+}
+
+.form-modal-panel {
+  animation: form-modal-panel-in 240ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.form-modal-panel-exit {
+  animation: form-modal-panel-out 160ms ease-in forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .form-modal-overlay,
+  .form-modal-overlay-exit,
+  .form-modal-panel,
+  .form-modal-panel-exit {
     animation: none;
   }
 }
