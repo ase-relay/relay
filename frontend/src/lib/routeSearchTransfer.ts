@@ -52,6 +52,23 @@ export function readRouteSearchLocations(): RouteSearchLocations | null {
   }
 }
 
+/**
+ * Baca lalu hapus lokasi tersimpan (konsumsi-sekali).
+ * Dipakai form beranda: lokasi dipulihkan hanya sekali setelah kembali dari
+ * halaman cari-rute; refresh berikutnya di beranda mulai dari form kosong.
+ */
+export function consumeRouteSearchLocations(): RouteSearchLocations | null {
+  const saved = readRouteSearchLocations();
+  if (saved) {
+    try {
+      sessionStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // Abaikan kegagalan hapus storage.
+    }
+  }
+  return saved;
+}
+
 // ---------------------------------------------------------------------------
 // Task 3.3: menyimpan hasil pencarian rute (response BE) ke sessionStorage agar
 // halaman detail (/cari-rute/[routeId]) bisa membaca rute berdasarkan ID route param.
