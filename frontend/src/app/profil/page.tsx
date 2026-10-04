@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState, useEffect, useCallback } from 'react';
+import { FormEvent, useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Footer } from '@/components/layout/Footer';
 import { Navbar } from '@/components/layout/Navbar';
@@ -24,6 +24,12 @@ import { updateProfile, changePassword, deleteAccount } from '@/lib/api';
 
 const usernamePattern = /^[A-Za-z0-9_]{3,30}$/;
 const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+// Harus sama dengan class `duration-500` pada wrapper panel kata sandi di bawah
+const PASSWORD_PANEL_MS = 500;
+// Animasi baris profil (mis. field username membuka form edit)
+const ROW_ANIMATION_MS = 400;
+const ROW_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 function IconButton({ children, className = '', ...props }: React.ComponentProps<'button'>) {
     return (
@@ -66,12 +72,108 @@ export default function ProfilPage() {
 
     const handleCloseAlert = useCallback(() => setAlert(null), []);
 
+    // Panel tetap ter-render selama animasi tutup berjalan, baru di-unmount setelah selesai
+    const [passwordPanelMounted, setPasswordPanelMounted] = useState(false);
+
+    useEffect(() => {
+        if (changingPassword) return;
+        const timer = setTimeout(() => setPasswordPanelMounted(false), PASSWORD_PANEL_MS);
+        return () => clearTimeout(timer);
+    }, [changingPassword]);
+
+    // Animasi tinggi: kartu profil (yang ikut meregang) dan kartu "Hapus Akun" bergeser mulus
+    const layoutRef = useRef<HTMLDivElement>(null);
+    const profileCardRef = useRef<HTMLElement>(null);
+    const layoutFromHeightRef = useRef<number | null>(null);
+    const layoutHeightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    function captureLayoutHeight() {
+        const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
+        layoutFromHeightRef.current = isDesktop ? (layoutRef.current?.offsetHeight ?? null) : null;
+    }
+
+    useIsoLayoutEffect(() => {
+        const layout = layoutRef.current;
+        const from = layoutFromHeightRef.current;
+        layoutFromHeightRef.current = null;
+        if (!layout || from === null) return;
+
+        if (layoutHeightTimerRef.current) clearTimeout(layoutHeightTimerRef.current);
+        layout.style.height = '';
+
+        let to: number;
+        if (changingPassword) {
+            to = layout.offsetHeight;
+        } else {
+            const profile = profileCardRef.current;
+            if (!profile) return;
+            profile.style.alignSelf = 'start';
+            to = profile.offsetHeight;
+            profile.style.alignSelf = '';
+        }
+        if (Math.abs(from - to) < 1) return;
+
+        layout.style.height = `${from}px`;
+        void layout.offsetHeight;
+        layout.style.height = `${to}px`;
+        layoutHeightTimerRef.current = setTimeout(() => {
+            layout.style.height = '';
+        }, PASSWORD_PANEL_MS);
+    }, [changingPassword]);
+
+    // Animasi baris profil: tinggi kartu tumbuh/menyusut mulus, baris di bawahnya ikut bergeser
+    const rowsRef = useRef<HTMLDivElement>(null);
+    const passwordRowRef = useRef<HTMLDivElement>(null);
+    const rowsFromHeightRef = useRef<number | null>(null);
+    const rowAnimationsRef = useRef<Animation[]>([]);
+
+    function captureRowsHeight() {
+        rowsFromHeightRef.current = rowsRef.current?.offsetHeight ?? null;
+    }
+
+    useIsoLayoutEffect(() => {
+        const rows = rowsRef.current;
+        const from = rowsFromHeightRef.current;
+        rowsFromHeightRef.current = null;
+        if (!rows || from === null) return;
+
+        rowAnimationsRef.current.forEach((animation) => animation.cancel());
+        rowAnimationsRef.current = [];
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+        const to = rows.offsetHeight;
+        const delta = to - from;
+        if (Math.abs(delta) < 1) return;
+
+        const options: KeyframeAnimationOptions = { duration: ROW_ANIMATION_MS, easing: ROW_EASING };
+        const animations = [rows.animate([{ height: `${from}px` }, { height: `${to}px` }], options)];
+        Array.from(passwordRowRef.current?.children ?? []).forEach((child) => {
+            animations.push(child.animate([{ transform: `translateY(${-delta}px)` }, { transform: 'translateY(0)' }], options));
+        });
+        rowAnimationsRef.current = animations;
+    }, [editingUsername]);
+
+    function beginPasswordChange() {
+        if (editingUsername) captureRowsHeight();
+        captureLayoutHeight();
+        setEditingUsername(false);
+        setPasswordSubmitted(false);
+        setPasswordPanelMounted(true);
+        setChangingPassword(true);
+    }
+
+    function closePasswordPanel() {
+        captureLayoutHeight();
+        setChangingPassword(false);
+    }
+
     const usernameValid = usernamePattern.test(username);
     const passwordValid = passwordPattern.test(passwords.next);
     const passwordsMatch = passwords.next === passwords.confirmation && passwords.confirmation.length > 0;
 
     function beginUsernameEdit() {
-        setChangingPassword(false);
+        captureRowsHeight();
+        if (changingPassword) closePasswordPanel();
         setUsername(user?.username ?? '');
         setUsernameSubmitted(false);
         setEditingUsername(true);
@@ -90,6 +192,7 @@ export default function ProfilPage() {
         try {
             const updatedUser = await updateProfile({ username });
             setUser(updatedUser);
+            captureRowsHeight();
             setEditingUsername(false);
             setAlert({ title: 'Username Berhasil Diubah!', description: 'Username kamu berhasil diperbarui' });
         } catch (error: any) {
@@ -115,7 +218,7 @@ export default function ProfilPage() {
         setIsSavingPassword(true);
         try {
             await changePassword({ oldPassword: passwords.current, newPassword: passwords.next });
-            setChangingPassword(false);
+            closePasswordPanel();
             setPasswords({ current: '', next: '', confirmation: '' });
             setAlert({ title: 'Kata Sandi Berhasil Diubah!', description: 'Kata sandi kamu berhasil diperbarui' });
         } catch (error: any) {
@@ -182,7 +285,7 @@ export default function ProfilPage() {
                 <p className="py-4 sm:py-8 flex items-center gap-3 sm:gap-4 text-sm sm:text-base font-medium text-neutral-400"><IconWrapper className="h-5 w-5 sm:h-6 sm:w-6"><UserIcon /></IconWrapper>Username</p>
                 {editingUsername ? (
                     <form onSubmit={saveUsername} className="space-y-3 sm:contents">
-                        <div className="w-full sm:max-w-106.25 sm:py-8">
+                        <div className="animate-fadeIn w-full sm:max-w-106.25 sm:py-8">
                             <input
                                 aria-label="Username baru"
                                 autoComplete="username"
@@ -194,7 +297,7 @@ export default function ProfilPage() {
                             <p className={`mt-2 text-xs ${usernameSubmitted && !usernameValid ? 'text-red-600' : 'text-neutral-400'}`}>3-30 karakter, hanya huruf, angka, dan underscore</p>
                             {usernameError && <p className="mt-2 text-xs text-red-600">{usernameError}</p>}
                         </div>
-                        <div className="w-full sm:py-8 flex justify-end sm:justify-end">
+                        <div className="animate-fadeIn w-full sm:py-8 flex justify-end sm:justify-end">
                             <IconButton type="submit" disabled={isSavingUsername} className="w-full sm:w-auto bg-primary-600">{isSavingUsername ? 'Menyimpan...' : 'Simpan'}</IconButton>
                         </div>
                     </form>
@@ -208,12 +311,12 @@ export default function ProfilPage() {
                 )}
             </div>
 
-            <div className="sm:contents">
+            <div ref={passwordRowRef} className="sm:contents">
                 <div className="border-t border-neutral-300 sm:col-span-full" />
                 <p className="py-4 sm:py-8 flex items-center gap-3 sm:gap-4 text-sm sm:text-base font-medium text-neutral-400"><IconWrapper className="h-5 w-5 sm:h-6 sm:w-6"><PadlockIcon /></IconWrapper>Kata Sandi</p>
                 <p className="py-4 sm:py-8 text-sm sm:text-base font-semibold tracking-[0.22em] text-neutral-950">••••••••</p>
                 <div className="py-4 sm:py-8 flex items-center justify-end">
-                    <IconButton onClick={() => { setEditingUsername(false); setChangingPassword(true); setPasswordSubmitted(false); }} className="bg-primary-600"><IconWrapper className="h-4 w-4 sm:h-5 sm:w-5"><EditIcon /></IconWrapper>Ubah</IconButton>
+                    <IconButton onClick={beginPasswordChange} aria-expanded={changingPassword} className="bg-primary-600"><IconWrapper className="h-4 w-4 sm:h-5 sm:w-5"><EditIcon /></IconWrapper>Ubah</IconButton>
                 </div>
             </div>
         </div>
@@ -226,27 +329,43 @@ export default function ProfilPage() {
                 {alert && <Alert status={alert.status ?? 'success'} title={alert.title} description={alert.description} onClose={handleCloseAlert} autoDismissMs={3000} />}
             </AlertViewport>
             <main className="mx-auto w-full max-w-292.5 flex-1 px-4 py-6 sm:py-8 sm:px-8 lg:py-12 xl:px-0">
-                <div className={`space-y-6 ${changingPassword ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(480px,.82fr)] lg:gap-7 lg:space-y-0' : ''}`}>
-                    <section className="rounded-[20px] border border-neutral-200 bg-white px-5 pt-6 shadow-[0_8px_12px_rgba(15,23,42,0.10)] sm:px-8 sm:pt-8 lg:px-12 lg:pt-10">
+                <div
+                    ref={layoutRef}
+                    className={`grid grid-cols-1 transition-[grid-template-columns,grid-template-rows,gap,height] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none lg:grid-rows-1 ${
+                        changingPassword
+                            ? 'grid-rows-[auto_1fr] gap-6 lg:grid-cols-[minmax(0,1fr)_.82fr] lg:gap-7'
+                            : 'grid-rows-[auto_0fr] gap-0 lg:grid-cols-[minmax(0,1fr)_0fr] lg:gap-0'
+                    }`}
+                >
+                    <section ref={profileCardRef} className="rounded-[20px] border border-neutral-200 bg-white px-5 pt-6 shadow-[0_8px_12px_rgba(15,23,42,0.10)] sm:px-8 sm:pt-8 lg:px-12 lg:pt-10">
                         <h1 className="text-lg sm:text-xl font-bold tracking-tight text-black">Informasi Profil</h1>
-                        <div className="mt-6">{profileRows}</div>
+                        <div ref={rowsRef} className="mt-6">{profileRows}</div>
                     </section>
 
-                    {changingPassword && (
-                        <section className="rounded-[20px] border border-neutral-200 bg-white px-5 py-6 shadow-[0_8px_12px_rgba(15,23,42,0.10)] sm:px-8 sm:py-8 lg:px-12 lg:py-10">
-                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-                                <h2 className="text-lg sm:text-xl font-bold tracking-tight text-black">Ubah Kata Sandi</h2>
-                                <button type="button" onClick={() => setChangingPassword(false)} aria-label="Tutup form ubah kata sandi" className="cursor-pointer text-neutral-900 p-2 -ml-2 -mt-2"><HiXMark className="h-6 w-6 sm:h-7 sm:w-7" /></button>
-                            </div>
-                            <form onSubmit={savePassword} className="space-y-5 sm:space-y-6 sm:mt-9">
-                                <PasswordInput label="Kata Sandi Saat Ini" name="current" placeholder="Masukkan kata sandi saat ini" value={passwords.current} shown={shownPasswords.current} onToggle={() => setShownPasswords((value) => ({ ...value, current: !value.current }))} onChange={(value) => setPasswords((state) => ({ ...state, current: value }))} error={passwordSubmitted && !passwords.current} />
-                                <PasswordInput label="Kata Sandi Baru" name="next" placeholder="Buat kata sandi" value={passwords.next} shown={shownPasswords.next} onToggle={() => setShownPasswords((value) => ({ ...value, next: !value.next }))} onChange={(value) => setPasswords((state) => ({ ...state, next: value }))} help="Minimal 8 karakter dengan kombinasi huruf dan angka" error={passwordSubmitted && !passwordValid} />
-                                <PasswordInput label="Konfirmasi Kata Sandi Baru" name="confirmation" placeholder="Ulangi kata sandi" value={passwords.confirmation} shown={shownPasswords.confirmation} onToggle={() => setShownPasswords((value) => ({ ...value, confirmation: !value.confirmation }))} onChange={(value) => setPasswords((state) => ({ ...state, confirmation: value }))} error={passwordSubmitted && !passwordsMatch} />
-                                {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
-                                <IconButton type="submit" disabled={isSavingPassword} className="w-full sm:w-auto bg-primary-600">{isSavingPassword ? 'Menyimpan...' : 'Simpan Perubahan'}</IconButton>
-                            </form>
-                        </section>
-                    )}
+                    <div
+                        aria-hidden={!changingPassword}
+                        className={`-mx-3 -mb-6 min-h-0 min-w-0 overflow-hidden px-3 pb-6 transition-[opacity,translate] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none lg:mx-0 lg:mb-0 lg:overflow-visible lg:px-0 lg:pb-0 ${
+                            changingPassword
+                                ? 'translate-x-0 translate-y-0 opacity-100'
+                                : 'pointer-events-none translate-y-4 opacity-0 lg:translate-x-12 lg:translate-y-0'
+                        }`}
+                    >
+                        {passwordPanelMounted && (
+                            <section className="rounded-[20px] border border-neutral-200 bg-white px-5 py-6 shadow-[0_8px_12px_rgba(15,23,42,0.10)] sm:px-8 sm:py-8 lg:h-full lg:min-w-105 lg:overflow-hidden lg:px-12 lg:py-10">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+                                    <h2 className="text-lg sm:text-xl font-bold tracking-tight text-black">Ubah Kata Sandi</h2>
+                                    <button type="button" onClick={closePasswordPanel} aria-label="Tutup form ubah kata sandi" className="cursor-pointer text-neutral-900 p-2 -ml-2 -mt-2"><HiXMark className="h-6 w-6 sm:h-7 sm:w-7" /></button>
+                                </div>
+                                <form onSubmit={savePassword} className="space-y-5 sm:space-y-6 sm:mt-9">
+                                    <PasswordInput label="Kata Sandi Saat Ini" name="current" placeholder="Masukkan kata sandi saat ini" value={passwords.current} shown={shownPasswords.current} onToggle={() => setShownPasswords((value) => ({ ...value, current: !value.current }))} onChange={(value) => setPasswords((state) => ({ ...state, current: value }))} error={passwordSubmitted && !passwords.current} />
+                                    <PasswordInput label="Kata Sandi Baru" name="next" placeholder="Buat kata sandi" value={passwords.next} shown={shownPasswords.next} onToggle={() => setShownPasswords((value) => ({ ...value, next: !value.next }))} onChange={(value) => setPasswords((state) => ({ ...state, next: value }))} help="Minimal 8 karakter dengan kombinasi huruf dan angka" error={passwordSubmitted && !passwordValid} />
+                                    <PasswordInput label="Konfirmasi Kata Sandi Baru" name="confirmation" placeholder="Ulangi kata sandi" value={passwords.confirmation} shown={shownPasswords.confirmation} onToggle={() => setShownPasswords((value) => ({ ...value, confirmation: !value.confirmation }))} onChange={(value) => setPasswords((state) => ({ ...state, confirmation: value }))} error={passwordSubmitted && !passwordsMatch} />
+                                    {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
+                                    <IconButton type="submit" disabled={isSavingPassword} className="w-full sm:w-auto bg-primary-600">{isSavingPassword ? 'Menyimpan...' : 'Simpan Perubahan'}</IconButton>
+                                </form>
+                            </section>
+                        )}
+                    </div>
                 </div>
 
                 <section className="mt-6 rounded-[20px] border border-neutral-200 bg-white px-5 py-6 shadow-[0_8px_12px_rgba(15,23,42,0.10)] sm:px-8 sm:py-8 lg:px-12 lg:py-10">

@@ -1,5 +1,6 @@
 /* eslint-disable tailwindcss/no-arbitrary-value -- Specific dimensions needed for glow background effects */
 "use client";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Navbar } from "@/components/layout/Navbar";
@@ -247,7 +248,34 @@ function HowItWorksSection() {
   );
 }
 
+const TESTIMONIAL_INTERVAL_MS = 5000;
+
+const testimonials = [
+  {
+    quote: "Otewe bantu banget! Sekarang nggak bingung lagi mau pilih transportasi apa kalau bepergian.",
+    author: "Dinda, Mahasiswa",
+  },
+  {
+    quote: "Biasanya bingung mau naik apa karena harus bandingin harga dan waktu sendiri. Di Otewe jadi gampang!",
+    author: "Isa, Pelajar",
+  },
+  {
+    quote: "Tampilannya simple, praktis juga. Jadi ga perlu banyak buka aplikasi cuma buat cari transportasi.",
+    author: "Meta, Pegawai Kantor",
+  },
+];
+
 function TestimonialSection() {
+  const [activeTestimonial, setActiveTestimonial] = useState(0);
+
+  // Ganti testimoni terus-menerus (loop) sejak halaman dibuka
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveTestimonial((current) => (current + 1) % testimonials.length);
+    }, TESTIMONIAL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, []);
+
   const priceRows = [
     { icon: <BusIcon />, price: "Rp4.900", duration: "60 menit", transitLabel: "1x transit" },
     { icon: <TrainIcon />, price: "Rp7.000", duration: "40 menit", transitLabel: "2x transit" },
@@ -266,12 +294,29 @@ function TestimonialSection() {
             <div className="h-12 w-16 [&>svg]:h-12 [&>svg]:w-16">
               <QuoteIcon />
             </div>
-            <p className="mt-7 max-w-60 text-base leading-relaxed font-semibold text-neutral-900">
-              Otewe bantu banget! Sekarang nggak bingung lagi mau pilih transportasi apa kalau bepergian.
-            </p>
-            <p className="mt-3 text-sm font-medium text-neutral-600 italic">
-              -- Dinda, Mahasiswa
-            </p>
+            {/* Semua testimoni ditumpuk di sel grid yang sama: tinggi mengikuti yang terpanjang,
+                jadi layout tidak bergeser saat teks berganti dengan efek pudar. */}
+            <div className="mt-7 grid">
+              {testimonials.map((testimonial, index) => {
+                const isActive = index === activeTestimonial;
+                return (
+                  <div
+                    key={testimonial.author}
+                    aria-hidden={!isActive}
+                    className={`col-start-1 row-start-1 transition-opacity duration-700 ease-in-out motion-reduce:transition-none ${
+                      isActive ? "opacity-100" : "pointer-events-none opacity-0"
+                    }`}
+                  >
+                    <p className="max-w-60 text-base leading-relaxed font-semibold text-neutral-900">
+                      {testimonial.quote}
+                    </p>
+                    <p className="mt-3 text-sm font-medium text-neutral-600 italic">
+                      -- {testimonial.author}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div>

@@ -1,22 +1,26 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { RouteSummaryHeader } from '@/components/route-detail/RouteSummaryHeader';
-import { JourneySegment, TripStepList } from '@/components/route-detail/TripStepList';
+import { JourneySegment, JourneyStopTarget, TripStepList } from '@/components/route-detail/TripStepList';
 import { MapPlaceholder } from '@/components/map/MapPlaceholder';
 import { mapApiRouteToJourneySegments, mapApiRouteToRouteResultCard } from '@/lib/mappers/routeMapper';
 import { readRouteSearchLocations, readRouteSearchResults, RouteSearchLocations } from '@/lib/routeSearchTransfer';
 import { fetchRouteGeometry } from '@/lib/api';
-import { transformApiRouteToMapMarkers, transformApiRouteToMapPolylines } from '@/lib/utils/mapDataTransform';
-import { MapViewerMarker, MapViewerPolyline } from '@/components/map/MapViewer';
+import {
+  transformApiRouteToMapMarkers,
+  transformApiRouteToMapPolylines,
+  transformApiRouteToMapStops,
+} from '@/lib/utils/mapDataTransform';
+import { MapFocusTarget, MapViewerMarker, MapViewerPolyline, MapViewerStop } from '@/components/map/MapViewer';
 import BackArrowIcon from '@/components/icons/cari-rute/BackArrowIcon';
 import ExpandIcon from '@/components/icons/cari-rute/ExpandIcon';
-import CloseIcon from '@/components/icons/common/CloseIcon';
+import CollapseIcon from '@/components/icons/cari-rute/CollapseIcon';
 import type { ApiRoute, ApiRouteLeg, RoutingGeometryLegInput } from '@/types/api/routing';
 import type { RouteOption } from '@/lib/types/route';
 
@@ -107,6 +111,8 @@ export default function RouteDetailPage() {
   const [searchLocations, setSearchLocations] = useState<RouteSearchLocations | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
+  const [mapFocusTarget, setMapFocusTarget] = useState<MapFocusTarget | null>(null);
+  const mapSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setSelectedRoute(findRouteById(routeId));
@@ -114,7 +120,7 @@ export default function RouteDetailPage() {
     setHasLoaded(true);
   }, [routeId]);
 
-  // Tutup overlay peta dengan Escape.
+  // Perkecil peta dengan Escape.
   useEffect(() => {
     if (!mapExpanded) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -127,7 +133,16 @@ export default function RouteDetailPage() {
   // Transform route data to map markers with useMemo (versi baru berbasis ApiRoute)
   const mapMarkers = useMemo<MapViewerMarker[]>(() => {
     if (!selectedRoute) return [];
-    return transformApiRouteToMapMarkers(selectedRoute);
+    // Titik awal "Lokasi saya" (GPS perangkat) tampil sebagai bulat biru, lainnya bulat abu-abu.
+    const originIsCurrentLocation =
+      searchLocations?.origin.name.trim().toLowerCase() === 'lokasi saya';
+    return transformApiRouteToMapMarkers(selectedRoute, { originIsCurrentLocation });
+  }, [selectedRoute, searchLocations]);
+
+  // Titik perhentian halte yang dilewati (bulat putih kecil, klik -> nama halte)
+  const mapStops = useMemo<MapViewerStop[]>(() => {
+    if (!selectedRoute) return [];
+    return transformApiRouteToMapStops(selectedRoute);
   }, [selectedRoute]);
 
   // Transform route data to map polylines with useMemo (versi baru berbasis ApiRoute)
@@ -188,6 +203,25 @@ export default function RouteDetailPage() {
       cancelled = true;
     };
   }, [selectedRoute]);
+
+  // Klik nama halte di daftar perhentian -> peta zoom ke halte itu.
+  // Di mobile (peta ada di atas daftar) halaman di-scroll dulu ke kartu Peta, baru peta zoom
+  // supaya animasinya terlihat. Di desktop peta sticky sehingga langsung zoom.
+  const handleStopSelect = useCallback((stop: JourneyStopTarget) => {
+    const target: MapFocusTarget = {
+      name: stop.name,
+      position: [stop.lat, stop.lng],
+      nonce: Date.now(),
+    };
+
+    const isSingleColumn = !window.matchMedia('(min-width: 1024px)').matches;
+    if (isSingleColumn) {
+      mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.setTimeout(() => setMapFocusTarget(target), 450);
+    } else {
+      setMapFocusTarget(target);
+    }
+  }, []);
 
   // Handle route not found
   if (!selectedRoute) {
@@ -256,7 +290,11 @@ export default function RouteDetailPage() {
         </div>
 
         {/* Detail perjalanan dan peta */}
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
+        <div
+          className={`mt-6 grid grid-cols-1 gap-6 motion-reduce:transition-none lg:transition-[grid-template-columns] lg:duration-500 lg:ease-[cubic-bezier(0.4,0,0.2,1)] ${
+            mapExpanded ? 'lg:grid-cols-[2fr_3fr]' : 'lg:grid-cols-[3fr_2fr]'
+          }`}
+        >
           <TripStepList
             origin={{
               time: selectedRoute.summary.departureTime ?? '--:--',
@@ -269,68 +307,48 @@ export default function RouteDetailPage() {
               address: destinationAddress,
             }}
             segments={journeySegments}
+            onStopSelect={handleStopSelect}
           />
 
-          <div className="h-fit lg:sticky lg:top-32">
-            <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-6" aria-label="Peta">
+          <div className="order-first h-fit lg:sticky lg:top-32 lg:order-none">
+            <section
+              ref={mapSectionRef}
+              className="scroll-mt-32 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-6"
+              aria-label="Peta"
+            >
               <h2 className="text-lg font-bold text-neutral-900">Peta</h2>
-              <div className="relative mt-4">
-                <div className="aspect-[4/3] w-full overflow-hidden rounded-xl">
+              <div className="relative isolate z-0 mt-4">
+                <div
+                  className={`w-full overflow-hidden rounded-xl transition-[height] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none ${
+                    mapExpanded
+                      ? 'h-112 lg:h-[min(36rem,calc(100vh_-_14rem))]'
+                      : 'h-64 sm:h-72'
+                  }`}
+                >
                   <MapViewerNoSSR
                     markers={mapMarkers}
+                    stops={mapStops}
+                    focusTarget={mapFocusTarget}
                     polylines={mapPolylines}
-                    className="w-full h-full"
+                    className="h-full w-full"
                     zoomControlPosition="bottomright"
+                    expanded={mapExpanded}
                   />
                 </div>
                 <button
                   type="button"
-                  onClick={() => setMapExpanded(true)}
-                  aria-label="Perbesar peta"
+                  onClick={() => setMapExpanded((value) => !value)}
+                  aria-label={mapExpanded ? 'Perkecil peta' : 'Perbesar peta'}
+                  aria-expanded={mapExpanded}
                   className="absolute right-3 top-3 z-[1000] grid h-9 w-9 place-items-center rounded-lg bg-white shadow-md transition-colors hover:bg-neutral-50 cursor-pointer"
                 >
-                  <ExpandIcon className="h-5 w-5" />
+                  {mapExpanded ? <CollapseIcon className="h-5 w-5" /> : <ExpandIcon className="h-5 w-5" />}
                 </button>
               </div>
             </section>
           </div>
         </div>
       </main>
-
-      {/* Overlay peta fullscreen */}
-      {mapExpanded && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Peta ukuran penuh"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setMapExpanded(false);
-          }}
-        >
-          <div className="flex h-[88vh] w-full max-w-6xl flex-col rounded-2xl bg-white p-4 shadow-xl sm:p-5">
-            <div className="flex items-center justify-between pb-3">
-              <h2 className="text-lg font-bold text-neutral-900">Peta</h2>
-              <button
-                type="button"
-                onClick={() => setMapExpanded(false)}
-                aria-label="Tutup peta"
-                className="grid h-9 w-9 place-items-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 cursor-pointer"
-              >
-                <CloseIcon className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-hidden rounded-xl">
-              <MapViewerNoSSR
-                markers={mapMarkers}
-                polylines={mapPolylines}
-                className="h-full w-full"
-                zoomControlPosition="bottomright"
-              />
-            </div>
-          </div>
-        </div>
-      )}
 
       <Footer />
     </div>
