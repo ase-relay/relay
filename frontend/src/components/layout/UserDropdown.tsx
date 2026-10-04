@@ -45,37 +45,46 @@ export function UserDropdown() {
       >
         <HiOutlineUser aria-hidden="true" className="h-6 w-6" strokeWidth={1.25} />
         <span>{user.username}</span>
-        <HiChevronDown aria-hidden="true" className="h-5 w-5" />
+        <HiChevronDown
+          aria-hidden="true"
+          className={`h-5 w-5 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${isOpen ? 'rotate-180' : ''}`}
+        />
       </button>
 
-      {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl bg-white p-4 shadow-[0_10px_25px_rgba(15,23,42,0.15)] border border-neutral-200 z-30">
-          <p className="text-lg font-semibold text-neutral-900">{user.username}</p>
-          <p className="text-sm text-neutral-500">{user.email}</p>
+      {/* Selalu ter-render agar animasi buka dan tutup bisa berjalan.
+          Saat tertutup: transparan, mengecil sedikit, dan `invisible` (tidak bisa difokus / diklik). */}
+      <div
+        className={`absolute right-0 top-full z-30 mt-2 w-64 origin-top-right rounded-2xl border border-neutral-200 bg-white p-4 shadow-[0_10px_25px_rgba(15,23,42,0.15)] transition-[opacity,translate,scale,visibility] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+          isOpen
+            ? 'visible translate-y-0 scale-100 opacity-100 duration-200'
+            : 'pointer-events-none invisible -translate-y-2 scale-95 opacity-0 duration-150'
+        }`}
+      >
+        <p className="text-lg font-semibold text-neutral-900">{user.username}</p>
+        <p className="text-sm text-neutral-500">{user.email}</p>
 
-          <div className="my-3 h-px bg-neutral-200" />
+        <div className="my-3 h-px bg-neutral-200" />
 
-          <Link
-            href="/profil"
-            className="flex items-center gap-3 py-2 text-sm font-medium text-neutral-900 hover:text-primary-600"
-            onClick={() => setIsOpen(false)}
-          >
-            <HiOutlineUser className="h-5 w-5" />
-            Profil Saya
-          </Link>
+        <Link
+          href="/profil"
+          className="flex items-center gap-3 py-2 text-sm font-medium text-neutral-900 hover:text-primary-600"
+          onClick={() => setIsOpen(false)}
+        >
+          <HiOutlineUser className="h-5 w-5" />
+          Profil Saya
+        </Link>
 
-          <div className="my-3 h-px bg-neutral-200" />
+        <div className="my-3 h-px bg-neutral-200" />
 
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex w-full items-center gap-3 py-2 text-sm font-medium text-red-600 hover:text-red-700 cursor-pointer"
-          >
-            <HiOutlineArrowRightOnRectangle className="h-5 w-5" />
-            Keluar
-          </button>
-        </div>
-      )}
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 py-2 text-sm font-medium text-red-600 hover:text-red-700 cursor-pointer"
+        >
+          <HiOutlineArrowRightOnRectangle className="h-5 w-5" />
+          Keluar
+        </button>
+      </div>
     </div>
   );
 }
