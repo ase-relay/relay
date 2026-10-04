@@ -16,6 +16,13 @@ import type { Tarif } from '@/lib/types/tarif';
 import { Skeleton } from '@/components/ui/Skeleton';
 import api from '@/lib/api';
 
+// Grid kartu ringkasan: 1 kolom di mobile, 2 kolom di sm-lg, 4 kolom mulai xl.
+// Kartu sengaja tetap 2 kolom di `md` dan `lg`: di `lg` sidebar permanen sudah memakan ~280px,
+// jadi 4 kolom baru muat nyaman di `xl`.
+const gridClass = 'mt-6 grid grid-cols-1 gap-4 sm:mt-9 sm:grid-cols-2 sm:gap-5 xl:grid-cols-4 xl:gap-6';
+const cardClass =
+    'min-w-0 rounded-2xl border border-neutral-200 bg-white p-5 shadow-[0_1px_3px_rgba(15,23,42,0.05)] sm:p-6 xl:p-5 2xl:p-6';
+
 interface DashboardCounts {
     moda: number | null;
     rute: number | null;
@@ -93,42 +100,42 @@ export default function AdminDashboardPage() {
             value: counts.moda,
             caption: 'moda aktif',
             href: '/admin/moda',
-            icon: <ModaIcon color="#004BDC" className="h-7 w-7" />,
+            icon: <ModaIcon color="#004BDC" className="h-6 w-6 sm:h-7 sm:w-7" />,
         },
         {
             title: 'Rute',
             value: counts.rute,
             caption: 'rute aktif',
             href: '/admin/rute',
-            icon: <RuteIcon color="#004BDC" className="h-7 w-7" />,
+            icon: <RuteIcon color="#004BDC" className="h-6 w-6 sm:h-7 sm:w-7" />,
         },
         {
             title: 'Halte',
             value: counts.halte,
             caption: 'halte aktif',
             href: '/admin/halte',
-            icon: <HalteIcon color="#004BDC" className="h-7 w-7" />,
+            icon: <HalteIcon color="#004BDC" className="h-6 w-6 sm:h-7 sm:w-7" />,
         },
         {
             title: 'Tarif',
             value: counts.tarif,
             caption: 'data tarif',
             href: '/admin/tarif',
-            icon: <TarifIcon color="#004BDC" className="h-7 w-7" />,
+            icon: <TarifIcon color="#004BDC" className="h-6 w-6 sm:h-7 sm:w-7" />,
         },
     ];
 
     return (
         <>
-            <h1 className="text-3xl font-bold text-neutral-900 sm:text-4xl">
+            <h1 className="text-2xl font-bold break-words text-neutral-900 sm:text-3xl xl:text-4xl">
                 Selamat datang{user?.username ? `, ${user.username}` : ''}
             </h1>
-            <p className="mt-2 text-lg text-neutral-500 sm:text-xl">
+            <p className="mt-2 text-base text-neutral-500 sm:text-lg xl:text-xl">
                 Kelola dan pantau data Otewe
             </p>
 
             {loading ? (
-                <div className="mt-9 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+                <div className={gridClass}>
                     <span role="status" className="sr-only">
                         Memuat ringkasan data...
                     </span>
@@ -136,12 +143,12 @@ export default function AdminDashboardPage() {
                         <div
                             key={`dashboard-skeleton-${index}`}
                             aria-hidden="true"
-                            className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-[0_1px_3px_rgba(15,23,42,0.05)]"
+                            className={cardClass}
                         >
-                            <Skeleton variant="rounded" className="h-14 w-14" />
-                            <Skeleton variant="text" className="mt-6 h-5 w-32" />
+                            <Skeleton variant="rounded" className="h-12 w-12 sm:h-14 sm:w-14" />
+                            <Skeleton variant="text" className="mt-4 h-5 w-32 max-w-full sm:mt-6" />
                             <div className="mt-2 flex items-center justify-between">
-                                <Skeleton variant="text" className="h-10 w-16" />
+                                <Skeleton variant="text" className="h-9 w-14 sm:h-10 sm:w-16" />
                                 <Skeleton variant="circle" className="h-5 w-5" />
                             </div>
                             <Skeleton variant="text" className="mt-1 h-4 w-24" />
@@ -149,26 +156,26 @@ export default function AdminDashboardPage() {
                     ))}
                 </div>
             ) : (
-                <div className="mt-9 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+                <div className={gridClass}>
                     {stats.map((stat) => (
                         <Link
                             key={stat.title}
                             href={stat.href}
-                            className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-[0_1px_3px_rgba(15,23,42,0.05)] transition hover:border-primary-200 hover:shadow-md"
+                            className={`${cardClass} transition hover:border-primary-200 hover:shadow-md`}
                         >
-                            <span className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#eaf2ff] text-primary-600">
+                            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#eaf2ff] text-primary-600 sm:h-14 sm:w-14">
                                 {stat.icon}
                             </span>
-                            <p className="mt-6 text-base font-semibold text-neutral-900">
+                            <p className="mt-4 text-sm font-semibold text-neutral-900 sm:mt-6 sm:text-base">
                                 {stat.title}
                             </p>
-                            <div className="mt-2 flex items-center justify-between">
-                                <span className="text-4xl font-bold text-neutral-900">
+                            <div className="mt-2 flex items-center justify-between gap-2">
+                                <span className="text-3xl font-bold text-neutral-900 sm:text-4xl">
                                     {stat.value ?? '-'}
                                 </span>
-                                <HiChevronRight className="h-5 w-5 text-neutral-400" />
+                                <HiChevronRight className="h-5 w-5 shrink-0 text-neutral-400" />
                             </div>
-                            <p className="mt-1 text-[15px] text-neutral-500">
+                            <p className="mt-1 text-sm text-neutral-500 sm:text-[15px]">
                                 {stat.caption}
                             </p>
                         </Link>

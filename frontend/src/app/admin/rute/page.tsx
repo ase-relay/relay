@@ -21,17 +21,24 @@ import { getApiErrorMessage } from '@/lib/utils/apiError';
 
 const SKELETON_ROWS = 5;
 
+// Ukuran tabel responsif. Sidebar admin baru tampil permanen mulai `lg` (memakan ~280px),
+// jadi ruang tabel justru paling sempit di `lg`: padding & font dikecilkan lagi di sana,
+// lalu dilonggarkan kembali di `xl`.
+const cellPad = 'px-3 py-3 sm:px-4 sm:py-4 md:px-5 lg:px-4 xl:px-6 xl:py-5';
+const headText = 'text-sm font-semibold whitespace-nowrap md:text-base lg:text-sm xl:text-[17px]';
+const bodyText = 'text-sm md:text-base lg:text-sm xl:text-base';
+
 function StatusBadge({ isActive }: { isActive: boolean }) {
     if (isActive) {
         return (
-            <span className="inline-flex rounded-lg bg-green-100 px-3.5 py-1.5 text-sm font-semibold text-green-700">
+            <span className="inline-flex rounded-lg bg-green-100 px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-green-700 sm:px-3.5 sm:py-1.5 sm:text-sm">
                 Aktif
             </span>
         );
     }
 
     return (
-        <span className="inline-flex rounded-lg bg-red-100 px-3.5 py-1.5 text-sm font-semibold text-red-700">
+        <span className="inline-flex rounded-lg bg-red-100 px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-red-700 sm:px-3.5 sm:py-1.5 sm:text-sm">
             Tidak Aktif
         </span>
     );
@@ -226,10 +233,10 @@ export default function AdminRutePage() {
 
     return (
         <>
-            <h1 className="text-3xl font-bold text-neutral-900 sm:text-4xl">
+            <h1 className="text-2xl font-bold text-neutral-900 sm:text-3xl xl:text-4xl">
                 Kelola Data Rute
             </h1>
-            <p className="mt-2 text-lg text-neutral-500 sm:text-xl">
+            <p className="mt-2 text-base text-neutral-500 sm:text-lg xl:text-xl">
                 Atur rute transportasi yang tersedia di Otewe
             </p>
 
@@ -239,9 +246,10 @@ export default function AdminRutePage() {
                 </div>
             )}
 
-            <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="relative w-full sm:w-110">
-                    <span className="pointer-events-none absolute top-1/2 left-5 -translate-y-1/2">
+            <div className="mt-6 flex flex-col gap-4 sm:mt-8 sm:flex-row sm:items-center sm:justify-between">
+                {/* Pencarian boleh mengecil (flex-1) supaya tombol "Tambah Rute" tidak terjepit di layar sm/md */}
+                <div className="relative w-full sm:w-auto sm:max-w-md sm:flex-1 xl:max-w-110">
+                    <span className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 sm:left-5">
                         <SearchIcon />
                     </span>
                     <input
@@ -251,7 +259,7 @@ export default function AdminRutePage() {
                         placeholder="Cari nama jalur, kode, atau moda ..."
                         aria-label="Cari nama jalur, kode, atau moda"
                         disabled={loading}
-                        className="h-14 w-full rounded-2xl border border-neutral-300 bg-white pr-5 pl-14 text-base text-neutral-900 placeholder:text-neutral-400 focus:border-primary-600 focus:outline-none disabled:opacity-50"
+                        className="h-12 w-full rounded-2xl border border-neutral-300 bg-white pr-4 pl-12 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-primary-600 focus:outline-none disabled:opacity-50 sm:h-14 sm:pr-5 sm:pl-14 sm:text-base"
                     />
                 </div>
 
@@ -259,33 +267,35 @@ export default function AdminRutePage() {
                     type="button"
                     onClick={handleAdd}
                     disabled={loading || submitting || loadingDetail}
-                    className="inline-flex h-14 w-full cursor-pointer items-center justify-center gap-2.5 rounded-full bg-primary-600 px-7 text-base font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
+                    className="inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2.5 rounded-full bg-primary-600 px-6 text-sm font-semibold whitespace-nowrap text-white transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed sm:h-14 sm:w-auto sm:shrink-0 sm:px-7 sm:text-base"
                 >
                     <PlusIcon />
                     Tambah Rute
                 </button>
             </div>
 
-            <div className="mt-9 overflow-x-auto rounded-2xl border border-neutral-200">
-                <table className="w-full min-w-225 border-collapse text-left">
+            <div className="mt-6 overflow-x-auto rounded-2xl border border-neutral-200 sm:mt-9">
+                {/* Layout tabel otomatis: kolom No., Jumlah Halte, Status, dan Aksi menyesuaikan isinya
+                    (`w-px` + nowrap), sisanya dibagi otomatis, jadi tombol aksi tidak ikut terjepit. */}
+                <table className="w-full min-w-[720px] border-collapse text-left">
                     <thead className="bg-primary-600 text-white">
                         <tr>
-                            <th className="w-19 px-6 py-5 text-[17px] font-semibold">
+                            <th className={`w-px ${cellPad} ${headText}`}>
                                 No.
                             </th>
-                            <th className="px-6 py-5 text-[17px] font-semibold">
+                            <th className={`${cellPad} ${headText}`}>
                                 Nama Jalur / Koridor
                             </th>
-                            <th className="w-47.5 px-6 py-5 text-[17px] font-semibold">
+                            <th className={`${cellPad} ${headText}`}>
                                 Moda
                             </th>
-                            <th className="w-40 px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
+                            <th className={`w-px ${cellPad} ${headText}`}>
                                 Jumlah Halte
                             </th>
-                            <th className="w-41.25 px-6 py-5 text-[17px] font-semibold">
+                            <th className={`w-px ${cellPad} ${headText}`}>
                                 Status
                             </th>
-                            <th className="w-30 px-6 py-5 text-[17px] font-semibold">
+                            <th className={`w-px ${cellPad} ${headText}`}>
                                 Aksi
                             </th>
                         </tr>
@@ -304,25 +314,25 @@ export default function AdminRutePage() {
                                         aria-hidden="true"
                                         className={index > 0 ? 'border-t border-neutral-200' : ''}
                                     >
-                                        <td className="px-6 py-5 align-middle">
+                                        <td className={`${cellPad} align-middle`}>
                                             <Skeleton variant="text" className="h-5 w-8" />
                                         </td>
-                                        <td className="px-6 py-5 align-middle">
-                                            <Skeleton variant="text" className="h-5 w-48 max-w-full" />
+                                        <td className={`${cellPad} align-middle`}>
+                                            <Skeleton variant="text" className="h-5 w-36 max-w-full sm:w-48" />
                                         </td>
-                                        <td className="px-6 py-5 align-middle">
-                                            <Skeleton variant="text" className="h-5 w-32 max-w-full" />
+                                        <td className={`${cellPad} align-middle`}>
+                                            <Skeleton variant="text" className="h-5 w-24 max-w-full sm:w-32" />
                                         </td>
-                                        <td className="px-6 py-5 align-middle">
+                                        <td className={`${cellPad} align-middle`}>
                                             <Skeleton variant="text" className="h-5 w-14" />
                                         </td>
-                                        <td className="px-6 py-5 align-middle">
-                                            <Skeleton variant="rounded" className="h-8 w-24" />
+                                        <td className={`${cellPad} align-middle`}>
+                                            <Skeleton variant="rounded" className="h-7 w-20 sm:h-8 sm:w-24" />
                                         </td>
-                                        <td className="px-6 py-5 align-middle">
+                                        <td className={`${cellPad} align-middle`}>
                                             <div className="flex items-center gap-2">
-                                                <Skeleton variant="rounded" className="h-9 w-9" />
-                                                <Skeleton variant="rounded" className="h-9 w-9" />
+                                                <Skeleton variant="rounded" className="h-8 w-8 shrink-0 sm:h-9 sm:w-9" />
+                                                <Skeleton variant="rounded" className="h-8 w-8 shrink-0 sm:h-9 sm:w-9" />
                                             </div>
                                         </td>
                                     </tr>
@@ -334,7 +344,7 @@ export default function AdminRutePage() {
                                     <tr>
                                         <td
                                             colSpan={6}
-                                            className="px-6 py-10 text-center text-base text-neutral-500"
+                                            className={`px-4 py-10 text-center text-neutral-500 ${bodyText}`}
                                         >
                                             Tidak ada data rute yang cocok.
                                         </td>
@@ -345,29 +355,30 @@ export default function AdminRutePage() {
                                         key={rute.id}
                                         className={index > 0 ? 'border-t border-neutral-200' : ''}
                                     >
-                                        <td className="px-6 py-5 align-middle text-base text-neutral-900">
+                                        <td className={`${cellPad} ${bodyText} align-middle whitespace-nowrap text-neutral-900`}>
                                             {index + 1}
                                         </td>
-                                        <td className="px-6 py-5 align-middle text-base font-medium text-neutral-900">
+                                        <td className={`${cellPad} ${bodyText} min-w-40 align-middle font-medium text-neutral-900`}>
                                             {rute.namaRute}
                                         </td>
-                                        <td className="px-6 py-5 align-middle text-base text-neutral-900">
+                                        <td className={`${cellPad} ${bodyText} align-middle text-neutral-900`}>
                                             {rute.moda.namaModa}
                                         </td>
-                                        <td className="px-6 py-5 align-middle text-base text-neutral-900">
+                                        <td className={`${cellPad} ${bodyText} align-middle whitespace-nowrap text-neutral-900`}>
                                             {rute._count?.stops ?? 0}
                                         </td>
-                                        <td className="px-6 py-5 align-middle">
+                                        <td className={`${cellPad} align-middle whitespace-nowrap`}>
                                             <StatusBadge isActive={rute.isActive} />
                                         </td>
-                                        <td className="px-6 py-5 align-middle">
+                                        <td className={`${cellPad} align-middle whitespace-nowrap`}>
                                             <div className="flex items-center gap-2">
+                                                {/* shrink-0 + ukuran tetap: tombol tidak boleh ikut mengecil/gepeng saat kolom sempit */}
                                                 <button
                                                     type="button"
                                                     onClick={() => handleEdit(rute)}
                                                     aria-label={`Edit rute ${rute.namaRute}`}
                                                     disabled={submitting || loadingDetail}
-                                                    className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-primary-600 transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-primary-600 transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed sm:h-9 sm:w-9"
                                                 >
                                                     <AdminEditIcon />
                                                 </button>
@@ -376,7 +387,7 @@ export default function AdminRutePage() {
                                                     onClick={() => setDeleting(rute)}
                                                     aria-label={`Hapus rute ${rute.namaRute}`}
                                                     disabled={submitting}
-                                                    className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-red-600 transition hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-red-600 transition hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed sm:h-9 sm:w-9"
                                                 >
                                                     <TrashIcon />
                                                 </button>

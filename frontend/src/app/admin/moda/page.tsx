@@ -19,6 +19,14 @@ import api from '@/lib/api';
 
 const SKELETON_ROWS = 5;
 
+// Ukuran tabel responsif. Sidebar admin baru tampil permanen mulai `lg` (memakan ~280px),
+// jadi ruang tabel justru paling sempit di `lg`: padding & font dikecilkan lagi di sana,
+// lalu dilonggarkan kembali di `xl`. Header sengaja tanpa nowrap bawaan: "Kecepatan Rata-rata"
+// boleh turun ke dua baris, kolom lain yang pendek diberi `whitespace-nowrap` sendiri.
+const cellPad = 'px-3 py-3 sm:px-4 sm:py-4 md:px-5 lg:px-4 xl:px-6 xl:py-5';
+const headText = 'text-sm font-semibold md:text-base lg:text-sm xl:text-[17px]';
+const bodyText = 'text-sm md:text-base lg:text-sm xl:text-base';
+
 interface ApiError {
     response?: {
         data?: {
@@ -32,14 +40,14 @@ interface ApiError {
 function StatusBadge({ isActive }: { isActive: boolean }) {
     if (isActive) {
         return (
-            <span className="inline-flex rounded-lg bg-green-100 px-3.5 py-1.5 text-sm font-semibold text-green-700">
+            <span className="inline-flex rounded-lg bg-green-100 px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-green-700 sm:px-3.5 sm:py-1.5 sm:text-sm">
                 Aktif
             </span>
         );
     }
 
     return (
-        <span className="inline-flex rounded-lg bg-red-100 px-3.5 py-1.5 text-sm font-semibold text-red-700">
+        <span className="inline-flex rounded-lg bg-red-100 px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-red-700 sm:px-3.5 sm:py-1.5 sm:text-sm">
             Tidak Aktif
         </span>
     );
@@ -219,10 +227,10 @@ export default function AdminModaPage() {
 
     return (
         <>
-            <h1 className="text-3xl font-bold text-neutral-900 sm:text-4xl">
+            <h1 className="text-2xl font-bold text-neutral-900 sm:text-3xl xl:text-4xl">
                 Kelola Data Moda
             </h1>
-            <p className="mt-2 text-lg text-neutral-500 sm:text-xl">
+            <p className="mt-2 text-base text-neutral-500 sm:text-lg xl:text-xl">
                 Atur moda yang tersedia di Otewe
             </p>
 
@@ -232,9 +240,10 @@ export default function AdminModaPage() {
                 </div>
             )}
 
-            <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="relative w-full sm:w-110">
-                    <span className="pointer-events-none absolute top-1/2 left-5 -translate-y-1/2">
+            <div className="mt-6 flex flex-col gap-4 sm:mt-8 sm:flex-row sm:items-center sm:justify-between">
+                {/* Pencarian boleh mengecil (flex-1) supaya tombol "Tambah Moda" tidak terjepit di layar sm/md */}
+                <div className="relative w-full sm:w-auto sm:max-w-md sm:flex-1 xl:max-w-110">
+                    <span className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 sm:left-5">
                         <SearchIcon />
                     </span>
                     <input
@@ -244,7 +253,7 @@ export default function AdminModaPage() {
                         placeholder="Cari moda ..."
                         aria-label="Cari moda"
                         disabled={loading}
-                        className="h-14 w-full rounded-2xl border border-neutral-300 bg-white pr-5 pl-14 text-base text-neutral-900 placeholder:text-neutral-400 focus:border-primary-600 focus:outline-none disabled:opacity-50"
+                        className="h-12 w-full rounded-2xl border border-neutral-300 bg-white pr-4 pl-12 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-primary-600 focus:outline-none disabled:opacity-50 sm:h-14 sm:pr-5 sm:pl-14 sm:text-base"
                     />
                 </div>
 
@@ -252,33 +261,35 @@ export default function AdminModaPage() {
                     type="button"
                     onClick={handleAdd}
                     disabled={loading || submitting}
-                    className="inline-flex h-14 w-full cursor-pointer items-center justify-center gap-2.5 rounded-full bg-primary-600 px-7 text-base font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
+                    className="inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2.5 rounded-full bg-primary-600 px-6 text-sm font-semibold whitespace-nowrap text-white transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed sm:h-14 sm:w-auto sm:shrink-0 sm:px-7 sm:text-base"
                 >
                     <PlusIcon />
                     Tambah Moda
                 </button>
             </div>
 
-            <div className="mt-9 overflow-x-auto rounded-2xl border border-neutral-200">
-                <table className="w-full min-w-260 table-fixed border-collapse text-left">
+            <div className="mt-6 overflow-x-auto rounded-2xl border border-neutral-200 sm:mt-9">
+                {/* Layout tabel otomatis (bukan table-fixed): kolom No., Tipe Moda, Status, dan Aksi menyesuaikan
+                    isinya, sisanya dibagi otomatis, jadi tombol aksi tidak ikut terjepit. */}
+                <table className="w-full min-w-[700px] border-collapse text-left">
                     <thead className="bg-primary-600 text-white">
                         <tr>
-                            <th className="w-[6%] px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
+                            <th className={`w-px whitespace-nowrap ${cellPad} ${headText}`}>
                                 No.
                             </th>
-                            <th className="px-6 py-5 text-[17px] font-semibold">
+                            <th className={`${cellPad} ${headText}`}>
                                 Nama Moda
                             </th>
-                            <th className="w-[16%] px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
+                            <th className={`whitespace-nowrap ${cellPad} ${headText}`}>
                                 Tipe Moda
                             </th>
-                            <th className="w-[20%] px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
+                            <th className={`${cellPad} ${headText}`}>
                                 Kecepatan Rata-rata
                             </th>
-                            <th className="w-[14%] px-6 py-5 text-[17px] font-semibold">
+                            <th className={`w-px whitespace-nowrap ${cellPad} ${headText}`}>
                                 Status
                             </th>
-                            <th className="w-30 px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
+                            <th className={`w-px whitespace-nowrap ${cellPad} ${headText}`}>
                                 Aksi
                             </th>
                         </tr>
@@ -297,25 +308,25 @@ export default function AdminModaPage() {
                                         aria-hidden="true"
                                         className={index > 0 ? 'border-t border-neutral-200' : ''}
                                     >
-                                        <td className="px-6 py-5 align-middle">
+                                        <td className={`${cellPad} align-middle`}>
                                             <Skeleton variant="text" className="h-5 w-8" />
                                         </td>
-                                        <td className="px-6 py-5 align-middle">
-                                            <Skeleton variant="text" className="h-5 w-40 max-w-full" />
+                                        <td className={`${cellPad} align-middle`}>
+                                            <Skeleton variant="text" className="h-5 w-32 max-w-full sm:w-40" />
                                         </td>
-                                        <td className="px-6 py-5 align-middle">
-                                            <Skeleton variant="text" className="h-5 w-24" />
+                                        <td className={`${cellPad} align-middle`}>
+                                            <Skeleton variant="text" className="h-5 w-20 sm:w-24" />
                                         </td>
-                                        <td className="px-6 py-5 align-middle">
-                                            <Skeleton variant="text" className="h-5 w-28" />
+                                        <td className={`${cellPad} align-middle`}>
+                                            <Skeleton variant="text" className="h-5 w-24 sm:w-28" />
                                         </td>
-                                        <td className="px-6 py-5 align-middle">
-                                            <Skeleton variant="rounded" className="h-8 w-24" />
+                                        <td className={`${cellPad} align-middle`}>
+                                            <Skeleton variant="rounded" className="h-7 w-20 sm:h-8 sm:w-24" />
                                         </td>
-                                        <td className="px-6 py-5 align-middle">
+                                        <td className={`${cellPad} align-middle`}>
                                             <div className="flex items-center gap-2">
-                                                <Skeleton variant="rounded" className="h-9 w-9" />
-                                                <Skeleton variant="rounded" className="h-9 w-9" />
+                                                <Skeleton variant="rounded" className="h-8 w-8 shrink-0 sm:h-9 sm:w-9" />
+                                                <Skeleton variant="rounded" className="h-8 w-8 shrink-0 sm:h-9 sm:w-9" />
                                             </div>
                                         </td>
                                     </tr>
@@ -327,7 +338,7 @@ export default function AdminModaPage() {
                                     <tr>
                                         <td
                                             colSpan={6}
-                                            className="px-6 py-10 text-center text-base text-neutral-500"
+                                            className={`px-4 py-10 text-center text-neutral-500 ${bodyText}`}
                                         >
                                             {query ? 'Tidak ada data moda yang cocok.' : 'Tidak ada data moda.'}
                                         </td>
@@ -338,31 +349,32 @@ export default function AdminModaPage() {
                                         key={moda.id}
                                         className={index > 0 ? 'border-t border-neutral-200' : ''}
                                     >
-                                        <td className="px-6 py-5 align-middle text-base whitespace-nowrap text-neutral-900">
+                                        <td className={`${cellPad} ${bodyText} align-middle whitespace-nowrap text-neutral-900`}>
                                             {index + 1}
                                         </td>
-                                        <td className="px-6 py-5 align-middle text-base font-medium text-neutral-900">
+                                        <td className={`${cellPad} ${bodyText} min-w-36 align-middle font-medium text-neutral-900`}>
                                             {moda.namaModa}
                                         </td>
-                                        <td className="px-6 py-5 align-middle text-base whitespace-nowrap text-neutral-900">
+                                        <td className={`${cellPad} ${bodyText} align-middle whitespace-nowrap text-neutral-900`}>
                                             {labelTipeModa(moda.tipeModa)}
                                         </td>
-                                        <td className="px-6 py-5 align-middle text-base whitespace-nowrap text-neutral-900">
+                                        <td className={`${cellPad} ${bodyText} align-middle whitespace-nowrap text-neutral-900`}>
                                             {moda.rataRataKecepatanKmh != null
                                                 ? `${moda.rataRataKecepatanKmh} km/jam`
                                                 : 'Otomatis'}
                                         </td>
-                                        <td className="px-6 py-5 align-middle">
+                                        <td className={`${cellPad} align-middle whitespace-nowrap`}>
                                             <StatusBadge isActive={moda.isActive} />
                                         </td>
-                                        <td className="px-6 py-5 align-middle">
+                                        <td className={`${cellPad} align-middle whitespace-nowrap`}>
                                             <div className="flex items-center gap-2">
+                                                {/* shrink-0 + ukuran tetap: tombol tidak boleh ikut mengecil/gepeng saat kolom sempit */}
                                                 <button
                                                     type="button"
                                                     onClick={() => handleEdit(moda)}
                                                     aria-label={`Edit moda ${moda.namaModa}`}
                                                     disabled={submitting}
-                                                    className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-primary-600 transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-primary-600 transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed sm:h-9 sm:w-9"
                                                 >
                                                     <AdminEditIcon />
                                                 </button>
@@ -371,7 +383,7 @@ export default function AdminModaPage() {
                                                     onClick={() => setDeleting(moda)}
                                                     aria-label={`Hapus moda ${moda.namaModa}`}
                                                     disabled={submitting}
-                                                    className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-red-600 transition hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-red-600 transition hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed sm:h-9 sm:w-9"
                                                 >
                                                     <TrashIcon />
                                                 </button>

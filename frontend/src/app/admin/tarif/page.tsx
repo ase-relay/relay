@@ -20,6 +20,13 @@ import { getApiErrorMessage } from '@/lib/utils/apiError';
 
 const SKELETON_ROWS = 5;
 
+// Ukuran tabel responsif. Sidebar admin baru tampil permanen mulai `lg` (memakan ~280px),
+// jadi ruang tabel justru paling sempit di `lg`: padding & font dikecilkan lagi di sana,
+// lalu dilonggarkan kembali di `xl`.
+const cellPad = 'px-3 py-3 sm:px-4 sm:py-4 md:px-5 lg:px-4 xl:px-6 xl:py-5';
+const headText = 'text-sm font-semibold whitespace-nowrap md:text-base lg:text-sm xl:text-[17px]';
+const bodyText = 'text-sm md:text-base lg:text-sm xl:text-base';
+
 const skemaLabels: Record<Tarif['tipeTarif'], string> = {
     FLAT: 'Fixed price',
     PER_KM: 'Berdasarkan jarak',
@@ -225,10 +232,10 @@ export default function AdminTarifPage() {
 
     return (
         <>
-            <h1 className="text-3xl font-bold text-neutral-900 sm:text-4xl">
+            <h1 className="text-2xl font-bold text-neutral-900 sm:text-3xl xl:text-4xl">
                 Kelola Data Tarif
             </h1>
-            <p className="mt-2 text-lg text-neutral-500 sm:text-xl">
+            <p className="mt-2 text-base text-neutral-500 sm:text-lg xl:text-xl">
                 Tarif berlaku untuk semua rute pada moda ini.
             </p>
 
@@ -248,9 +255,9 @@ export default function AdminTarifPage() {
                 </div>
             )}
 
-            <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="relative w-full sm:w-110">
-                    <span className="pointer-events-none absolute top-1/2 left-5 -translate-y-1/2">
+            <div className="mt-6 flex flex-col gap-4 sm:mt-8 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative w-full sm:w-80 md:w-96 xl:w-110">
+                    <span className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 sm:left-5">
                         <SearchIcon />
                     </span>
                     <input
@@ -260,28 +267,30 @@ export default function AdminTarifPage() {
                         placeholder="Cari moda ..."
                         aria-label="Cari moda"
                         disabled={loading}
-                        className="h-14 w-full rounded-2xl border border-neutral-300 bg-white pr-5 pl-14 text-base text-neutral-900 placeholder:text-neutral-400 focus:border-primary-600 focus:outline-none disabled:opacity-50"
+                        className="h-12 w-full rounded-2xl border border-neutral-300 bg-white pr-4 pl-12 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-primary-600 focus:outline-none disabled:opacity-50 sm:h-14 sm:pr-5 sm:pl-14 sm:text-base"
                     />
                 </div>
             </div>
 
-            <div className="mt-9 overflow-x-auto rounded-2xl border border-neutral-200">
-                <table className="w-full min-w-200 table-fixed border-collapse text-left">
+            <div className="mt-6 overflow-x-auto rounded-2xl border border-neutral-200 sm:mt-9">
+                {/* Layout tabel otomatis (bukan table-fixed): kolom No. dan Aksi menyesuaikan isinya
+                    (`w-px` + nowrap), sisanya dibagi otomatis, jadi tombol aksi tidak ikut terjepit. */}
+                <table className="w-full min-w-[680px] border-collapse text-left">
                     <thead className="bg-primary-600 text-white">
                         <tr>
-                            <th className="w-[7%] px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
+                            <th className={`w-px ${cellPad} ${headText}`}>
                                 No.
                             </th>
-                            <th className="w-[23%] px-6 py-5 text-[17px] font-semibold">
+                            <th className={`${cellPad} ${headText}`}>
                                 Moda
                             </th>
-                            <th className="w-[17%] px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
+                            <th className={`${cellPad} ${headText}`}>
                                 Skema Tarif
                             </th>
-                            <th className="w-[41%] px-6 py-5 text-[17px] font-semibold">
+                            <th className={`${cellPad} ${headText}`}>
                                 Detail Tarif
                             </th>
-                            <th className="w-[12%] px-6 py-5 text-[17px] font-semibold whitespace-nowrap">
+                            <th className={`w-px ${cellPad} ${headText}`}>
                                 Aksi
                             </th>
                         </tr>
@@ -300,22 +309,22 @@ export default function AdminTarifPage() {
                                         aria-hidden="true"
                                         className={index > 0 ? 'border-t border-neutral-200' : ''}
                                     >
-                                        <td className="px-6 py-5 align-middle">
+                                        <td className={`${cellPad} align-middle`}>
                                             <Skeleton variant="text" className="h-5 w-8" />
                                         </td>
-                                        <td className="px-6 py-5 align-middle">
-                                            <Skeleton variant="text" className="h-5 w-36 max-w-full" />
+                                        <td className={`${cellPad} align-middle`}>
+                                            <Skeleton variant="text" className="h-5 w-28 max-w-full sm:w-36" />
                                         </td>
-                                        <td className="px-6 py-5 align-middle">
-                                            <Skeleton variant="text" className="h-5 w-28 max-w-full" />
+                                        <td className={`${cellPad} align-middle`}>
+                                            <Skeleton variant="text" className="h-5 w-24 max-w-full sm:w-28" />
                                         </td>
-                                        <td className="px-6 py-5 align-middle">
+                                        <td className={`${cellPad} align-middle`}>
                                             <Skeleton variant="text" className="h-5 w-full max-w-80" />
                                         </td>
-                                        <td className="px-6 py-5 align-middle">
+                                        <td className={`${cellPad} align-middle`}>
                                             <div className="flex items-center gap-2">
-                                                <Skeleton variant="rounded" className="h-9 w-9" />
-                                                <Skeleton variant="rounded" className="h-9 w-9" />
+                                                <Skeleton variant="rounded" className="h-8 w-8 shrink-0 sm:h-9 sm:w-9" />
+                                                <Skeleton variant="rounded" className="h-8 w-8 shrink-0 sm:h-9 sm:w-9" />
                                             </div>
                                         </td>
                                     </tr>
@@ -327,7 +336,7 @@ export default function AdminTarifPage() {
                                     <tr>
                                         <td
                                             colSpan={5}
-                                            className="px-6 py-10 text-center text-base text-neutral-500"
+                                            className={`px-4 py-10 text-center text-neutral-500 ${bodyText}`}
                                         >
                                             {query ? 'Tidak ada data moda yang cocok.' : 'Tidak ada data moda.'}
                                         </td>
@@ -340,32 +349,33 @@ export default function AdminTarifPage() {
                                             key={moda.id}
                                             className={index > 0 ? 'border-t border-neutral-200' : ''}
                                         >
-                                            <td className="px-6 py-5 align-middle text-base whitespace-nowrap text-neutral-900">
+                                            <td className={`${cellPad} ${bodyText} align-middle whitespace-nowrap text-neutral-900`}>
                                                 {index + 1}
                                             </td>
-                                            <td className="px-6 py-5 align-middle text-base font-medium text-neutral-900">
+                                            <td className={`${cellPad} ${bodyText} align-middle font-medium text-neutral-900`}>
                                                 {moda.namaModa}
                                                 {!moda.isActive && (
-                                                    <span className="ml-2 rounded-lg bg-neutral-200 px-2 py-0.5 text-xs font-semibold text-neutral-600">
+                                                    <span className="ml-2 rounded-lg bg-neutral-200 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-neutral-600">
                                                         Nonaktif
                                                     </span>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-5 align-middle text-base whitespace-nowrap text-neutral-900">
+                                            <td className={`${cellPad} ${bodyText} align-middle whitespace-nowrap text-neutral-900`}>
                                                 {tarif ? skemaLabels[tarif.tipeTarif] : '-'}
                                             </td>
-                                            <td className="px-6 py-5 align-middle text-base text-neutral-900">
+                                            <td className={`${cellPad} ${bodyText} min-w-44 align-middle text-neutral-900`}>
                                                 {tarif ? <DetailTarifCell tarif={tarif} /> : '-'}
                                             </td>
-                                            <td className="px-6 py-5 align-middle whitespace-nowrap">
+                                            <td className={`${cellPad} align-middle whitespace-nowrap`}>
                                                 {tarif ? (
                                                     <div className="flex items-center gap-2">
+                                                        {/* shrink-0 + ukuran tetap: tombol tidak boleh ikut mengecil/gepeng saat kolom sempit */}
                                                         <button
                                                             type="button"
                                                             onClick={() => handleEdit(tarif)}
                                                             aria-label={`Edit tarif ${moda.namaModa}`}
                                                             disabled={submitting}
-                                                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-primary-600 transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-primary-600 transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50 sm:h-9 sm:w-9"
                                                         >
                                                             <AdminEditIcon />
                                                         </button>
@@ -374,7 +384,7 @@ export default function AdminTarifPage() {
                                                             onClick={() => setDeleting(tarif)}
                                                             aria-label={`Hapus tarif ${moda.namaModa}`}
                                                             disabled={submitting}
-                                                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-red-600 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-red-600 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 sm:h-9 sm:w-9"
                                                         >
                                                             <TrashIcon />
                                                         </button>
@@ -386,7 +396,7 @@ export default function AdminTarifPage() {
                                                             onClick={() => handleAturTarif(moda)}
                                                             disabled={submitting || !moda.isActive}
                                                             title={moda.isActive ? undefined : 'Aktifkan moda dulu'}
-                                                            className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold whitespace-nowrap text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                            className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-primary-600 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:py-2 sm:text-sm"
                                                         >
                                                             <PlusIcon />
                                                             Atur tarif
