@@ -27,9 +27,11 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('otewe_token');
-        // Hanya redirect jika tidak sedang di halaman login untuk menghindari refresh
-        if (!window.location.pathname.includes('/login')) {
-          window.location.href = '/login';
+        const pathname = window.location.pathname;
+        // Hindari loop bila sudah di halaman auth.
+        if (pathname !== '/login' && pathname !== '/register') {
+          const target = `${pathname}${window.location.search}`;
+          window.location.href = `${window.location.origin}/login?redirect=${encodeURIComponent(target)}`;
         }
       }
     }
