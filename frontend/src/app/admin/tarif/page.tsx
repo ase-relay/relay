@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { TarifFormModal } from '@/components/admin/tarif/TarifFormModal';
 import ConfirmEditModal from '@/components/admin/ConfirmEditModal';
 import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
+import { ForbiddenPage } from '@/components/ui/ForbiddenPage';
 import { Alert } from '@/components/ui/Alert';
 import { AlertViewport } from '@/components/ui/AlertViewport';
 import SearchIcon from '@/components/icons/common/SearchIcon';
@@ -66,10 +66,9 @@ function DetailTarifCell({ tarif }: { tarif: Tarif }) {
 }
 
 export default function AdminTarifPage() {
-    const router = useRouter();
-    const { data: tarifs, loading: loadingTarif, error: tarifError, refetch: refetchTarif } =
+    const { data: tarifs, loading: loadingTarif, error: tarifError, forbidden: forbiddenTarif, refetch: refetchTarif } =
         useAdminList<Tarif>({ endpoint: '/transport/tarif' });
-    const { data: modas, loading: loadingModa, error: modaError, refetch: refetchModa } =
+    const { data: modas, loading: loadingModa, error: modaError, forbidden: forbiddenModa, refetch: refetchModa } =
         useAdminList<Moda>({ endpoint: '/transport/moda' });
     const [query, setQuery] = useState('');
     const [formModa, setFormModa] = useState<Moda | null>(null);
@@ -114,19 +113,6 @@ export default function AdminTarifPage() {
         setEditing(null);
     }
 
-    function handleAuthError(err: unknown): boolean {
-        const error = err as { response?: { status?: number } };
-        if (error.response?.status === 401) {
-            setTimeout(() => router.push('/login'), 2000);
-            return true;
-        }
-        if (error.response?.status === 403) {
-            setTimeout(() => router.push('/beranda'), 2000);
-            return true;
-        }
-        return false;
-    }
-
     async function handleFormSave(input: TarifInput) {
         if (editing) {
             // Update: langsung tampilkan konfirmasi, PUT menyusul di handleConfirmEdit
@@ -152,13 +138,16 @@ export default function AdminTarifPage() {
             }
             throw new Error(response.data.message || 'Gagal menambahkan tarif');
         } catch (err: unknown) {
+            // 401 ditangani interceptor (redirect ke login), 403 list ditangani hook.
+            if ((err as { response?: { status?: number } }).response?.status === 401) {
+                return;
+            }
             const message = getApiErrorMessage(err, 'Gagal menyimpan data tarif');
             setAlert({
                 title: 'Gagal Menyimpan',
                 description: message,
                 type: 'error',
             });
-            handleAuthError(err);
         } finally {
             setSubmitting(false);
         }
@@ -186,13 +175,15 @@ export default function AdminTarifPage() {
             }
             throw new Error(response.data.message || 'Gagal memperbarui tarif');
         } catch (err: unknown) {
+            if ((err as { response?: { status?: number } }).response?.status === 401) {
+                return;
+            }
             const message = getApiErrorMessage(err, 'Gagal memperbarui tarif');
             setAlert({
                 title: 'Gagal Memperbarui',
                 description: message,
                 type: 'error',
             });
-            handleAuthError(err);
         } finally {
             setSubmitting(false);
         }
@@ -218,16 +209,22 @@ export default function AdminTarifPage() {
             }
             throw new Error(response.data.message || 'Gagal menghapus tarif');
         } catch (err: unknown) {
+            if ((err as { response?: { status?: number } }).response?.status === 401) {
+                return;
+            }
             const message = getApiErrorMessage(err, 'Gagal menghapus tarif');
             setAlert({
                 title: 'Gagal Menghapus',
                 description: message,
                 type: 'error',
             });
-            handleAuthError(err);
         } finally {
             setSubmitting(false);
         }
+    }
+
+    if (forbiddenTarif || forbiddenModa) {
+        return <ForbiddenPage />;
     }
 
     return (

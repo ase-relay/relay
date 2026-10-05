@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { RuteFormModal } from '@/components/admin/rute/RuteFormModal';
 import ConfirmEditModal from '@/components/admin/ConfirmEditModal';
 import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
+import { ForbiddenPage } from '@/components/ui/ForbiddenPage';
 import Alert from '@/components/ui/Alert';
 import { AlertViewport } from '@/components/ui/AlertViewport';
 import SearchIcon from '@/components/icons/common/SearchIcon';
@@ -45,8 +45,7 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
 }
 
 export default function AdminRutePage() {
-    const router = useRouter();
-    const { data: rutes, loading, error, refetch } = useAdminList<Rute>({ endpoint: '/transport/rute' });
+    const { data: rutes, loading, error, forbidden, refetch } = useAdminList<Rute>({ endpoint: '/transport/rute' });
     const { data: haltes } = useAdminList<Halte>({ endpoint: '/transport/halte' });
     const { data: modas } = useAdminList<Moda>({ endpoint: '/transport/moda' });
     const [query, setQuery] = useState('');
@@ -131,27 +130,16 @@ export default function AdminRutePage() {
             }
             throw new Error(response.data.message || 'Gagal menambahkan rute');
         } catch (err: unknown) {
+            // 401 ditangani interceptor (redirect ke login), 403 list ditangani hook.
+            if ((err as { response?: { status?: number } }).response?.status === 401) {
+                return;
+            }
             const message = getApiErrorMessage(err, 'Gagal menyimpan data rute');
             setAlert({
                 title: 'Gagal Menyimpan',
                 description: message,
                 type: 'error',
             });
-            if ((err as { response?: { status?: number } }).response?.status === 401) {
-                setAlert({
-                    title: 'Sesi Login Habis',
-                    description: 'Silakan login ulang untuk melanjutkan.',
-                    type: 'error',
-                });
-                setTimeout(() => router.push('/login'), 2000);
-            } else if ((err as { response?: { status?: number } }).response?.status === 403) {
-                setAlert({
-                    title: 'Akses Ditolak',
-                    description: 'Anda tidak memiliki akses untuk mengelola data rute.',
-                    type: 'error',
-                });
-                setTimeout(() => router.push('/beranda'), 2000);
-            }
         } finally {
             setSubmitting(false);
         }
@@ -179,17 +167,15 @@ export default function AdminRutePage() {
             }
             throw new Error(response.data.message || 'Gagal memperbarui rute');
         } catch (err: unknown) {
+            if ((err as { response?: { status?: number } }).response?.status === 401) {
+                return;
+            }
             const message = getApiErrorMessage(err, 'Gagal memperbarui rute');
             setAlert({
                 title: 'Gagal Memperbarui',
                 description: message,
                 type: 'error',
             });
-            if ((err as { response?: { status?: number } }).response?.status === 401) {
-                setTimeout(() => router.push('/login'), 2000);
-            } else if ((err as { response?: { status?: number } }).response?.status === 403) {
-                setTimeout(() => router.push('/beranda'), 2000);
-            }
         } finally {
             setSubmitting(false);
         }
@@ -215,20 +201,22 @@ export default function AdminRutePage() {
             }
             throw new Error(response.data.message || 'Gagal menghapus rute');
         } catch (err: unknown) {
+            if ((err as { response?: { status?: number } }).response?.status === 401) {
+                return;
+            }
             const message = getApiErrorMessage(err, 'Gagal menghapus rute');
             setAlert({
                 title: 'Gagal Menghapus',
                 description: message,
                 type: 'error',
             });
-            if ((err as { response?: { status?: number } }).response?.status === 401) {
-                setTimeout(() => router.push('/login'), 2000);
-            } else if ((err as { response?: { status?: number } }).response?.status === 403) {
-                setTimeout(() => router.push('/beranda'), 2000);
-            }
         } finally {
             setSubmitting(false);
         }
+    }
+
+    if (forbidden) {
+        return <ForbiddenPage />;
     }
 
     return (

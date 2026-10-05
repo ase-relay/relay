@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { ModaFormModal } from '@/components/admin/moda/ModaFormModal';
 import ConfirmEditModal from '@/components/admin/ConfirmEditModal';
 import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
+import { ForbiddenPage } from '@/components/ui/ForbiddenPage';
 import { Alert } from '@/components/ui/Alert';
 import { AlertViewport } from '@/components/ui/AlertViewport';
 import SearchIcon from '@/components/icons/common/SearchIcon';
@@ -68,8 +68,7 @@ function labelTipeModa(tipeModa: string | null): string {
 }
 
 export default function AdminModaPage() {
-    const router = useRouter();
-    const { data: modas, loading, error, refetch } = useAdminList<Moda>({ endpoint: '/transport/moda' });
+    const { data: modas, loading, error, forbidden, refetch } = useAdminList<Moda>({ endpoint: '/transport/moda' });
     const [query, setQuery] = useState('');
     const [formOpen, setFormOpen] = useState(false);
     const [editing, setEditing] = useState<Moda | null>(null);
@@ -122,27 +121,16 @@ export default function AdminModaPage() {
             throw new Error(response.data.message || 'Gagal menambahkan moda');
         } catch (err: unknown) {
             const error = err as ApiError;
+            // 401 ditangani interceptor (redirect ke login), 403 list ditangani hook.
+            if (error.response?.status === 401) {
+                return;
+            }
             const message = error.response?.data?.message || error.message || 'Gagal menyimpan data moda';
             setAlert({
                 title: 'Gagal Menyimpan',
                 description: message,
                 type: 'error',
             });
-            if (error.response?.status === 401) {
-                setAlert({
-                    title: 'Sesi Login Habis',
-                    description: 'Silakan login ulang untuk melanjutkan.',
-                    type: 'error',
-                });
-                setTimeout(() => router.push('/login'), 2000);
-            } else if (error.response?.status === 403) {
-                setAlert({
-                    title: 'Akses Ditolak',
-                    description: 'Anda tidak memiliki akses untuk mengelola data moda.',
-                    type: 'error',
-                });
-                setTimeout(() => router.push('/beranda'), 2000);
-            }
         } finally {
             setSubmitting(false);
         }
@@ -172,17 +160,15 @@ export default function AdminModaPage() {
             throw new Error(response.data.message || 'Gagal memperbarui moda');
         } catch (err: unknown) {
             const error = err as ApiError;
+            if (error.response?.status === 401) {
+                return;
+            }
             const message = error.response?.data?.message || error.message || 'Gagal memperbarui moda';
             setAlert({
                 title: 'Gagal Memperbarui',
                 description: message,
                 type: 'error',
             });
-            if (error.response?.status === 401) {
-                setTimeout(() => router.push('/login'), 2000);
-            } else if (error.response?.status === 403) {
-                setTimeout(() => router.push('/beranda'), 2000);
-            }
         } finally {
             setSubmitting(false);
         }
@@ -209,20 +195,22 @@ export default function AdminModaPage() {
             throw new Error(response.data.message || 'Gagal menghapus moda');
         } catch (err: unknown) {
             const error = err as ApiError;
+            if (error.response?.status === 401) {
+                return;
+            }
             const message = error.response?.data?.message || error.message || 'Gagal menghapus moda';
             setAlert({
                 title: 'Gagal Menghapus',
                 description: message,
                 type: 'error',
             });
-            if (error.response?.status === 401) {
-                setTimeout(() => router.push('/login'), 2000);
-            } else if (error.response?.status === 403) {
-                setTimeout(() => router.push('/beranda'), 2000);
-            }
         } finally {
             setSubmitting(false);
         }
+    }
+
+    if (forbidden) {
+        return <ForbiddenPage />;
     }
 
     return (

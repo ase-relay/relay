@@ -15,14 +15,14 @@ interface ApiError {
 interface UseAdminListOptions {
     endpoint: string;
     on401Redirect?: string;
-    on403Redirect?: string;
 }
 
-export function useAdminList<T = unknown>({ endpoint, on401Redirect = '/login', on403Redirect = '/beranda' }: UseAdminListOptions) {
+export function useAdminList<T = unknown>({ endpoint, on401Redirect = '/login' }: UseAdminListOptions) {
     const router = useRouter();
     const [data, setData] = useState<T[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [forbidden, setForbidden] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
@@ -33,6 +33,7 @@ export function useAdminList<T = unknown>({ endpoint, on401Redirect = '/login', 
                 if (!cancelled) {
                     setLoading(true);
                     setError(null);
+                    setForbidden(false);
                 }
                 const response = await api.get<{ success: boolean; data: T[]; message?: string }>(endpoint);
 
@@ -53,7 +54,7 @@ export function useAdminList<T = unknown>({ endpoint, on401Redirect = '/login', 
                 if (error.response?.status === 401) {
                     router.push(on401Redirect);
                 } else if (error.response?.status === 403) {
-                    router.push(on403Redirect);
+                    setForbidden(true);
                 }
             } finally {
                 if (!cancelled) {
@@ -66,11 +67,11 @@ export function useAdminList<T = unknown>({ endpoint, on401Redirect = '/login', 
         return () => {
             cancelled = true;
         };
-    }, [reloadKey, endpoint, on401Redirect, on403Redirect, router]);
+    }, [reloadKey, endpoint, on401Redirect, router]);
 
     const refetch = () => {
         setReloadKey((prev) => prev + 1);
     };
 
-    return { data, loading, error, refetch };
+    return { data, loading, error, forbidden, refetch };
 }

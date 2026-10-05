@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { HalteFormModal } from '@/components/admin/halte/HalteFormModal';
 import ConfirmEditModal from '@/components/admin/ConfirmEditModal';
 import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
+import { ForbiddenPage } from '@/components/ui/ForbiddenPage';
 import Alert from '@/components/ui/Alert';
 import { AlertViewport } from '@/components/ui/AlertViewport';
 import SearchIcon from '@/components/icons/common/SearchIcon';
@@ -52,8 +52,7 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
 }
 
 export default function AdminHaltePage() {
-    const router = useRouter();
-    const { data: haltes, loading, error, refetch } = useAdminList<Halte>({ endpoint: '/transport/halte' });
+    const { data: haltes, loading, error, forbidden, refetch } = useAdminList<Halte>({ endpoint: '/transport/halte' });
     const [query, setQuery] = useState('');
     const [formOpen, setFormOpen] = useState(false);
     const [editing, setEditing] = useState<Halte | null>(null);
@@ -112,27 +111,16 @@ export default function AdminHaltePage() {
             throw new Error(response.data.message || 'Gagal menambahkan halte');
         } catch (err: unknown) {
             const error = err as ApiError;
+            // 401 ditangani interceptor (redirect ke login), 403 list ditangani hook.
+            if (error.response?.status === 401) {
+                return;
+            }
             const message = error.response?.data?.message || error.message || 'Gagal menyimpan data halte';
             setAlert({
                 title: 'Gagal Menyimpan',
                 description: message,
                 type: 'error',
             });
-            if (error.response?.status === 401) {
-                setAlert({
-                    title: 'Sesi Login Habis',
-                    description: 'Silakan login ulang untuk melanjutkan.',
-                    type: 'error',
-                });
-                setTimeout(() => router.push('/login'), 2000);
-            } else if (error.response?.status === 403) {
-                setAlert({
-                    title: 'Akses Ditolak',
-                    description: 'Anda tidak memiliki akses untuk mengelola data halte.',
-                    type: 'error',
-                });
-                setTimeout(() => router.push('/beranda'), 2000);
-            }
         } finally {
             setSubmitting(false);
         }
@@ -161,17 +149,15 @@ export default function AdminHaltePage() {
             throw new Error(response.data.message || 'Gagal memperbarui halte');
         } catch (err: unknown) {
             const error = err as ApiError;
+            if (error.response?.status === 401) {
+                return;
+            }
             const message = error.response?.data?.message || error.message || 'Gagal memperbarui halte';
             setAlert({
                 title: 'Gagal Memperbarui',
                 description: message,
                 type: 'error',
             });
-            if (error.response?.status === 401) {
-                setTimeout(() => router.push('/login'), 2000);
-            } else if (error.response?.status === 403) {
-                setTimeout(() => router.push('/beranda'), 2000);
-            }
         } finally {
             setSubmitting(false);
         }
@@ -198,20 +184,22 @@ export default function AdminHaltePage() {
             throw new Error(response.data.message || 'Gagal menghapus halte');
         } catch (err: unknown) {
             const error = err as ApiError;
+            if (error.response?.status === 401) {
+                return;
+            }
             const message = error.response?.data?.message || error.message || 'Gagal menghapus halte';
             setAlert({
                 title: 'Gagal Menghapus',
                 description: message,
                 type: 'error',
             });
-            if (error.response?.status === 401) {
-                setTimeout(() => router.push('/login'), 2000);
-            } else if (error.response?.status === 403) {
-                setTimeout(() => router.push('/beranda'), 2000);
-            }
         } finally {
             setSubmitting(false);
         }
+    }
+
+    if (forbidden) {
+        return <ForbiddenPage />;
     }
 
     return (
