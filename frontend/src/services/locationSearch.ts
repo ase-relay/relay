@@ -1,5 +1,6 @@
 import { stops } from '@/lib/mock/stops';
 import { distanceMeters } from '@/lib/utils';
+import api from '@/lib/api';
 
 // Service pencarian lokasi frontend.
 // - Data halte/stasiun lokal dicari sinkron dari lib/mock/stops (tanpa jaringan).
@@ -114,26 +115,33 @@ export function mergeLocationSuggestions(
   return merged;
 }
 
-/** Cari halte/stasiun dari data lokal (sinkron, tanpa jaringan). */
+/** (DEPRECATED) Dulu mencari statis sinkron. Sekarang diganti backend. */
 export function searchLocalStops(query: string, limit = 5): LocationSuggestion[] {
+  return [];
+}
+
+/** Mengambil data halte/stasiun dari backend API. */
+export async function fetchBackendStops(query: string, limit = 15): Promise<LocationSuggestion[]> {
   const normalized = query.trim().toLowerCase();
   if (normalized.length < MIN_QUERY_LENGTH) return [];
-
-  return stops
-    .filter(
-      (stop) =>
-        stop.name.toLowerCase().includes(normalized) ||
-        stop.district.toLowerCase().includes(normalized),
-    )
-    .slice(0, limit)
-    .map((stop) => ({
-      id: stop.id,
-      name: stop.name,
-      district: stop.district,
-      lat: stop.latitude,
-      lng: stop.longitude,
-      tag: stop.name.toLowerCase().startsWith('stasiun') ? 'Stasiun' : 'Halte',
-    }));
+  try {
+    const response = await api.get(`/transport/halte?search=${encodeURIComponent(normalized)}`);
+    const data = response.data.data || [];
+    return data.slice(0, limit).map((item: any) => {
+      const isStasiun = item.namaHalte.toLowerCase().includes('stasiun');
+      return {
+        id: `db:${item.id}`,
+        name: item.namaHalte,
+        district: item.kota || item.alamat || 'Bandung',
+        lat: item.latitude,
+        lng: item.longitude,
+        tag: isStasiun ? 'Stasiun' : 'Halte',
+      };
+    });
+  } catch (error) {
+    console.error('Failed to fetch backend stops:', error);
+    return [];
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -332,11 +340,18 @@ export async function searchLocation(
   options: LocationSearchOptions = {},
 ): Promise<LocationSuggestion[]> {
   const normalized = query.trim();
-  const localResults = searchLocalStops(normalized, options.limit ?? 5);
-  if (normalized.length < MIN_QUERY_LENGTH) return localResults;
+  if (normalized.length < MIN_QUERY_LENGTH) return [];
 
-  const remoteResults = await activeProvider.search(normalized, options);
-  return mergeLocationSuggestions(localResults, remoteResults);
+  const dbResults = await fetchBackendStops(normalized, options.limit ?? 15);
+
+  let remoteResults: LocationSuggestion[] = [];
+  try {
+    remoteResults = await activeProvider.search(normalized, options);
+  } catch (err) {
+    if (dbResults.length === 0) throw err;
+  }
+  
+  return mergeLocationSuggestions(dbResults, remoteResults);
 }
 
 /**
@@ -353,20 +368,26 @@ export async function resolveTypedLocation(
     throw new LocationServiceError('not-found', LOCATION_NOT_FOUND_MESSAGE);
   }
 
-  // Kecocokan persis dengan nama halte/stasiun lokal menang lebih dulu (tanpa jaringan).
-  const exactLocalMatch = searchLocalStops(query, 1).find(
+  const dbResults = await fetchBackendStops(query, 1);
+  const exactLocalMatch = dbResults.find(
     (item) => item.name.toLowerCase() === query.toLowerCase(),
   );
   if (exactLocalMatch) return exactLocalMatch;
 
-  const remoteResults = await activeProvider.search(query, {
-    ...options,
-    limit: options.limit ?? 5,
-  });
+  let remoteResults: LocationSuggestion[] = [];
+  try {
+    remoteResults = await activeProvider.search(query, {
+      ...options,
+      limit: options.limit ?? 5,
+    });
+  } catch (err) {
+    if (dbResults.length > 0) return dbResults[0];
+    throw err;
+  }
+
   if (remoteResults.length > 0) return remoteResults[0];
 
-  const [localMatch] = searchLocalStops(query, 1);
-  if (localMatch) return localMatch;
+  if (dbResults.length > 0) return dbResults[0];
 
   throw new LocationServiceError('not-found', LOCATION_NOT_FOUND_MESSAGE);
 }
