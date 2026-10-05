@@ -28,12 +28,16 @@ export const stopInputSchema = z.object({
   halteId: z.number({ error: 'ID Halte harus berupa angka' }).int({ error: 'ID Halte harus integer' }).positive('ID Halte harus positif'),
   estimasiMenit: segmenMenitSchema.optional(),
   jarakMeter: segmenMeterSchema.optional(),
+  jadwalKeberangkatan: z.array(z.string()).optional(),
 });
 
 export const createRuteSchema = z.object({
   namaRute: z.string().min(3, 'Nama rute minimal 3 karakter'),
   kodeRute: z.string().optional(),
   deskripsi: z.string().optional(),
+  jamMulaiOperasi: z.string().optional(),
+  jamSelesaiOperasi: z.string().optional(),
+  intervalWaktu: z.string().optional(),
   modaId: z.number().int().positive('Moda ID harus positif'),
   isActive: z.boolean().optional(),
   stops: z.array(stopInputSchema).min(2, 'Minimal 2 halte pemberhentian'),
@@ -43,6 +47,9 @@ export const updateRuteSchema = z.object({
   namaRute: z.string().min(3, 'Nama rute minimal 3 karakter').optional(),
   kodeRute: z.string().optional(),
   deskripsi: z.string().optional(),
+  jamMulaiOperasi: z.string().optional().nullable(),
+  jamSelesaiOperasi: z.string().optional().nullable(),
+  intervalWaktu: z.string().optional().nullable(),
   modaId: z.number().int().positive('Moda ID harus positif').optional(),
   isActive: z.boolean().optional(),
   stops: z.array(stopInputSchema).min(2, 'Minimal 2 halte pemberhentian').optional(),

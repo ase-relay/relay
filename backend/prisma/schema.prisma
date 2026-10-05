@@ -69,6 +69,9 @@ model Rute {
   kodeRute  String? // Contoh: "K1", "KRD-BDG-CMH"
   deskripsi String?
   modaId    Int
+  jamMulaiOperasi String? // Contoh: "04:30"
+  jamSelesaiOperasi String? // Contoh: "20:00"
+  intervalWaktu String? // Contoh: "15-20 menit"
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -85,6 +88,7 @@ model RuteStop {
   urutan        Int // Urutan stop: 1, 2, 3, dst.
   estimasiMenit Int? // Estimasi menit ke stop berikutnya
   jarakMeter    Int? // Estimasi jarak meter ke stop berikutnya
+  jadwalKeberangkatan String[] @default([]) // Array jadwal keberangkatan, contoh: ["05:10", "06:20"]
   // Geometri jalur dari halte ini ke halte berikutnya (searah urutan rute).
   // Format: [[lat, lng], ...] pre-computed dari Overpass API (jalur rel asli).
   // Null = geometri belum tersedia; fallback ke OSRM / garis lurus.

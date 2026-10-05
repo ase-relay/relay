@@ -90,9 +90,15 @@ function makeRute(
     urutan: index + 1,
     estimasiMenit: null,
     jarakMeter: null,
+    jadwalKeberangkatan: [],
+    geometri: null,
     halte: stop,
   }));
-  return { id, nama, kode, moda, stops: ruteStops, positions: buildPositions(ruteStops) };
+  return {
+    id, nama, kode,
+    jamMulaiOperasi: null, jamSelesaiOperasi: null, intervalWaktu: null,
+    moda, stops: ruteStops, positions: buildPositions(ruteStops)
+  };
 }
 
 const STOPS: NetworkStop[] = [A, B, C, D, E, F, X];

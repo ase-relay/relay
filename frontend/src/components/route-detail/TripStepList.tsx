@@ -20,6 +20,14 @@ export interface TransitSegment extends BaseSegment {
   duration: number;
   stopCount: number;
   stops: JourneyStop[];
+  /** Jam mulai operasi rute (format "HH:mm", WIB). Null = belum diisi admin. */
+  jamMulaiOperasi?: string | null;
+  /** Jam selesai operasi rute (format "HH:mm", WIB). Null = belum diisi admin. */
+  jamSelesaiOperasi?: string | null;
+  /** Interval waktu kedatangan (teks bebas, misal "15-20 menit"). */
+  intervalWaktu?: string | null;
+  /** Jadwal keberangkatan dari halte pertama (untuk kereta). */
+  jadwalKeberangkatan?: string[];
 }
 export type JourneySegment = WalkSegment | TransitSegment;
 export interface JourneyPoint { time: string; name: string; address: string; }
@@ -91,6 +99,21 @@ export function TimelineSegment({ item, onStopSelect }: TimelineSegmentProps) {
         <p className="font-semibold text-neutral-900">{item.operator}</p>
       </div>
       <p className="mt-2 text-sm text-neutral-500">Biaya: {formatCurrency(item.cost)}</p>
+      {/* Tampilkan info jadwal/operasional jika tersedia */}
+      {item.vehicleType === 'train' && item.jadwalKeberangkatan && item.jadwalKeberangkatan.length > 0 && (
+        <p className="mt-1 text-sm text-blue-600">
+          🚆 Jadwal keberangkatan: {item.jadwalKeberangkatan.join(', ')} WIB
+        </p>
+      )}
+      {item.vehicleType !== 'train' && (item.jamMulaiOperasi || item.intervalWaktu) && (
+        <p className="mt-1 text-sm text-neutral-500">
+          {item.jamMulaiOperasi && item.jamSelesaiOperasi
+            ? `🕐 Beroperasi: ${item.jamMulaiOperasi} – ${item.jamSelesaiOperasi} WIB`
+            : null}
+          {item.jamMulaiOperasi && item.jamSelesaiOperasi && item.intervalWaktu ? ' · ' : null}
+          {item.intervalWaktu ? `⏱ Interval: ${item.intervalWaktu}` : null}
+        </p>
+      )}
       <button
         type="button"
         onClick={() => setIsOpen((open) => !open)}

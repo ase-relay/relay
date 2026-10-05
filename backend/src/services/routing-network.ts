@@ -34,6 +34,7 @@ export interface NetworkRuteStop {
   urutan: number;
   estimasiMenit: number | null;
   jarakMeter: number | null;
+  jadwalKeberangkatan: string[];
   /** Geometri jalur dari halte ini ke halte berikutnya [[lat,lng],...]; null = belum tersedia. */
   geometri: [number, number][] | null;
   halte: NetworkStop;
@@ -43,6 +44,9 @@ export interface NetworkRute {
   id: number;
   nama: string;
   kode: string | null;
+  jamMulaiOperasi: string | null;
+  jamSelesaiOperasi: string | null;
+  intervalWaktu: string | null;
   moda: NetworkModa;
   stops: NetworkRuteStop[];
   /** Peta halteId -> indeks pada `stops` (urutan menaik). */
@@ -142,6 +146,7 @@ async function fetchAndCache(): Promise<CachedNetworkData> {
           urutan: s.urutan,
           estimasiMenit: s.estimasiMenit,
           jarakMeter: s.jarakMeter,
+          jadwalKeberangkatan: s.jadwalKeberangkatan ?? [],
           // Parse geometri dari JSON DB; null bila kosong atau format tidak valid.
           geometri: parseGeometriJson(s.geometri),
           halte: {
@@ -156,6 +161,7 @@ async function fetchAndCache(): Promise<CachedNetworkData> {
         const prev = stopsOrdered[stopsOrdered.length - 1];
         prev.jarakMeter = sumEdges(prev.jarakMeter, s.jarakMeter);
         prev.estimasiMenit = sumEdges(prev.estimasiMenit, s.estimasiMenit);
+        // Gabungkan jadwal halte nonaktif? Tidak, jadwal terikat di halte aktif.
         // Geometri halte nonaktif dibuang: segmen terputus tidak bisa digabungkan.
         prev.geometri = null;
       }
@@ -167,6 +173,9 @@ async function fetchAndCache(): Promise<CachedNetworkData> {
       id: r.id,
       nama: r.namaRute,
       kode: r.kodeRute,
+      jamMulaiOperasi: r.jamMulaiOperasi,
+      jamSelesaiOperasi: r.jamSelesaiOperasi,
+      intervalWaktu: r.intervalWaktu,
       moda,
       stops: stopsOrdered,
       positions: buildPositions(stopsOrdered),

@@ -30,7 +30,7 @@ export interface RouteSegment {
 export interface RouteOption {
   id: string;
   label: string;          // "Rute 1"
-  tag: 'tercepat' | 'termurah' | 'minim_transit' | null;
+  tag: 'tercepat' | 'termurah' | 'minim_transit' | 'di_luar_jam_operasional' | null;
   totalDurationMinutes: number;
   totalCost: number;
   transitCount: number;

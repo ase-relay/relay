@@ -93,6 +93,25 @@ function buildLegs(
     } else {
       const label = `${modaInfo?.nama ?? 'Moda'} ${segment.namaRute ?? ''}`.trim();
       instruction = isFirstVehicle ? `Naik ${label}` : `Pindah ke ${label}`;
+
+      const ruteData = (segment as any).rute;
+      const passedStops = (segment as any).passedStops;
+
+      if (segment.type === 'KERETA' && passedStops?.[0]?.jadwalKeberangkatan?.length) {
+         const jadwalStr = passedStops[0].jadwalKeberangkatan.join(', ');
+         instruction += ` (Jadwal Keberangkatan: ${jadwalStr} WIB)`;
+      } else if (segment.type === 'BUS' && ruteData) {
+         const info = [];
+         if (ruteData.jamMulaiOperasi && ruteData.jamSelesaiOperasi) {
+            info.push(`Beroperasi: ${ruteData.jamMulaiOperasi} - ${ruteData.jamSelesaiOperasi} WIB`);
+         }
+         if (ruteData.intervalWaktu) {
+            info.push(`Interval: ${ruteData.intervalWaktu}`);
+         }
+         if (info.length > 0) {
+            instruction += ` (${info.join(' | ')})`;
+         }
+      }
     }
 
     const leg: RouteLeg = {
@@ -132,6 +151,8 @@ function buildLegs(
         urutan: stop.urutan,
         latitude: stop.halte.lat,
         longitude: stop.halte.lng,
+        // Sertakan jadwal keberangkatan agar FE bisa tampilkan jadwal kereta/bus per halte.
+        jadwalKeberangkatan: stop.jadwalKeberangkatan ?? [],
         // Sertakan geometri rel per-segmen agar enrichRouteGeometry bisa
         // merakit polyline rel tanpa query tambahan ke DB.
         geometri: stop.geometri ?? null,
@@ -258,7 +279,7 @@ async function enrichRouteGeometry(route: RouteRecommendation, budgetMs: number)
         return;
       }
 
-      // ── Leg KERETA: coba geometri rel dari DB terlebih dahulu ──
+      // â”€â”€ Leg KERETA: coba geometri rel dari DB terlebih dahulu â”€â”€
       if (isKeretaLeg(leg) && leg.passedStops && leg.passedStops.length >= 2) {
         const railGeometry = assembleRailGeometry(
           leg.passedStops.map((stop) => ({
@@ -275,17 +296,17 @@ async function enrichRouteGeometry(route: RouteRecommendation, budgetMs: number)
         );
 
         if (railGeometry !== null) {
-          // Geometri rel tersedia — tidak perlu OSRM
+          // Geometri rel tersedia â€” tidak perlu OSRM
           leg.geometry = railGeometry;
           return;
         }
-        // null = ada segmen tanpa geometri → fallback ke OSRM di bawah
+        // null = ada segmen tanpa geometri â†’ fallback ke OSRM di bawah
         console.log(
           `[routing] leg kereta ${leg.step}: geometri rel null (belum diisi), fallback ke OSRM`
         );
       }
 
-      // ── Leg BUS/OJEK/KERETA-fallback: OSRM driving ──
+      // â”€â”€ Leg BUS/OJEK/KERETA-fallback: OSRM driving â”€â”€
       const points =
         leg.passedStops && leg.passedStops.length >= 2
           ? leg.passedStops.map((stop) => ({ lat: stop.latitude, lng: stop.longitude }))
@@ -351,6 +372,29 @@ export class RoutingService {
       const timeline = applyRouteTimeline(route.legs, startMinutes);
       route.summary.departureTime = timeline.departureTime;
       route.summary.arrivalTime = timeline.arrivalTime;
+
+      // Cek apakah ada leg transit yang di luar jam operasional
+      const isOutsideHours = route.legs.some((leg) => {
+        const ruteData = (leg.rute as any);
+        if (ruteData && ruteData.jamMulaiOperasi && ruteData.jamSelesaiOperasi && leg.departureTime) {
+          const startMins = parseClock(ruteData.jamMulaiOperasi);
+          const endMins = parseClock(ruteData.jamSelesaiOperasi);
+          const legDep = parseClock(leg.departureTime);
+          if (startMins !== null && endMins !== null && legDep !== null) {
+            // Tangani jadwal yang melewati tengah malam
+            if (startMins <= endMins) {
+              return legDep < startMins || legDep > endMins;
+            } else {
+              return legDep < startMins && legDep > endMins;
+            }
+          }
+        }
+        return false;
+      });
+
+      if (isOutsideHours) {
+        route.tags.push('di_luar_jam_operasional');
+      }
     });
 
     // 5. Susul geometri OSRM hanya untuk hasil final (paralel + budget timeout)
@@ -360,7 +404,7 @@ export class RoutingService {
 
     const processingMs = Date.now() - startedAt;
     console.log(
-      `[routing] selesai dalam ${processingMs}ms — kandidat=${candidates.length} hasil=${routes.length} sortBy=${sortBy}`
+      `[routing] selesai dalam ${processingMs}ms â€” kandidat=${candidates.length} hasil=${routes.length} sortBy=${sortBy}`
     );
 
     // 6. Simpan riwayat pencarian jika ada user id (gagal tidak membatalkan respons)

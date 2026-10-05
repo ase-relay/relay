@@ -23,6 +23,11 @@ export function RouteTagBadge({ tag }: RouteTagBadgeProps) {
       bgColor: 'bg-amber-50',
       textColor: 'text-amber-600',
       label: 'Minim Transit'
+    },
+    di_luar_jam_operasional: {
+      bgColor: 'bg-orange-50',
+      textColor: 'text-orange-600',
+      label: '⚠️ Di Luar Jam Operasional'
     }
   };
 

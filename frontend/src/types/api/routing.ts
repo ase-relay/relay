@@ -69,6 +69,12 @@ export interface ApiRute {
   id: number;
   kode: string;
   nama: string;
+  /** Jam mulai operasi rute (format "HH:mm", WIB). */
+  jamMulaiOperasi?: string | null;
+  /** Jam selesai operasi rute (format "HH:mm", WIB). */
+  jamSelesaiOperasi?: string | null;
+  /** Interval waktu kedatangan (teks bebas, misal "15-20 menit"). */
+  intervalWaktu?: string | null;
 }
 
 /** Halte yang dilewati leg TRANSIT, sudah terurut per `urutan`. */
@@ -81,6 +87,8 @@ export interface ApiPassedStop {
   longitude?: number;
   /** Perkiraan tiba di halte ini ("HH:MM"). */
   estimatedTime?: string;
+  /** Jadwal keberangkatan dari halte ini untuk rute ini (format "HH:mm"). */
+  jadwalKeberangkatan?: string[];
 }
 
 export interface ApiRouteSummary {
@@ -135,6 +143,7 @@ export interface ApiRoute {
   id: string;
   /** `DIRECT` = tanpa transit, `TRANSIT` = ada pergantian kendaraan. Bukan tipe kendaraan! */
   type: 'DIRECT' | 'TRANSIT';
+  tags?: string[];
   summary: ApiRouteSummary;
   legs: ApiRouteLeg[];
 }
@@ -187,3 +196,6 @@ export interface RoutingGeometryResponse {
   message: string;
   data: { legs: RoutingGeometryLegResult[] };
 }
+
+
+

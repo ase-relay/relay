@@ -33,6 +33,7 @@ export function RuteFormModal({
 
     const initialHalteIds = initial?.stops?.map((s) => s.halteId) ?? [];
     const initialSegmentValues: Record<string, { menit: string; meter: string }> = {};
+    const initialJadwalValues: Record<string, string> = {};
     if (initial?.stops) {
         const ids = initial.stops.map((s) => s.halteId);
         for (let i = 0; i < ids.length - 1; i++) {
@@ -43,11 +44,17 @@ export function RuteFormModal({
                 meter: stop.jarakMeter?.toString() ?? '',
             };
         }
+        for (const stop of initial.stops) {
+            initialJadwalValues[stop.halteId.toString()] = stop.jadwalKeberangkatan?.join(', ') ?? '';
+        }
     }
 
     const [step, setStep] = useState<1 | 2>(1);
     const [namaRute, setNamaRute] = useState(() => initial?.namaRute ?? '');
     const [kodeRute, setKodeRute] = useState(() => initial?.kodeRute ?? '');
+    const [jamMulaiOperasi, setJamMulaiOperasi] = useState(() => initial?.jamMulaiOperasi ?? '');
+    const [jamSelesaiOperasi, setJamSelesaiOperasi] = useState(() => initial?.jamSelesaiOperasi ?? '');
+    const [intervalWaktu, setIntervalWaktu] = useState(() => initial?.intervalWaktu ?? '');
     const [modaId, setModaId] = useState(() => initial?.modaId ?? 0);
     const [isActive, setIsActive] = useState(() => initial?.isActive ?? true);
     const [selectedHalteIds, setSelectedHalteIds] = useState(() => initialHalteIds);
@@ -56,6 +63,7 @@ export function RuteFormModal({
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [segmentValues, setSegmentValues] = useState(() => initialSegmentValues);
+    const [jadwalValues, setJadwalValues] = useState(() => initialJadwalValues);
     const orderListRef = useRef<HTMLDivElement | null>(null);
     const itemRefs = useRef(new Map<number, HTMLLIElement>());
     const prevRects = useRef(new Map<number, DOMRect>());
@@ -290,6 +298,13 @@ export function RuteFormModal({
         }));
     }
 
+    function handleJadwalChange(halteId: number, value: string) {
+        setJadwalValues((prev) => ({
+            ...prev,
+            [halteId.toString()]: value,
+        }));
+    }
+
     function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
@@ -340,8 +355,14 @@ export function RuteFormModal({
         }
 
         const stops = selectedHalteIds.map((halteId, index) => {
+            const jadwalRaw = jadwalValues[halteId.toString()] || '';
+            const jadwalArray = jadwalRaw
+                .split(',')
+                .map((j) => j.trim())
+                .filter((j) => j !== '');
+
             if (index === selectedHalteIds.length - 1) {
-                return { halteId, estimasiMenit: 0, jarakMeter: 0 };
+                return { halteId, estimasiMenit: 0, jarakMeter: 0, jadwalKeberangkatan: jadwalArray };
             }
             const toId = selectedHalteIds[index + 1];
             const key = getSegmentKey(halteId, toId);
@@ -352,12 +373,16 @@ export function RuteFormModal({
                 halteId,
                 estimasiMenit: menit === 'invalid' ? null : menit,
                 jarakMeter: meter === 'invalid' ? null : meter,
+                jadwalKeberangkatan: jadwalArray,
             };
         });
 
         onSubmit({
             namaRute: namaRute.trim(),
             kodeRute: kodeRute.trim() === '' ? undefined : kodeRute.trim(),
+            jamMulaiOperasi: jamMulaiOperasi.trim() === '' ? undefined : jamMulaiOperasi.trim(),
+            jamSelesaiOperasi: jamSelesaiOperasi.trim() === '' ? undefined : jamSelesaiOperasi.trim(),
+            intervalWaktu: intervalWaktu.trim() === '' ? undefined : intervalWaktu.trim(),
             modaId,
             isActive,
             stops,
@@ -458,6 +483,47 @@ export function RuteFormModal({
                                     value={kodeRute}
                                     onChange={(event) => setKodeRute(event.target.value)}
                                     placeholder="Contoh: K3D"
+                                    className={inputClass}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label htmlFor="rute-jam-mulai" className={labelClass}>
+                                        Jam Mulai Operasi (opsional)
+                                    </label>
+                                    <input
+                                        id="rute-jam-mulai"
+                                        type="time"
+                                        value={jamMulaiOperasi}
+                                        onChange={(event) => setJamMulaiOperasi(event.target.value)}
+                                        className={inputClass}
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="rute-jam-selesai" className={labelClass}>
+                                        Jam Selesai Operasi (opsional)
+                                    </label>
+                                    <input
+                                        id="rute-jam-selesai"
+                                        type="time"
+                                        value={jamSelesaiOperasi}
+                                        onChange={(event) => setJamSelesaiOperasi(event.target.value)}
+                                        className={inputClass}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label htmlFor="rute-interval" className={labelClass}>
+                                    Interval Waktu Kedatangan (opsional)
+                                </label>
+                                <input
+                                    id="rute-interval"
+                                    type="text"
+                                    value={intervalWaktu}
+                                    onChange={(event) => setIntervalWaktu(event.target.value)}
+                                    placeholder="Contoh: 15-20 menit"
                                     className={inputClass}
                                 />
                             </div>
@@ -634,6 +700,19 @@ export function RuteFormModal({
                                                                 >
                                                                     <HiXMark className="h-4 w-4 sm:h-5 sm:w-5" />
                                                                 </button>
+                                                            </div>
+
+                                                            <div className="mt-3">
+                                                                <label className="block text-xs text-neutral-600 sm:text-sm">
+                                                                    Jadwal Keberangkatan (opsional, pisahkan dengan koma)
+                                                                </label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={jadwalValues[halteId.toString()] || ''}
+                                                                    onChange={(e) => handleJadwalChange(halteId, e.target.value)}
+                                                                    placeholder="Contoh: 05:10, 06:20"
+                                                                    className="mt-1 h-8 w-full rounded-lg border border-neutral-300 px-2 text-xs focus:border-primary-600 focus:outline-none sm:h-9 sm:px-3 sm:text-sm"
+                                                                />
                                                             </div>
 
                                                             {!isLast && (

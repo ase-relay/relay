@@ -4,6 +4,7 @@ export interface RuteStopItem {
     urutan: number;
     estimasiMenit: number | null;
     jarakMeter: number | null;
+    jadwalKeberangkatan?: string[];
     halte: {
         id: number;
         namaHalte: string;
@@ -17,6 +18,9 @@ export interface Rute {
     kodeRute: string | null;
     deskripsi: string | null;
     modaId: number;
+    jamMulaiOperasi: string | null;
+    jamSelesaiOperasi: string | null;
+    intervalWaktu: string | null;
     isActive: boolean;
     moda: {
         id: number;
@@ -33,10 +37,14 @@ export interface RuteInput {
     namaRute: string;
     kodeRute?: string;
     modaId: number;
+    jamMulaiOperasi?: string | null;
+    jamSelesaiOperasi?: string | null;
+    intervalWaktu?: string | null;
     isActive: boolean;
     stops: {
         halteId: number;
         estimasiMenit: number | null;
         jarakMeter: number | null;
+        jadwalKeberangkatan?: string[];
     }[];
 }

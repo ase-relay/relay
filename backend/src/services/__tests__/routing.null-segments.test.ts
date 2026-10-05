@@ -44,6 +44,8 @@ function makeNetwork(
     urutan: index + 1,
     estimasiMenit: s.estimasiMenit,
     jarakMeter: s.jarakMeter,
+    jadwalKeberangkatan: [] as string[],
+    geometri: null as [number, number][] | null,
     halte: s.halte,
   }));
   return {
@@ -53,6 +55,9 @@ function makeNetwork(
         id: 201,
         nama: 'Bus A-B',
         kode: 'B1',
+        jamMulaiOperasi: null,
+        jamSelesaiOperasi: null,
+        intervalWaktu: null,
         moda,
         stops: ruteStops,
         positions: buildPositions(ruteStops),

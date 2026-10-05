@@ -58,6 +58,7 @@ export interface RouteRecommendation {
   transportName: string;
   operator: string;
   badges: string[];
+  tags?: string[];
   price: number;
   priceLabel: string;
   duration: number;
@@ -101,6 +102,7 @@ export function mapApiRouteToRouteResultCard(apiRoute: ApiRoute): RouteRecommend
     transportName,
     operator,
     badges,
+    tags: apiRoute.tags ?? [],
     price: summary.totalFare,
     priceLabel: formatCurrency(summary.totalFare),
     duration: summary.totalDurationMinutes,
@@ -137,6 +139,10 @@ export function mapApiRouteToJourneySegments(apiRoute: ApiRoute): JourneySegment
       };
     }
 
+    // Jadwal keberangkatan kereta: ambil dari passedStop pertama (halte naik)
+    const firstPassedStop = (leg.passedStops ?? []).slice().sort((a, b) => a.urutan - b.urutan)[0];
+    const jadwalKeberangkatan = firstPassedStop?.jadwalKeberangkatan ?? [];
+
     return {
       id,
       type: 'TRANSIT' as const,
@@ -158,6 +164,11 @@ export function mapApiRouteToJourneySegments(apiRoute: ApiRoute): JourneySegment
           lat: typeof stop.latitude === 'number' ? stop.latitude : undefined,
           lng: typeof stop.longitude === 'number' ? stop.longitude : undefined,
         })),
+      // Field jadwal hanya ada bila admin sudah mengisi data jadwal
+      jamMulaiOperasi: leg.rute?.jamMulaiOperasi ?? null,
+      jamSelesaiOperasi: leg.rute?.jamSelesaiOperasi ?? null,
+      intervalWaktu: leg.rute?.intervalWaktu ?? null,
+      jadwalKeberangkatan,
     };
   });
 }

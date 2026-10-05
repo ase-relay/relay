@@ -163,6 +163,8 @@ function makeNetwork(layananOjek: number): RoutingNetwork {
     urutan: index + 1,
     estimasiMenit: null as number | null,
     jarakMeter: null as number | null,
+    jadwalKeberangkatan: [] as string[],
+    geometri: null as [number, number][] | null,
     halte: stop,
   }));
   const ojekTarif = ojekTarifDenganLayanan(layananOjek);
@@ -173,6 +175,9 @@ function makeNetwork(layananOjek: number): RoutingNetwork {
         id: 101,
         nama: 'Bus A-B',
         kode: 'B1',
+        jamMulaiOperasi: null,
+        jamSelesaiOperasi: null,
+        intervalWaktu: null,
         moda: busModa,
         stops: ruteStops,
         positions: buildPositions(ruteStops),
@@ -241,6 +246,8 @@ test('T1-B(e). Moda tanpa tarif -> fallback default; ojek tanpa tarif -> tanpa s
     urutan: index + 1,
     estimasiMenit: null as number | null,
     jarakMeter: null as number | null,
+    jadwalKeberangkatan: [] as string[],
+    geometri: null as [number, number][] | null,
     halte: stop,
   }));
   const network: RoutingNetwork = {
@@ -250,6 +257,9 @@ test('T1-B(e). Moda tanpa tarif -> fallback default; ojek tanpa tarif -> tanpa s
         id: 101,
         nama: 'Bus A-B',
         kode: 'B1',
+        jamMulaiOperasi: null,
+        jamSelesaiOperasi: null,
+        intervalWaktu: null,
         moda: busModa,
         stops: ruteStops,
         positions: buildPositions(ruteStops),

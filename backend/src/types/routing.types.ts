@@ -30,6 +30,8 @@ export interface PassedStopInfo {
   longitude: number;
   /** Perkiraan tiba di halte ini ("HH:MM", dihitung dari jam berangkat rute). */
   estimatedTime?: string;
+  /** Jadwal keberangkatan dari halte ini (format "HH:mm"). */
+  jadwalKeberangkatan?: string[];
   /**
    * Geometri jalur rel dari stop ini ke stop berikutnya [[lat,lng],...].
    * Pre-computed dari Overpass API; null/undefined = belum tersedia.
@@ -67,6 +69,9 @@ export interface RouteLeg {
     id: number;
     kode: string | null;
     nama: string;
+    jamMulaiOperasi?: string | null;
+    jamSelesaiOperasi?: string | null;
+    intervalWaktu?: string | null;
   };
   fromHalte?: {
     id: number;
@@ -120,7 +125,7 @@ export interface RouteOption {
 export type SegmentType = 'WALK' | 'BUS' | 'KERETA' | 'OJEK';
 
 /** Label tambahan pada kartu rute. */
-export type RouteTag = 'tercepat' | 'termurah' | 'minim_transit' | 'direkomendasikan';
+export type RouteTag = 'tercepat' | 'termurah' | 'minim_transit' | 'direkomendasikan' | 'di_luar_jam_operasional';
 
 /** Kategori kandidat untuk jaminan keberagaman hasil. */
 export type RouteCategory = 'ojek_langsung' | 'bus' | 'kereta' | 'campuran';

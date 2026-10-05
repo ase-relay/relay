@@ -181,7 +181,7 @@ export class RuteService {
       where: { ruteId },
     });
 
-    // Masukkan stop baru dengan urutan dari posisi array (mulai 1)
+        // Masukkan stop baru dengan urutan dari posisi array (mulai 1)
     if (stops.length > 0) {
       await tx.ruteStop.createMany({
         data: stops.map((s, index) => ({
@@ -190,6 +190,7 @@ export class RuteService {
           urutan: index + 1,
           estimasiMenit: index === stops.length - 1 ? 0 : (s.estimasiMenit ?? null),
           jarakMeter: index === stops.length - 1 ? 0 : (s.jarakMeter ?? null),
+          jadwalKeberangkatan: s.jadwalKeberangkatan ?? [],
         })),
       });
     }

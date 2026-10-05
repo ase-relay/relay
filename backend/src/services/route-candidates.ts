@@ -34,7 +34,7 @@ export interface InternalSegment extends RouteSegment {
   passedStops?: NetworkRuteStop[];
   ruteId?: number;
   moda?: NetworkModa;
-  rute?: { id: number; nama: string; kode: string | null };
+  rute?: { id: number; nama: string; kode: string | null; jamMulaiOperasi: string | null; jamSelesaiOperasi: string | null; intervalWaktu: string | null };
 }
 
 export interface RouteCandidate {
@@ -187,7 +187,7 @@ function buildRideSegment(
     passedStops: slice,
     ruteId: rute.id,
     moda: rute.moda,
-    rute: { id: rute.id, nama: rute.nama, kode: rute.kode },
+    rute: { id: rute.id, nama: rute.nama, kode: rute.kode, jamMulaiOperasi: rute.jamMulaiOperasi, jamSelesaiOperasi: rute.jamSelesaiOperasi, intervalWaktu: rute.intervalWaktu },
   };
 }
 
