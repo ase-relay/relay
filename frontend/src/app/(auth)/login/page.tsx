@@ -13,6 +13,18 @@ import Alert from "@/components/ui/Alert";
 import { AlertViewport } from "@/components/ui/AlertViewport";
 import { getApiErrorMessage } from "@/lib/utils/apiError";
 
+/**
+ * Tujuan kembali dari ?redirect=: hanya path internal (diawali "/",
+ * bukan "//", tanpa "://" dan backslash). Selain itu pakai fallback.
+ */
+function resolveRedirect(fallback: string): string {
+    if (typeof window === 'undefined') return fallback;
+    const target = new URLSearchParams(window.location.search).get('redirect');
+    if (!target || !target.startsWith('/') || target.startsWith('//')) return fallback;
+    if (target.includes('://') || target.includes('\\')) return fallback;
+    return target;
+}
+
 export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [form, setForm] = useState({ identifier: "", password: "" });
@@ -49,7 +61,7 @@ export default function LoginPage() {
 
         try {
             const user = await login(form);
-            router.push(user.role === 'ADMIN' ? '/admin' : '/beranda');
+            router.push(resolveRedirect(user.role === 'ADMIN' ? '/admin' : '/beranda'));
         } catch (err) {
             if (axios.isAxiosError(err)) {
                 if (err.response?.status === 401) {
@@ -78,7 +90,7 @@ export default function LoginPage() {
             const credential = jwtDecode(credentialResponse.credential);
             const { email, name } = credential as { email: string; name: string };
             const user = await googleLogin(email, name);
-            router.push(user.role === 'ADMIN' ? '/admin' : '/beranda');
+            router.push(resolveRedirect(user.role === 'ADMIN' ? '/admin' : '/beranda'));
         } catch (err) {
             setGoogleError(err instanceof Error && err.message ? err.message : "Gagal login dengan Google. Silakan coba lagi.");
         } finally {

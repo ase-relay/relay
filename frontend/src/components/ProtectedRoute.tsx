@@ -1,8 +1,9 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, ReactNode } from 'react';
+import { ForbiddenPage } from '@/components/ui/ForbiddenPage';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -14,20 +15,19 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children, requiredRole, loadingFallback }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (loading) return;
 
     if (!user) {
-      router.replace('/login');
-      return;
+      // Belum login: ke /login dengan tujuan kembali. Jangan tambahkan
+      // ?redirect= bila sudah di /login agar tidak duplikat/loop.
+      if (pathname === '/login') return;
+      const target = `${pathname}${window.location.search}`;
+      router.replace(`/login?redirect=${encodeURIComponent(target)}`);
     }
-
-    if (requiredRole && user.role !== requiredRole) {
-      router.replace('/beranda');
-      return;
-    }
-  }, [user, loading, router, requiredRole]);
+  }, [user, loading, router, pathname]);
 
   if (loading) {
     if (loadingFallback) {
@@ -44,8 +44,10 @@ export function ProtectedRoute({ children, requiredRole, loadingFallback }: Prot
     return null;
   }
 
+  // Sudah login tapi role tidak cocok: tampilkan 403 di tempat,
+  // URL tetap, tanpa redirect.
   if (requiredRole && user.role !== requiredRole) {
-    return null;
+    return <ForbiddenPage />;
   }
 
   return <>{children}</>;
