@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { HiXMark, HiOutlineUser, HiOutlineArrowRightOnRectangle, HiBars3 } from 'react-icons/hi2';
 import { useAuth } from '@/context/AuthContext';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 const navLinks = [
   { href: '/beranda', label: 'Beranda' },
@@ -16,6 +16,7 @@ const navLinks = [
 export function MobileNav() {
   const { user, checkingAuth, logout } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -54,6 +55,7 @@ export function MobileNav() {
   function handleLogout() {
     logout();
     setIsOpen(false);
+    router.push('/login');
   }
 
   function handleLinkClick() {
