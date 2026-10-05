@@ -1,6 +1,7 @@
 import { prisma } from '../config/db';
 import { ROUTING_CONFIG } from '../config/routing.config';
 import { GeoPoint, haversineMeters } from '../utils/geo';
+import { parseGeometriJson } from './rail-geometry.service';
 
 /**
  * Jaringan transport (halte, rute, tarif) yang dimuat sekali lalu di-cache
@@ -33,6 +34,8 @@ export interface NetworkRuteStop {
   urutan: number;
   estimasiMenit: number | null;
   jarakMeter: number | null;
+  /** Geometri jalur dari halte ini ke halte berikutnya [[lat,lng],...]; null = belum tersedia. */
+  geometri: [number, number][] | null;
   halte: NetworkStop;
 }
 
@@ -139,6 +142,8 @@ async function fetchAndCache(): Promise<CachedNetworkData> {
           urutan: s.urutan,
           estimasiMenit: s.estimasiMenit,
           jarakMeter: s.jarakMeter,
+          // Parse geometri dari JSON DB; null bila kosong atau format tidak valid.
+          geometri: parseGeometriJson(s.geometri),
           halte: {
             id: s.halte.id,
             nama: s.halte.namaHalte,
@@ -151,6 +156,8 @@ async function fetchAndCache(): Promise<CachedNetworkData> {
         const prev = stopsOrdered[stopsOrdered.length - 1];
         prev.jarakMeter = sumEdges(prev.jarakMeter, s.jarakMeter);
         prev.estimasiMenit = sumEdges(prev.estimasiMenit, s.estimasiMenit);
+        // Geometri halte nonaktif dibuang: segmen terputus tidak bisa digabungkan.
+        prev.geometri = null;
       }
       // Halte nonaktif di awal rute (belum ada tetangga aktif): tidak ada
       // edge yang perlu diakumulasi.

@@ -5,6 +5,7 @@ import { getRoutingNetwork } from './routing-network';
 import { buildRouteCandidates, InternalSegment, RouteCandidate } from './route-candidates';
 import { pruneAndRank, ScoredRoute } from './route-scoring';
 import { applyRouteTimeline, parseClock, currentClockMinutes } from './route-timeline';
+import { assembleRailGeometry } from './rail-geometry.service';
 import {
   RoutingSearchRequestDTO,
   RoutingSearchResponseData,
@@ -131,6 +132,9 @@ function buildLegs(
         urutan: stop.urutan,
         latitude: stop.halte.lat,
         longitude: stop.halte.lng,
+        // Sertakan geometri rel per-segmen agar enrichRouteGeometry bisa
+        // merakit polyline rel tanpa query tambahan ke DB.
+        geometri: stop.geometri ?? null,
       }));
     }
 
@@ -215,7 +219,23 @@ const straightGeometry = (
   [b.lat, b.lng],
 ];
 
-/** Susul geometri OSRM untuk satu rute final (berbudget, tidak pernah melempar). */
+/**
+ * Cek apakah leg adalah leg kereta berdasarkan tipe moda.
+ * Dipakai untuk memutuskan apakah geometri diambil dari DB (rel) atau OSRM (jalan).
+ */
+function isKeretaLeg(leg: RouteLeg): boolean {
+  // Leg TRANSIT dengan moda bertipe COMMUTER_TRAIN atau KERETA
+  if (leg.legType !== 'TRANSIT') return false;
+  const tipe = (leg.moda?.tipe ?? '').toUpperCase();
+  const nama = (leg.moda?.nama ?? '').toLowerCase();
+  return (
+    tipe === 'COMMUTER_TRAIN' ||
+    tipe === 'KERETA' ||
+    /kereta|krl|commuter|train/.test(nama)
+  );
+}
+
+/** Susul geometri untuk satu rute final (berbudget, tidak pernah melempar). */
 async function enrichRouteGeometry(route: RouteRecommendation, budgetMs: number): Promise<void> {
   await Promise.all(
     route.legs.map(async (leg) => {
@@ -238,6 +258,34 @@ async function enrichRouteGeometry(route: RouteRecommendation, budgetMs: number)
         return;
       }
 
+      // ── Leg KERETA: coba geometri rel dari DB terlebih dahulu ──
+      if (isKeretaLeg(leg) && leg.passedStops && leg.passedStops.length >= 2) {
+        const railGeometry = assembleRailGeometry(
+          leg.passedStops.map((stop) => ({
+            urutan: stop.urutan,
+            halte: {
+              id: stop.id,
+              lat: stop.latitude ?? 0,
+              lng: stop.longitude ?? 0,
+              nama: stop.namaHalte,
+            },
+            // geometri per-segmen disimpan di passedStops sebagai field opsional
+            geometri: (stop as { geometri?: [number, number][] | null }).geometri ?? null,
+          }))
+        );
+
+        if (railGeometry !== null) {
+          // Geometri rel tersedia — tidak perlu OSRM
+          leg.geometry = railGeometry;
+          return;
+        }
+        // null = ada segmen tanpa geometri → fallback ke OSRM di bawah
+        console.log(
+          `[routing] leg kereta ${leg.step}: geometri rel null (belum diisi), fallback ke OSRM`
+        );
+      }
+
+      // ── Leg BUS/OJEK/KERETA-fallback: OSRM driving ──
       const points =
         leg.passedStops && leg.passedStops.length >= 2
           ? leg.passedStops.map((stop) => ({ lat: stop.latitude, lng: stop.longitude }))

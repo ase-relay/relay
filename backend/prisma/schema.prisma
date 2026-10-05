@@ -85,6 +85,10 @@ model RuteStop {
   urutan        Int // Urutan stop: 1, 2, 3, dst.
   estimasiMenit Int? // Estimasi menit ke stop berikutnya
   jarakMeter    Int? // Estimasi jarak meter ke stop berikutnya
+  // Geometri jalur dari halte ini ke halte berikutnya (searah urutan rute).
+  // Format: [[lat, lng], ...] pre-computed dari Overpass API (jalur rel asli).
+  // Null = geometri belum tersedia; fallback ke OSRM / garis lurus.
+  geometri      Json?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

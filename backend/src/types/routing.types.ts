@@ -30,6 +30,12 @@ export interface PassedStopInfo {
   longitude: number;
   /** Perkiraan tiba di halte ini ("HH:MM", dihitung dari jam berangkat rute). */
   estimatedTime?: string;
+  /**
+   * Geometri jalur rel dari stop ini ke stop berikutnya [[lat,lng],...].
+   * Pre-computed dari Overpass API; null/undefined = belum tersedia.
+   * Dipakai oleh enrichRouteGeometry untuk merakit polyline rel tanpa OSRM.
+   */
+  geometri?: [number, number][] | null;
 }
 
 export interface RouteLeg {
