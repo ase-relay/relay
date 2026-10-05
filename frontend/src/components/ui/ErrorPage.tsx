@@ -17,6 +17,8 @@ interface ErrorPageProps {
   deskripsi: string;
   /** Tombol utama (biru). */
   aksiUtama: ErrorPageAction;
+  /** Tombol sekunder (garis tepi). Opsional. */
+  aksiSekunder?: ErrorPageAction;
   /** Tinggi penuh layar. Matikan bila dirender di dalam layout (ada Navbar/Footer). */
   fullScreen?: boolean;
 }
@@ -39,7 +41,7 @@ function ErrorActionButton({ action, primary }: { action: ErrorPageAction; prima
   );
 }
 
-export function ErrorPage({ kode, judul, deskripsi, aksiUtama, fullScreen = true }: ErrorPageProps) {
+export function ErrorPage({ kode, judul, deskripsi, aksiUtama, aksiSekunder, fullScreen = true }: ErrorPageProps) {
   return (
     <div className={`flex items-center justify-center bg-white px-4 ${fullScreen ? 'min-h-screen' : 'min-h-[60vh]'}`}>
       <div className="max-w-md text-center">
@@ -48,6 +50,7 @@ export function ErrorPage({ kode, judul, deskripsi, aksiUtama, fullScreen = true
         <p className="mb-8 text-lg text-neutral-600">{deskripsi}</p>
         <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
           <ErrorActionButton action={aksiUtama} primary />
+          {aksiSekunder && <ErrorActionButton action={aksiSekunder} primary={false} />}
         </div>
       </div>
     </div>
