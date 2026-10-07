@@ -47,7 +47,16 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
             if (event.key === 'Escape') onClose?.();
         }
         document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
+        // Kunci scroll body saat drawer mobile terbuka (drawer fixed + body ikut
+        // scroll = drawer ikut bergeser). Hanya di < lg; di desktop `open` tak
+        // pernah true karena drawer hanya dipakai di mobile.
+        const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
+        const previousOverflow = document.body.style.overflow;
+        if (isMobile) document.body.style.overflow = 'hidden';
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+            if (isMobile) document.body.style.overflow = previousOverflow;
+        };
     }, [open, onClose]);
 
     const isDashboardActive = pathname === DASHBOARD_HREF;
