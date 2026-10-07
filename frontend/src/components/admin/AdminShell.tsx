@@ -16,7 +16,7 @@ export function AdminShell({ children }: AdminShellProps) {
       <AdminNavbar onMenuClick={() => setSidebarOpen((value) => !value)} />
       <div className="flex min-h-0 flex-1">
         <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <main className="min-w-0 flex-1 overflow-y-auto px-6 py-10 sm:px-8 lg:px-15 lg:py-14">
+        <main className="min-w-0 flex-1 overflow-y-auto px-6 pt-10 pb-[calc(2.5rem+env(safe-area-inset-bottom))] sm:px-8 lg:px-15 lg:pt-14 lg:pb-[calc(3.5rem+env(safe-area-inset-bottom))]">
           {children}
         </main>
       </div>

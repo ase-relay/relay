@@ -103,7 +103,7 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
             )}
 
             <aside
-                className={`fixed top-0 left-0 z-50 flex h-screen w-70 shrink-0 flex-col rounded-r-3xl bg-primary-600 px-4 py-6 transition-transform duration-300 ease-out lg:static lg:h-full lg:min-h-0 lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'
+                className={`fixed top-0 left-0 z-50 flex h-dvh w-70 shrink-0 flex-col rounded-r-3xl bg-primary-600 px-4 pt-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-out lg:static lg:h-full lg:min-h-0 lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'
                     }`}
             >
                 {/* Tombol close - hanya tampil di mobile */}
