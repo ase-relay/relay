@@ -47,7 +47,16 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
             if (event.key === 'Escape') onClose?.();
         }
         document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
+        // Kunci scroll body saat drawer mobile terbuka (drawer fixed + body ikut
+        // scroll = drawer ikut bergeser). Hanya di < lg; di desktop `open` tak
+        // pernah true karena drawer hanya dipakai di mobile.
+        const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
+        const previousOverflow = document.body.style.overflow;
+        if (isMobile) document.body.style.overflow = 'hidden';
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+            if (isMobile) document.body.style.overflow = previousOverflow;
+        };
     }, [open, onClose]);
 
     const isDashboardActive = pathname === DASHBOARD_HREF;
@@ -103,7 +112,7 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
             )}
 
             <aside
-                className={`fixed top-0 left-0 z-50 flex h-dvh w-70 shrink-0 flex-col rounded-r-3xl bg-primary-600 px-4 pt-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-out lg:static lg:h-full lg:min-h-0 lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'
+                className={`fixed inset-y-0 left-0 z-50 flex w-70 shrink-0 flex-col rounded-r-3xl bg-primary-600 px-4 pt-6 pb-[calc(4.5rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-out lg:sticky lg:top-[6.9375rem] lg:bottom-auto lg:self-start lg:h-[calc(100dvh-6.9375rem)] lg:pb-[calc(2.5rem+env(safe-area-inset-bottom))] lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'
                     }`}
             >
                 {/* Tombol close - hanya tampil di mobile */}
