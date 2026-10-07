@@ -88,7 +88,7 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
     function handleLogout() {
         logout();
         onClose?.();
-        router.push('/login');
+        router.replace('/login');
     }
 
     return (

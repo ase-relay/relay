@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/context/AuthContext';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, ReactNode } from 'react';
+import { useEffect, useRef, ReactNode } from 'react';
 import { ForbiddenPage } from '@/components/ui/ForbiddenPage';
 
 interface ProtectedRouteProps {
@@ -17,6 +17,16 @@ export function ProtectedRoute({ children, requiredRole, loadingFallback }: Prot
   const router = useRouter();
   const pathname = usePathname();
 
+  // Menandai apakah sesi ini pernah authenticated. Dipakai untuk membedakan
+  // "logout eksplisit" (user: ada -> null) dari "belum login sejak awal".
+  // Setelah logout eksplisit, JANGAN wariskan ?redirect= ke /login — login
+  // berikutnya harus ke rute default sesuai role, bukan balik ke halaman
+  // milik sesi/user sebelumnya.
+  const hadUserRef = useRef(false);
+  useEffect(() => {
+    if (user) hadUserRef.current = true;
+  }, [user]);
+
   useEffect(() => {
     if (loading) return;
 
@@ -24,6 +34,13 @@ export function ProtectedRoute({ children, requiredRole, loadingFallback }: Prot
       // Belum login: ke /login dengan tujuan kembali. Jangan tambahkan
       // ?redirect= bila sudah di /login agar tidak duplikat/loop.
       if (pathname === '/login') return;
+      // Baru saja logout dari halaman ini: ke /login polos (tanpa redirect).
+      // Handler logout juga melakukan replace ke /login, jadi kedua navigasi
+      // ini menuju tujuan yang sama dan tidak balapan param.
+      if (hadUserRef.current) {
+        router.replace('/login');
+        return;
+      }
       const target = `${pathname}${window.location.search}`;
       router.replace(`/login?redirect=${encodeURIComponent(target)}`);
     }

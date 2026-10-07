@@ -55,7 +55,7 @@ export function MobileNav() {
   function handleLogout() {
     logout();
     setIsOpen(false);
-    router.push('/login');
+    router.replace('/login');
   }
 
   function handleLinkClick() {

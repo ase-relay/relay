@@ -31,7 +31,7 @@ export function UserDropdown() {
 
   function handleLogout() {
     logout();
-    router.push('/login');
+    router.replace('/login');
   }
 
   return (
