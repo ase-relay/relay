@@ -368,6 +368,10 @@ export default function ProfilPage() {
                     </div>
                 </div>
 
+                {/* Hapus akun disembunyikan untuk admin: menghapus satu-satunya
+                    akun admin akan mengunci seluruh panel admin (backend tidak
+                    mencegahnya), jadi aksi ini tidak ditawarkan di UI. */}
+                {user?.role !== 'ADMIN' && (
                 <section className="mt-6 rounded-[20px] border border-neutral-200 bg-white px-5 py-6 shadow-[0_8px_12px_rgba(15,23,42,0.10)] sm:px-8 sm:py-8 lg:px-12 lg:py-10">
                     <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
                         <div>
@@ -377,6 +381,7 @@ export default function ProfilPage() {
                         <IconButton onClick={() => setConfirmDeleteOpen(true)} className="w-full sm:w-auto shrink-0 bg-red-600"><IconWrapper className="h-4 w-4 sm:h-5 sm:w-5"><TrashIcon /></IconWrapper>Hapus Akun</IconButton>
                     </div>
                 </section>
+                )}
             </main>
             <Footer />
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { HiXMark, HiOutlineUser, HiOutlineArrowRightOnRectangle, HiBars3 } from 'react-icons/hi2';
+import { HiXMark, HiOutlineUser, HiOutlineCog6Tooth, HiOutlineArrowRightOnRectangle, HiBars3 } from 'react-icons/hi2';
 import { useAuth } from '@/context/AuthContext';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -206,6 +206,18 @@ export function MobileNav() {
                       <HiOutlineUser className="h-5 w-5" />
                       Profil Saya
                     </Link>
+
+                    {/* Hanya admin: user biasa tidak melihat tombol ini sama sekali. */}
+                    {user.role === 'ADMIN' && (
+                      <Link
+                        href="/admin"
+                        onClick={handleLinkClick}
+                        className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-medium text-neutral-900 hover:bg-neutral-100 hover:text-primary-600 transition-colors"
+                      >
+                        <HiOutlineCog6Tooth className="h-5 w-5" />
+                        Panel Admin
+                      </Link>
+                    )}
 
                     {/* Logout Button */}
                     <button

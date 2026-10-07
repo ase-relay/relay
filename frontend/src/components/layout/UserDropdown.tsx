@@ -1,12 +1,21 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { HiChevronDown, HiOutlineUser, HiOutlineArrowRightOnRectangle } from 'react-icons/hi2';
+import { HiChevronDown, HiOutlineCog6Tooth, HiOutlineUser, HiOutlineArrowRightOnRectangle } from 'react-icons/hi2';
 import { useAuth } from '@/context/AuthContext';
 
-export function UserDropdown() {
+interface UserDropdownProps {
+  /** Tampilkan link Panel Admin untuk role ADMIN. Default true. */
+  showAdminLink?: boolean;
+  /** Konten trigger kustom (menggantikan ikon + username default). */
+  triggerContent?: ReactNode;
+  /** Tampilkan chevron di trigger. Default true. */
+  showChevron?: boolean;
+}
+
+export function UserDropdown({ showAdminLink = true, triggerContent, showChevron = true }: UserDropdownProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -43,12 +52,18 @@ export function UserDropdown() {
         className="flex shrink-0 items-center gap-4 rounded-lg px-2 py-2 text-base font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-primary-600 cursor-pointer"
         aria-label={`Menu pengguna ${user.username}`}
       >
-        <HiOutlineUser aria-hidden="true" className="h-6 w-6" strokeWidth={1.25} />
-        <span>{user.username}</span>
-        <HiChevronDown
-          aria-hidden="true"
-          className={`h-5 w-5 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${isOpen ? 'rotate-180' : ''}`}
-        />
+        {triggerContent ?? (
+          <>
+            <HiOutlineUser aria-hidden="true" className="h-6 w-6" strokeWidth={1.25} />
+            <span>{user.username}</span>
+          </>
+        )}
+        {showChevron && (
+          <HiChevronDown
+            aria-hidden="true"
+            className={`h-5 w-5 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${isOpen ? 'rotate-180' : ''}`}
+          />
+        )}
       </button>
 
       {/* Selalu ter-render agar animasi buka dan tutup bisa berjalan.
@@ -73,6 +88,18 @@ export function UserDropdown() {
           <HiOutlineUser className="h-5 w-5" />
           Profil Saya
         </Link>
+
+        {/* Hanya admin — dan disembunyikan bila sudah di area admin. */}
+        {user.role === 'ADMIN' && showAdminLink && (
+          <Link
+            href="/admin"
+            className="flex items-center gap-3 py-2 text-sm font-medium text-neutral-900 hover:text-primary-600"
+            onClick={() => setIsOpen(false)}
+          >
+            <HiOutlineCog6Tooth className="h-5 w-5" />
+            Panel Admin
+          </Link>
+        )}
 
         <div className="my-3 h-px bg-neutral-200" />
 

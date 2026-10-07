@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { HiBars3, HiOutlineUser } from 'react-icons/hi2';
 import { useAuth } from '@/context/AuthContext';
+import { UserDropdown } from '@/components/layout/UserDropdown';
 
 type AdminNavbarProps = {
   /** Dipanggil saat tombol hamburger (hanya mobile) di-tap. */
@@ -40,13 +41,22 @@ export function AdminNavbar({ onMenuClick }: AdminNavbarProps) {
         </Link>
       </div>
 
-      <div className="flex items-center gap-3 lg:gap-4">
-        <HiOutlineUser className="h-6 w-6 shrink-0 text-neutral-800" />
-        <div className="leading-tight">
-          <p className="text-base font-bold text-neutral-900">{displayName}</p>
-          <p className="text-sm text-neutral-500">{displayRole}</p>
-        </div>
-      </div>
+      {/* Tampilan sama seperti sebelumnya (ikon + nama + role), tapi sekarang
+          bisa diklik untuk membuka menu akun (Profil Saya + Keluar). Link Panel
+          Admin disembunyikan karena sudah berada di area admin. */}
+      <UserDropdown
+        showAdminLink={false}
+        showChevron={false}
+        triggerContent={
+          <>
+            <HiOutlineUser className="h-6 w-6 shrink-0 text-neutral-800" />
+            <div className="leading-tight">
+              <p className="text-base font-bold text-neutral-900">{displayName}</p>
+              <p className="text-sm text-neutral-500">{displayRole}</p>
+            </div>
+          </>
+        }
+      />
     </header>
   );
 }
