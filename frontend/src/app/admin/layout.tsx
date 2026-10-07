@@ -3,8 +3,8 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 // Layout admin yang menyediakan shell AdminNavbar + AdminSidebar konsisten
-// untuk semua halaman di bawah /admin. State drawer mobile dan layout
-// fixed/scroll dikelola di AdminShell agar sidebar tidak ikut scroll.
+// untuk semua halaman di bawah /admin. Scroll di level dokumen (body):
+// navbar sticky di atas; sidebar sticky di desktop dan drawer fixed di mobile.
 // Hanya user dengan role ADMIN yang dapat mengakses halaman di bawah /admin.
 // Saat auth dicek, skeleton hanya untuk field data yang dimuat (baris data);
 // rangka shell, judul, search, dan tombol tetap apa adanya (tanpa file terpisah).
