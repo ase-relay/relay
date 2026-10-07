@@ -9,6 +9,19 @@ import {
 import { invalidateRoutingNetworkCache } from './routing-network';
 import { HttpError } from '../utils/http-error';
 
+export const ruteStopPublicSelect = {
+  id: true,
+  ruteId: true,
+  halteId: true,
+  urutan: true,
+  estimasiMenit: true,
+  jarakMeter: true,
+  jadwalKeberangkatan: true,
+  createdAt: true,
+  updatedAt: true,
+  halte: true,
+};
+
 export class RuteService {
   /**
    * Mengambil seluruh rute dengan opsi filter moda dan status aktif (admin)
@@ -53,9 +66,7 @@ export class RuteService {
         moda: true,
         stops: {
           orderBy: { urutan: 'asc' },
-          include: {
-            halte: true,
-          },
+          select: ruteStopPublicSelect,
         },
       },
     });
@@ -111,9 +122,7 @@ export class RuteService {
         moda: true,
         stops: {
           orderBy: { urutan: 'asc' },
-          include: {
-            halte: true,
-          },
+          select: ruteStopPublicSelect,
         },
       },
     });
@@ -176,22 +185,47 @@ export class RuteService {
       }
     }
 
+    // Simpan pemetaan "halteId -> halteId berikutnya" -> geometri sebelum menghapus
+    // agar geometri tersimpan tidak hilang untuk pasangan halte yang tidak berubah.
+    const existingStops = await tx.ruteStop.findMany({
+      where: { ruteId },
+      orderBy: { urutan: 'asc' },
+      select: { halteId: true, urutan: true, geometri: true },
+    });
+    const geometriMap = new Map<string, unknown>();
+    for (let i = 0; i < existingStops.length - 1; i++) {
+      const key = `${existingStops[i].halteId}->${existingStops[i + 1].halteId}`;
+      if (existingStops[i].geometri !== null && existingStops[i].geometri !== undefined) {
+        geometriMap.set(key, existingStops[i].geometri);
+      }
+    }
+
     // Hapus stop lama
     await tx.ruteStop.deleteMany({
       where: { ruteId },
     });
 
-        // Masukkan stop baru dengan urutan dari posisi array (mulai 1)
+    // Masukkan stop baru dengan urutan dari posisi array (mulai 1).
+    // Pulihkan geometri untuk pasangan halte yang tidak berubah; pasangan baru = null.
     if (stops.length > 0) {
       await tx.ruteStop.createMany({
-        data: stops.map((s, index) => ({
-          ruteId,
-          halteId: s.halteId,
-          urutan: index + 1,
-          estimasiMenit: index === stops.length - 1 ? 0 : (s.estimasiMenit ?? null),
-          jarakMeter: index === stops.length - 1 ? 0 : (s.jarakMeter ?? null),
-          jadwalKeberangkatan: s.jadwalKeberangkatan ?? [],
-        })),
+        data: stops.map((s, index) => {
+          const isLast = index === stops.length - 1;
+          const nextHalteId = isLast ? null : stops[index + 1].halteId;
+          const geoKey = nextHalteId !== null ? `${s.halteId}->${nextHalteId}` : null;
+          const restoredGeometri = geoKey ? (geometriMap.get(geoKey) ?? null) : null;
+
+          return {
+            ruteId,
+            halteId: s.halteId,
+            urutan: index + 1,
+            estimasiMenit: isLast ? 0 : (s.estimasiMenit ?? null),
+            jarakMeter: isLast ? 0 : (s.jarakMeter ?? null),
+            jadwalKeberangkatan: s.jadwalKeberangkatan ?? [],
+            // Pulihkan geometri jika pasangan halte tidak berubah; null untuk pasangan baru.
+            geometri: restoredGeometri ?? Prisma.DbNull,
+          };
+        }),
       });
     }
   }
@@ -231,6 +265,9 @@ export class RuteService {
           namaRute: ruteData.namaRute,
           kodeRute: ruteData.kodeRute,
           deskripsi: ruteData.deskripsi,
+          jamMulaiOperasi: ruteData.jamMulaiOperasi,
+          jamSelesaiOperasi: ruteData.jamSelesaiOperasi,
+          intervalWaktu: ruteData.intervalWaktu,
           modaId: Number(ruteData.modaId),
           isActive: ruteData.isActive ?? true,
         },

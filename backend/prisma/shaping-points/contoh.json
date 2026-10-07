@@ -1,0 +1,13 @@
+{
+  "ruteId": 0,
+  "segments": [
+    {
+      "dariHalteId": 0,
+      "keHalteId": 0,
+      "via": [
+        [-6.93800, 107.59700]
+      ],
+      "catatan": "Contoh: belok kiri ke jalan utama untuk menghindari putar balik di perempatan"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "ruteId": 10,
+  "segments": [
+    {
+      "dariHalteId": 41,
+      "keHalteId": 42,
+      "via": [
+        [-6.9112048, 107.609056]
+      ],
+      "catatan": ""
+    }
+  ]
+}

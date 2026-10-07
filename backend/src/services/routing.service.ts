@@ -6,6 +6,7 @@ import { buildRouteCandidates, InternalSegment, RouteCandidate } from './route-c
 import { pruneAndRank, ScoredRoute } from './route-scoring';
 import { applyRouteTimeline, parseClock, currentClockMinutes } from './route-timeline';
 import { assembleRailGeometry } from './rail-geometry.service';
+import { assembleMixedTransitGeometry } from './transit-geometry.service';
 import {
   RoutingSearchRequestDTO,
   RoutingSearchResponseData,
@@ -306,7 +307,29 @@ async function enrichRouteGeometry(route: RouteRecommendation, budgetMs: number)
         );
       }
 
-      // â”€â”€ Leg BUS/OJEK/KERETA-fallback: OSRM driving â”€â”€
+      // ── Leg TRANSIT NON-KERETA (Bus/BRT): perakitan campuran (DB + OSRM) ──
+      if (
+        leg.legType === 'TRANSIT' &&
+        !isKeretaLeg(leg) &&
+        leg.passedStops &&
+        leg.passedStops.length >= 2
+      ) {
+        try {
+          const mixedGeom = await withTimeout(
+            assembleMixedTransitGeometry(leg.passedStops as any),
+            budgetMs,
+            () => null
+          );
+          if (mixedGeom !== null) {
+            leg.geometry = mixedGeom;
+            return;
+          }
+        } catch {
+          // Gagal perakitan campuran → fallback ke OSRM satu leg penuh
+        }
+      }
+
+      // ── Leg BUS/OJEK/KERETA-fallback: OSRM driving ──
       const points =
         leg.passedStops && leg.passedStops.length >= 2
           ? leg.passedStops.map((stop) => ({ lat: stop.latitude, lng: stop.longitude }))
@@ -401,6 +424,17 @@ export class RoutingService {
     await Promise.all(
       routes.map((route) => enrichRouteGeometry(route, ROUTING_CONFIG.geometryBudgetMs))
     );
+
+    // Sanitasi: pastikan field internal geometri pada passedStops tidak bocor ke respons API
+    for (const r of routes) {
+      for (const leg of r.legs) {
+        if (leg.passedStops) {
+          for (const s of leg.passedStops) {
+            delete (s as any).geometri;
+          }
+        }
+      }
+    }
 
     const processingMs = Date.now() - startedAt;
     console.log(
