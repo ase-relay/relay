@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense, useEffect, useState, useCallback, type ReactElement } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useState, useCallback, type ReactElement } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { VehicleIcon } from '@/components/icons/vehicle/VehicleIcon';
@@ -11,8 +11,16 @@ import { AlertViewport } from '@/components/ui/AlertViewport';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { searchRoutes } from '@/lib/api';
 import { mapApiRouteToRouteResultCard, RouteRecommendation } from '@/lib/mappers/routeMapper';
-import { readRouteSearchLocations, saveRouteSearchResults } from '@/lib/routeSearchTransfer';
-import type { RoutingSortBy } from '@/types/api/routing';
+import { readRouteSearchLocations, saveRouteSearchLocations, saveRouteSearchResults } from '@/lib/routeSearchTransfer';
+import {
+  buildRouteSearchQuery,
+  isRouteSearchInServiceArea,
+  parseRouteSearchQuery,
+  SORT_SLUG_TO_ENUM,
+  WALKING_DISTANCE_OPTIONS,
+  type RouteSearchSortSlug,
+} from '@/lib/routeSearchParams';
+import type { LocationSuggestion } from '@/services/locationSearch';
 import CurrentLocationIcon from '@/components/icons/cari-rute/CurrentLocationIcon';
 import DestinationLocationIcon from '@/components/icons/cari-rute/DestinationLocationIcon';
 import DashedArrowRightIcon from '@/components/icons/cari-rute/DashedArrowRightIcon';
@@ -24,22 +32,14 @@ import SortClockIcon from '@/components/icons/cari-rute/SortClockIcon';
 import SortStarIcon from '@/components/icons/cari-rute/SortStarIcon';
 import SortTransitIcon from '@/components/icons/cari-rute/SortTransitIcon';
 
-// Task 3.2: opsi urutan diperluas dari 2 nilai lokal menjadi 4 sesuai kontrak BE.
-// Nilai yang dikirim ke request mengikuti enum RoutingSortBy (kontrak BE).
-type SortOption = 'termurah' | 'tercepat' | 'recommended' | 'sedikit-transit';
+// Opsi urutan sesuai kontrak BE (slug URL <-> enum BE dipetakan di lib/routeSearchParams).
+type SortOption = RouteSearchSortSlug;
 
 const SORT_BY_LABEL: Record<SortOption, string> = {
   termurah: 'Termurah',
   tercepat: 'Tercepat',
   recommended: 'Direkomendasikan',
   'sedikit-transit': 'Transit Sedikit',
-};
-
-const SORT_BY_MAP: Record<SortOption, RoutingSortBy> = {
-  termurah: 'CHEAPEST',
-  tercepat: 'FASTEST',
-  recommended: 'RECOMMENDED',
-  'sedikit-transit': 'LEAST_TRANSFERS',
 };
 
 const SORT_OPTIONS = Object.keys(SORT_BY_LABEL) as SortOption[];
@@ -53,7 +53,6 @@ const SORT_ICON: Record<SortOption, (props: { className?: string }) => ReactElem
 };
 
 // Grup 4: opsi radius jalan kaki (meter) untuk preferensi pencarian — 1500 = default BE.
-const WALKING_DISTANCE_OPTIONS = [500, 1000, 1500, 2000, 3000];
 
 function formatWalkingDistance(meters: number): string {
   if (meters % 1000 === 0) return `${meters / 1000} km`;
@@ -80,44 +79,150 @@ export default function CariRutePage() {
 
 function CariRutePageContent() {
   const searchParams = useSearchParams();
-  const [sortBy, setSortBy] = useState<SortOption>('termurah');
+  const router = useRouter();
 
-  // Task 1.3: data lokasi lengkap (name + lat + lng) ditulis RouteSearchForm ke sessionStorage
-  // sebelum navigasi. Query string hanya membawa nama lokasi sebagai fallback tampilan.
-  const [originName, setOriginName] = useState('Lokasi awal');
-  const [destinationName, setDestinationName] = useState('Tujuan');
+  // URL adalah sumber kebenaran lokasi + preferensi agar link unik & shareable:
+  // dibuka di tab/browser lain tetap menampilkan pencarian yang sama.
+  // - Lokasi valid di URL (nama + koordinat) → dipakai langsung, tanpa storage.
+  // - URL lama (cuma nama) / tanpa query → fallback sessionStorage (aliran lama),
+  //   lalu URL di-upgrade (replace) ke format lengkap agar bisa di-share.
+  const urlState = useMemo(() => parseRouteSearchQuery(searchParams), [searchParams]);
+  // Koordinat hasil edit URL manual bisa valid secara angka tapi di luar wilayah
+  // layanan (mis. longitude 101 padahal Bandung ~107). Kasus ini ditangani
+  // khusus: tampilkan pesan jelas TANPA fetch ke backend (backend 400/kosong)
+  // dan TANPA mencerminkan koordinat rusak ke sessionStorage.
+  const urlOutOfArea = useMemo(
+    () => !!urlState && !isRouteSearchInServiceArea(urlState),
+    [urlState],
+  );
+  const sortBy: SortOption = urlState?.sort ?? 'termurah';
+  const maxWalkingDistance = urlState?.maxWalkingDistance ?? 1500;
+  const includedModa = useMemo(() => urlState?.includedModa ?? [], [urlState]);
+
+  // sessionStorage hanya dibaca sekali setelah mount (aman SSR) sebagai fallback.
+  const [storedFallback, setStoredFallback] = useState<{
+    origin: LocationSuggestion;
+    destination: LocationSuggestion;
+  } | null>(null);
+  const [storageChecked, setStorageChecked] = useState(false);
+  useEffect(() => {
+    setStoredFallback(readRouteSearchLocations());
+    setStorageChecked(true);
+  }, []);
+
+  const resolved = useMemo(() => {
+    if (urlState) {
+      return {
+        origin: {
+          id: 'shared:origin',
+          name: urlState.origin.name,
+          district: urlState.origin.district,
+          lat: urlState.origin.lat,
+          lng: urlState.origin.lng,
+        } satisfies LocationSuggestion,
+        destination: {
+          id: 'shared:destination',
+          name: urlState.destination.name,
+          district: urlState.destination.district,
+          lat: urlState.destination.lat,
+          lng: urlState.destination.lng,
+        } satisfies LocationSuggestion,
+      };
+    }
+    return storedFallback;
+  }, [urlState, storedFallback]);
+
+  const originName = resolved?.origin.name ?? 'Lokasi awal';
+  const destinationName = resolved?.destination.name ?? 'Tujuan';
+  const locationKey = resolved
+    ? `${resolved.origin.name}|${resolved.origin.lat}|${resolved.origin.lng}||${resolved.destination.name}|${resolved.destination.lat}|${resolved.destination.lng}`
+    : '';
+
+  // Query shareable untuk link "Lihat Detail" — selalu mencerminkan state
+  // saat ini (lokasi + sort + filter), dihitung saat render agar tidak basi.
+  const shareQuery = resolved
+    ? buildRouteSearchQuery({
+        origin: resolved.origin,
+        destination: resolved.destination,
+        sort: sortBy,
+        maxWalkingDistance,
+        includedModa,
+      })
+    : '';
 
   // Task 3.2: hasil pencarian dari BE (bukan lagi array statis).
   const [routes, setRoutes] = useState<RouteRecommendation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const handleCloseAlert = useCallback(() => setErrorMessage(''), []);
-  // Data lokasi tidak ada/rusak (mis. refresh atau buka URL langsung) → state khusus
-  // dengan tombol kembali, tanpa memanggil backend sama sekali.
+  // Data lokasi tidak ada/rusak (mis. URL diketik manual tanpa koordinat dan
+  // storage kosong) → state khusus dengan tombol kembali.
   const [missingLocations, setMissingLocations] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
-  // Grup 4: preferensi pencarian tambahan sesuai kontrak BE.
-  // - maxWalkingDistance: radius jalan kaki ke halte (meter); 1500 = default BE.
-  // - includedModa: ID moda yang diizinkan; array kosong = semua moda (default BE).
-  const [maxWalkingDistance, setMaxWalkingDistance] = useState(1500);
-  const [includedModa, setIncludedModa] = useState<number[]>([]);
   // Katalog moda yang pernah terlihat dari response BE (id + nama), akumulatif.
   const [modaCatalog, setModaCatalog] = useState<Array<{ id: number; nama: string }>>([]);
 
-  useEffect(() => {
-    const stored = readRouteSearchLocations();
-    setOriginName(stored?.origin.name ?? searchParams.get('origin') ?? 'Lokasi awal');
-    setDestinationName(stored?.destination.name ?? searchParams.get('destination') ?? 'Tujuan');
+  // Kontrol filter menulis ke URL (replace, tanpa scroll) — bukan ke state lokal —
+  // sehingga link selalu mencerminkan filter aktif dan back/forward browser
+  // tetap konsisten (satu sumber kebenaran = URL).
+  function replaceQuery(patch: { sort?: SortOption; maxWalkingDistance?: number; includedModa?: number[] }) {
+    if (!resolved) return;
+    router.replace(
+      `/cari-rute?${buildRouteSearchQuery({
+        origin: resolved.origin,
+        destination: resolved.destination,
+        sort: patch.sort ?? sortBy,
+        maxWalkingDistance: patch.maxWalkingDistance ?? maxWalkingDistance,
+        includedModa: patch.includedModa ?? includedModa,
+      })}`,
+      { scroll: false },
+    );
+  }
 
-    // Tanpa data koordinat lengkap (mis. user membuka URL ini langsung atau refresh
-    // setelah storage kosong), request ke BE tidak bisa dibentuk sesuai kontrak —
-    // tampilkan state jelas dengan jalan kembali, bukan fetch dengan data bohong.
-    if (!stored) {
-      setMissingLocations(true);
-      setErrorMessage('');
-      setIsLoading(false);
-      setRoutes([]);
+  // Fallback aliran lama: lokasi hanya ada di storage (URL tanpa koordinat) →
+  // upgrade URL sekali ke format lengkap agar link menjadi shareable.
+  useEffect(() => {
+    if (urlState || !storageChecked || !storedFallback) return;
+    router.replace(
+      `/cari-rute?${buildRouteSearchQuery({
+        origin: storedFallback.origin,
+        destination: storedFallback.destination,
+        sort: sortBy,
+        maxWalkingDistance,
+        includedModa,
+      })}`,
+      { scroll: false },
+    );
+  }, [urlState, storageChecked, storedFallback, sortBy, maxWalkingDistance, includedModa, router]);
+
+  // Lokasi dari link share (storage kosong di browser lain) → cerminkan ke
+  // sessionStorage agar "Kembali ke Beranda" tetap bisa memulihkan form dan
+  // aliran lama (detail tanpa query) tetap berfungsi. Dilewati bila koordinat
+  // di luar wilayah layanan agar storage tidak keracunan data rusak.
+  useEffect(() => {
+    if (urlState && !urlOutOfArea && resolved) saveRouteSearchLocations(resolved.origin, resolved.destination);
+    // Sengaja per locationKey: sekali per pencarian, bukan per render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationKey]);
+
+  useEffect(() => {
+    // Tunggu pengecekan storage sebelum memvonis "data tidak ditemukan" —
+    // kalau tidak, selalu kedip missing sesaat setelah mount.
+    // URL di luar wilayah layanan tidak di-fetch sama sekali (pesan khusus
+    // dirender dari `urlOutOfArea`, bukan dari state ini).
+    if (!resolved || urlOutOfArea) {
+      if (!urlOutOfArea && storageChecked) {
+        setMissingLocations(true);
+        setErrorMessage('');
+        setIsLoading(false);
+        setRoutes([]);
+      } else {
+        setMissingLocations(false);
+        setErrorMessage('');
+        setIsLoading(false);
+        setRoutes([]);
+      }
       return;
     }
 
@@ -128,11 +233,11 @@ function CariRutePageContent() {
     setRoutes([]);
 
     searchRoutes({
-      origin: { name: stored.origin.name, lat: stored.origin.lat, lng: stored.origin.lng },
-      destination: { name: stored.destination.name, lat: stored.destination.lat, lng: stored.destination.lng },
+      origin: { name: resolved.origin.name, lat: resolved.origin.lat, lng: resolved.origin.lng },
+      destination: { name: resolved.destination.name, lat: resolved.destination.lat, lng: resolved.destination.lng },
       // Grup 4: preferensi tambahan sesuai kontrak BE. allowedModa kosong = semua moda.
       preferences: {
-        sortBy: SORT_BY_MAP[sortBy],
+        sortBy: SORT_SLUG_TO_ENUM[sortBy],
         maxWalkingDistance,
         allowedModa: includedModa,
       },
@@ -166,7 +271,9 @@ function CariRutePageContent() {
       });
 
     return () => { didCancel = true; };
-  }, [sortBy, maxWalkingDistance, includedModa, searchParams, reloadKey]);
+    // `resolved` & `includedModa` stabil per URL (useMemo) — district tampilan
+    // tidak memicu fetch ulang karena bukan bagian request.
+  }, [resolved, sortBy, maxWalkingDistance, includedModa, reloadKey, storageChecked, urlOutOfArea]);
 
   return (
     <div className="flex min-h-screen flex-col text-neutral-900">
@@ -222,7 +329,7 @@ function CariRutePageContent() {
                   <button
                     key={option}
                     type="button"
-                    onClick={() => setSortBy(option)}
+                    onClick={() => replaceQuery({ sort: option })}
                     aria-pressed={isActive}
                     className={`inline-flex items-center gap-2 rounded-full border cursor-pointer px-4 py-2 text-sm font-medium transition-colors sm:px-5 ${isActive ? 'border-primary-600 bg-primary-600 text-white hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600' : 'border-neutral-300 bg-white text-neutral-600 hover:border-neutral-400'}`}
                   >
@@ -242,7 +349,7 @@ function CariRutePageContent() {
               <select
                 id="max-walking-distance"
                 value={maxWalkingDistance}
-                onChange={(event) => setMaxWalkingDistance(Number(event.target.value))}
+                onChange={(event) => replaceQuery({ maxWalkingDistance: Number(event.target.value) })}
                 className="mt-3 block w-full cursor-pointer rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 outline-none transition-colors focus:border-primary-600 sm:w-auto"
               >
                 {WALKING_DISTANCE_OPTIONS.map((meters) => (
@@ -264,9 +371,11 @@ function CariRutePageContent() {
                         key={moda.id}
                         type="button"
                         onClick={() =>
-                          setIncludedModa((prev) =>
-                            isIncluded ? prev.filter((id) => id !== moda.id) : [...prev, moda.id],
-                          )
+                          replaceQuery({
+                            includedModa: isIncluded
+                              ? includedModa.filter((id) => id !== moda.id)
+                              : [...includedModa, moda.id],
+                          })
                         }
                         aria-pressed={isIncluded}
                         className={`rounded-full border px-4 py-2 cursor-pointer text-sm font-medium transition-colors sm:px-5 ${isIncluded ? 'border-primary-600 bg-primary-600 text-white hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600' : 'border-neutral-300 bg-white text-neutral-600 hover:border-neutral-400'}`}
@@ -283,7 +392,15 @@ function CariRutePageContent() {
 
           <h2 id="route-list-heading" className="sr-only">Daftar rekomendasi rute</h2>
 
-          {missingLocations && (
+          {urlOutOfArea && (
+            <div className="py-10 text-center">
+              <p className="text-base font-semibold text-neutral-900">Lokasi di luar wilayah layanan</p>
+              <p className="mt-2 text-sm text-neutral-500">Koordinat di tautan ini berada di luar wilayah Bandung metropolitan. Periksa kembali tautan, atau cari ulang rute dari halaman beranda.</p>
+              <Link href="/beranda" className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-primary-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700">Kembali ke Beranda</Link>
+            </div>
+          )}
+
+          {!urlOutOfArea && missingLocations && (
             <div className="py-10 text-center">
               <p className="text-base font-semibold text-neutral-900">Data lokasi pencarian tidak ditemukan</p>
               <p className="mt-2 text-sm text-neutral-500">Halaman ini membutuhkan lokasi awal dan tujuan dari hasil pencarian. Silakan cari rute lagi dari halaman beranda.</p>
@@ -311,7 +428,7 @@ function CariRutePageContent() {
             </div>
           )}
 
-          {!isLoading && !errorMessage && !missingLocations && routes.length === 0 && (
+          {!urlOutOfArea && !isLoading && !errorMessage && !missingLocations && routes.length === 0 && (
             <div className="py-10 text-center">
               <p className="text-base font-semibold text-neutral-900">Tidak ada rute ditemukan</p>
               <p className="mt-2 text-sm text-neutral-500">Coba ubah lokasi awal/tujuan atau kurangi filter pencarian, lalu cari lagi dari beranda.</p>
@@ -330,8 +447,10 @@ function CariRutePageContent() {
                     <div className="min-w-0">
                       <p className="font-bold text-black">{route.transportName}</p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {route.badges.map((badge) => (
-                          <span key={badge} className={`rounded-full px-2.5 py-0.5 text-xs font-medium text-white ${getRouteBadgeColor(badge)}`}>{badge}</span>
+                        {route.badges.map((badge, badgeIndex) => (
+                          // Backend bisa mengirim kode yang sama dua kali (mis. dua leg
+                          // "MJT K2") — key memakai index agar tetap unik.
+                          <span key={`${badge}-${badgeIndex}`} className={`rounded-full px-2.5 py-0.5 text-xs font-medium text-white ${getRouteBadgeColor(badge)}`}>{badge}</span>
                         ))}
                         {(route.operator || (isOjekRoute(route.transportName) ? OJEK_OPERATOR_LABEL : '')) && (
                           <span className="text-sm text-neutral-500">
@@ -358,8 +477,10 @@ function CariRutePageContent() {
                     </div>
                   </div>
 
+                  {/* Link detail membawa query pencarian yang sama → halaman detail
+                      bisa fetch ulang sendiri (shareable, tahan refresh/tab baru). */}
                   <Link
-                    href={`/cari-rute/${route.id}`}
+                    href={shareQuery ? `/cari-rute/${route.id}?${shareQuery}` : `/cari-rute/${route.id}`}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700 sm:w-fit"
                   >
                     Lihat Detail <RightArrowIcon className="h-2.5 w-auto" color="white" />

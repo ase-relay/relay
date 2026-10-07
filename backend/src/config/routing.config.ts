@@ -87,8 +87,10 @@ export const ROUTING_CONFIG: RoutingConfig = {
 
   allowedWalkingDistanceMeters: [500, 1000, 1500, 2000, 3000],
   defaultWalkingDistanceMeters: 1500,
-  // Bandung + Cimahi + sekitarnya (margin longgar untuk titik ujung yang sah)
-  validationBbox: { minLat: -7.2, maxLat: -6.6, minLng: 107.35, maxLng: 107.9 },
+  // Jaring pengaman terakhir (longgar): harus mencakup seluruh poligon layanan
+  // frontend (lib/serviceArea, bbox ± [107.15, -7.34, 107.96, -6.66]) dengan
+  // margin. Jangan lebih ketat dari poligon — titik lolos FE tapi 400 di BE.
+  validationBbox: { minLat: -7.4, maxLat: -6.6, minLng: 107.1, maxLng: 108.01 },
 
   scoreWeights: { cost: 0.35, duration: 0.35, transfers: 0.15, walking: 0.15 },
 

@@ -8,6 +8,8 @@ import { useRouteSearchInput } from "@/hooks/useRouteSearchInput";
 import { useCurrentLocation } from "@/hooks/useCurrentLocation";
 import type { RouteSearchHistoryItem } from "@/lib/routeSearchHistory";
 import { saveRouteSearchLocations, consumeRouteSearchLocations } from "@/lib/routeSearchTransfer";
+import { buildRouteSearchQuery } from "@/lib/routeSearchParams";
+import { isWithinServiceArea } from "@/lib/serviceArea";
 import { distanceMeters } from "@/lib/utils";
 import {
   isAbortError,
@@ -96,6 +98,23 @@ export function RouteSearchForm() {
 
   const closeDropdown = useCallback(() => setActiveField(null), [setActiveField]);
 
+  // Kepercayaan koordinat pilihan: hasil restore (kembali dari cari-rute)
+  // dan riwayat TIDAK dipercaya mentah-mentah — koordinatnya bisa berasal dari
+  // URL yang diedit manual. Saat "Cari Rute" ditekan, pilihan tak-terpercaya
+  // di-resolve ulang dari nama via Photon/DB sehingga link selalu memakai
+  // koordinat segar yang benar. Pengecualian: "Lokasi saya" (GPS perangkat,
+  // tidak bisa di-resolve dari nama) dan saran yang baru diklik di sesi ini.
+  const originFreshRef = useRef(false);
+  const destinationFreshRef = useRef(false);
+
+  function isDeviceLocationName(text: string): boolean {
+    return text.trim().toLowerCase() === 'lokasi saya';
+  }
+
+  function freshRef(field: Field): React.MutableRefObject<boolean> {
+    return field === 'origin' ? originFreshRef : destinationFreshRef;
+  }
+
   // Kembali dari halaman cari-rute: pulihkan lokasi terakhir SEKALI saja lalu
   // hapus simpanan, sehingga refresh di beranda mulai dari form kosong.
   const restoredRef = useRef(false);
@@ -108,6 +127,8 @@ export function RouteSearchForm() {
     setDestinationQuery(saved.destination.name);
     setSelectedOrigin(saved.origin);
     setSelectedDestination(saved.destination);
+    originFreshRef.current = false;
+    destinationFreshRef.current = false;
   }, [setOriginQuery, setDestinationQuery, setSelectedOrigin, setSelectedDestination]);
 
   // Animasi swap: kotak lokasi awal & tujuan saling bertukar posisi (teknik FLIP).
@@ -130,6 +151,9 @@ export function RouteSearchForm() {
 
     setActiveField(null);
     handleSwap();
+    const tempFresh = originFreshRef.current;
+    originFreshRef.current = destinationFreshRef.current;
+    destinationFreshRef.current = tempFresh;
     setFieldErrors({});
     setFormError("");
     setSwapTick((tick) => tick + 1);
@@ -180,16 +204,20 @@ export function RouteSearchForm() {
     setFieldErrors((previous) => ({ ...previous, [field]: undefined }));
   }
 
-  function select(suggestion: LocationSuggestion, field: Field) {
+  function select(suggestion: LocationSuggestion, field: Field, fresh = true) {
     handleSelectSuggestion(suggestion, field);
+    freshRef(field).current = fresh;
     clearFieldError(field);
     setFormError("");
   }
 
   function selectHistory(item: RouteSearchHistoryItem, field: Field) {
+    // Riwayat pun di-resolve ulang saat search (fresh=false): koordinatnya
+    // bisa berasal dari pencarian lama dengan URL editan.
     select(
       { id: item.id, name: item.name, district: item.district, lat: item.lat, lng: item.lng },
       field,
+      false,
     );
   }
 
@@ -233,9 +261,13 @@ export function RouteSearchForm() {
       let origin = selectedOrigin;
       let destination = selectedDestination;
 
-      // User boleh langsung menekan "Cari Rute" tanpa memilih saran:
-      // teks yang belum terpilih di-resolve ke lokasi teratas geocoder.
-      if (!origin) {
+      // User boleh langsung menekan "Cari Rute" tanpa memilih saran, DAN pilihan
+      // hasil restore/riwayat selalu di-resolve ulang dari nama: koordinat
+      // tersimpan bisa basi (mis. dari URL yang diedit manual). "Lokasi saya"
+      // dikecualikan — koordinat GPS tidak bisa di-resolve dari nama.
+      const originNeedsResolve =
+        (!origin || !originFreshRef.current) && !(origin && isDeviceLocationName(origin.name));
+      if (originNeedsResolve) {
         try {
           origin = await resolveTypedLocation(originText);
         } catch (resolveError) {
@@ -244,9 +276,13 @@ export function RouteSearchForm() {
           return;
         }
         handleSelectSuggestion(origin, "origin");
+        originFreshRef.current = true;
       }
 
-      if (!destination) {
+      const destinationNeedsResolve =
+        (!destination || !destinationFreshRef.current) &&
+        !(destination && isDeviceLocationName(destination.name));
+      if (destinationNeedsResolve) {
         try {
           destination = await resolveTypedLocation(destinationText);
         } catch (resolveError) {
@@ -255,19 +291,44 @@ export function RouteSearchForm() {
           return;
         }
         handleSelectSuggestion(destination, "destination");
+        destinationFreshRef.current = true;
       }
+
+      // Pengaman tipe: setelah blok resolve di atas keduanya pasti terisi
+      // (resolve yang gagal selalu return lebih awal).
+      if (!origin || !destination) return;
 
       if (distanceMeters(origin, destination) < SAME_LOCATION_METERS) {
         setFormError("Lokasi awal dan tujuan tidak boleh sama.");
         return;
       }
 
+      // Batas peta tidak mencegah input di luar wilayah (mis. "Lokasi saya" di
+      // luar area atau teks yang ter-resolve ke luar poligon): tolak di sini
+      // dengan pesan jelas, sebelum navigasi & request ke backend.
+      if (!isWithinServiceArea(origin.lat, origin.lng)) {
+        setFieldErrors({ origin: "Lokasi awal di luar wilayah layanan Otewe." });
+        return;
+      }
+      if (!isWithinServiceArea(destination.lat, destination.lng)) {
+        setFieldErrors({ destination: "Lokasi tujuan di luar wilayah layanan Otewe." });
+        return;
+      }
+
       // Simpan riwayat (tanpa "Lokasi saya"), lalu bawa objek lokasi lengkap
-      // (name + lat + lng) ke halaman cari-rute lewat sessionStorage.
+      // (name + lat + lng) ke halaman cari-rute lewat sessionStorage DAN query
+      // string — query membawa koordinat agar link unik & bisa di-share
+      // (dibuka di tab/browser lain tetap menampilkan pencarian yang sama).
       saveLocationsToHistory(origin, destination);
       saveRouteSearchLocations(origin, destination);
       router.push(
-        `/cari-rute?origin=${encodeURIComponent(origin.name)}&destination=${encodeURIComponent(destination.name)}`,
+        `/cari-rute?${buildRouteSearchQuery({
+          origin: { name: origin.name, district: origin.district, lat: origin.lat, lng: origin.lng },
+          destination: { name: destination.name, district: destination.district, lat: destination.lat, lng: destination.lng },
+          sort: 'termurah',
+          maxWalkingDistance: 1500,
+          includedModa: [],
+        })}`,
       );
     } finally {
       setIsSubmitting(false);

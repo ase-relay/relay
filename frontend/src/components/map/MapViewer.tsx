@@ -2,9 +2,10 @@
 
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, useMap, ZoomControl } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, Polygon, CircleMarker, useMap, ZoomControl } from 'react-leaflet';
 import { createMarkerIcon, type MarkerIconType } from './MapMarkerIcon';
-import { MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM, OSM_TILE_URL, OSM_ATTRIBUTION } from '@/constants/mapConfig';
+import { MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM, MAP_MAX_BOUNDS, MAP_MIN_ZOOM, OSM_TILE_URL, OSM_ATTRIBUTION } from '@/constants/mapConfig';
+import { getServiceAreaOutline } from '@/lib/serviceArea';
 import 'leaflet/dist/leaflet.css';
 
 // PENTING: Jangan kirim array markers/polylines yang di-generate ulang setiap render 
@@ -65,6 +66,9 @@ interface MapViewerProps {
    */
   expanded?: boolean;
 }
+
+/** Garis batas wilayah layanan (abu-abu) mengelilingi area cakupan Otewe. */
+const SERVICE_AREA_OUTLINE = getServiceAreaOutline();
 
 /** Level zoom minimum saat memfokuskan satu halte (level jalan). */
 const FOCUS_ZOOM = 17;
@@ -172,6 +176,9 @@ function MapViewerComponent({
         center={center}
         zoom={zoom}
         zoomControl={false}
+        minZoom={MAP_MIN_ZOOM}
+        maxBounds={MAP_MAX_BOUNDS}
+        maxBoundsViscosity={0.8}
         style={{ height: '100%', width: '100%' }}
       >
         <ZoomControl position={zoomControlPosition} />
@@ -179,6 +186,19 @@ function MapViewerComponent({
           url={OSM_TILE_URL}
           attribution={OSM_ATTRIBUTION}
           crossOrigin="anonymous"
+        />
+
+        {/* Batas wilayah layanan: garis abu-abu + arsiran tipis di dalam area. */}
+        <Polygon
+          positions={SERVICE_AREA_OUTLINE}
+          pathOptions={{
+            color: '#9ca3af',
+            weight: 2,
+            opacity: 0.9,
+            fillColor: '#9ca3af',
+            fillOpacity: 0.05,
+            interactive: false,
+          }}
         />
 
         {markers.map((marker) => (

@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
@@ -10,8 +10,9 @@ import { RouteSummaryHeader } from '@/components/route-detail/RouteSummaryHeader
 import { JourneySegment, JourneyStopTarget, TripStepList } from '@/components/route-detail/TripStepList';
 import { MapPlaceholder } from '@/components/map/MapPlaceholder';
 import { mapApiRouteToJourneySegments, mapApiRouteToRouteResultCard } from '@/lib/mappers/routeMapper';
-import { readRouteSearchLocations, readRouteSearchResults, RouteSearchLocations } from '@/lib/routeSearchTransfer';
-import { fetchRouteGeometry } from '@/lib/api';
+import { readRouteSearchLocations, readRouteSearchResults, saveRouteSearchLocations, saveRouteSearchResults, RouteSearchLocations } from '@/lib/routeSearchTransfer';
+import { parseRouteSearchQuery, SORT_SLUG_TO_ENUM, isRouteSearchInServiceArea } from '@/lib/routeSearchParams';
+import { fetchRouteGeometry, searchRoutes } from '@/lib/api';
 import {
   transformApiRouteToMapMarkers,
   transformApiRouteToMapPolylines,
@@ -34,10 +35,12 @@ const MapViewerNoSSR = dynamic(
 );
 
 /**
- * Task 3.3: detail rute diambil dari hasil pencarian (Task 3.2) yang disimpan ke
- * sessionStorage — kontrak BE belum menyediakan endpoint detail-by-ID, jadi tidak
- * ada fetch ulang. Konsekuensinya: membuka halaman ini di tab baru / tanpa hasil
- * pencarian sebelumnya akan menampilkan state "rute tidak ditemukan".
+ * Detail rute: data dibaca dari query pencarian di URL (link shareable —
+ * diulang pencariannya dengan parameter yang sama, lalu rute dipilih by ID).
+ * Kontrak BE belum menyediakan endpoint detail-by-ID, jadi tanpa query lengkap
+ * halaman ini fallback ke hasil pencarian di sessionStorage tab yang sama
+ * (aliran lama): membuka link detail polos di tab baru tetap menampilkan
+ * state "rute tidak ditemukan".
  */
 function findRouteById(routeId: string): ApiRoute | null {
   const results = readRouteSearchResults();
@@ -103,22 +106,131 @@ function toRouteOption(
 }
 
 export default function RouteDetailPage() {
+  // useSearchParams wajib dibungkus Suspense saat prerender.
+  return (
+    <Suspense fallback={<div className="min-h-screen" />}>
+      <RouteDetailPageContent />
+    </Suspense>
+  );
+}
+
+function RouteDetailPageContent() {
   const params = useParams();
   const routeId = params.routeId as string;
+  const searchParams = useSearchParams();
+
+  // Query pencarian yang sama dengan halaman daftar (dibawa link "Lihat Detail").
+  const urlState = useMemo(() => parseRouteSearchQuery(searchParams), [searchParams]);
+  // Tombol kembali mempertahankan query agar parameter tidak hilang.
+  const backHref = useMemo(() => {
+    const raw = searchParams.toString();
+    return raw ? `/cari-rute?${raw}` : '/cari-rute';
+  }, [searchParams]);
 
   // sessionStorage hanya ada di client — baca setelah mount agar tidak hydration mismatch.
   const [selectedRoute, setSelectedRoute] = useState<ApiRoute | null>(null);
   const [searchLocations, setSearchLocations] = useState<RouteSearchLocations | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
   const [mapExpanded, setMapExpanded] = useState(false);
   const [mapFocusTarget, setMapFocusTarget] = useState<MapFocusTarget | null>(null);
   const mapSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
+    // Ada query lengkap (link share / refresh / dibuka di browser lain):
+    // ulangi pencarian yang sama persis (termasuk sort & filter dari URL agar
+    // urutan/ID rute konsisten), lalu pilih rute berdasarkan routeId.
+    if (urlState) {
+      // Koordinat hasil edit manual di luar wilayah layanan: jangan fetch
+      // (backend 400), jangan cerminkan ke storage — tampilkan pesan jelas.
+      if (!isRouteSearchInServiceArea(urlState)) {
+        setSelectedRoute(null);
+        setSearchLocations({
+          origin: {
+            id: 'shared:origin',
+            name: urlState.origin.name,
+            district: urlState.origin.district,
+            lat: urlState.origin.lat,
+            lng: urlState.origin.lng,
+          },
+          destination: {
+            id: 'shared:destination',
+            name: urlState.destination.name,
+            district: urlState.destination.district,
+            lat: urlState.destination.lat,
+            lng: urlState.destination.lng,
+          },
+        });
+        setSearchError(
+          'Lokasi di tautan ini berada di luar wilayah layanan (Bandung metropolitan). Periksa kembali tautan atau cari ulang dari halaman beranda.',
+        );
+        setIsSearching(false);
+        setHasLoaded(true);
+        return;
+      }
+
+      let cancelled = false;
+      setHasLoaded(false);
+      setIsSearching(true);
+      setSearchError('');
+      setSelectedRoute(null);
+      const locations: RouteSearchLocations = {
+        origin: {
+          id: 'shared:origin',
+          name: urlState.origin.name,
+          district: urlState.origin.district,
+          lat: urlState.origin.lat,
+          lng: urlState.origin.lng,
+        },
+        destination: {
+          id: 'shared:destination',
+          name: urlState.destination.name,
+          district: urlState.destination.district,
+          lat: urlState.destination.lat,
+          lng: urlState.destination.lng,
+        },
+      };
+      setSearchLocations(locations);
+      // Cerminkan ke storage (kompatibilitas aliran lama + restore form beranda).
+      saveRouteSearchLocations(locations.origin, locations.destination);
+
+      searchRoutes({
+        origin: { name: locations.origin.name, lat: locations.origin.lat, lng: locations.origin.lng },
+        destination: { name: locations.destination.name, lat: locations.destination.lat, lng: locations.destination.lng },
+        preferences: {
+          sortBy: SORT_SLUG_TO_ENUM[urlState.sort],
+          maxWalkingDistance: urlState.maxWalkingDistance,
+          allowedModa: urlState.includedModa,
+        },
+      })
+        .then((response) => {
+          if (cancelled) return;
+          saveRouteSearchResults(response.data);
+          setSelectedRoute(response.data.routes.find((route) => route.id === routeId) ?? null);
+          setIsSearching(false);
+          setHasLoaded(true);
+        })
+        .catch((fetchError: unknown) => {
+          if (cancelled) return;
+          setSearchError(
+            fetchError instanceof Error ? fetchError.message : 'Gagal memuat rute. Silakan coba lagi.',
+          );
+          setIsSearching(false);
+          setHasLoaded(true);
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    // Fallback aliran lama: link detail polos tanpa query — baca hasil
+    // pencarian di sessionStorage tab yang sama.
     setSelectedRoute(findRouteById(routeId));
     setSearchLocations(readRouteSearchLocations());
     setHasLoaded(true);
-  }, [routeId]);
+  }, [routeId, urlState]);
 
   // Perkecil peta dengan Escape.
   useEffect(() => {
@@ -225,8 +337,9 @@ export default function RouteDetailPage() {
 
   // Handle route not found
   if (!selectedRoute) {
-    // Hindari kedip layar "rute tidak ditemukan" saat data sessionStorage belum dibaca.
-    if (!hasLoaded) {
+    // Hindari kedip layar "rute tidak ditemukan" saat data belum dibaca /
+    // pencarian ulang dari query URL masih berjalan.
+    if (!hasLoaded || isSearching) {
       return <div className="min-h-screen" />;
     }
 
@@ -248,10 +361,11 @@ export default function RouteDetailPage() {
           </div>
           <h2 className="text-xl font-bold text-neutral-900 mb-2">Rute tidak ditemukan</h2>
           <p className="text-neutral-600 mb-6">
-            Data rute tidak tersedia. Cari ulang rute dari halaman pencarian untuk memuat detailnya.
+            {searchError ||
+              'Data rute tidak tersedia. Cari ulang rute dari halaman pencarian untuk memuat detailnya.'}
           </p>
           <Link
-            href="/cari-rute"
+            href={backHref}
             className="inline-block bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 transition-colors"
           >
             Kembali ke Pencarian Rute
@@ -278,7 +392,7 @@ export default function RouteDetailPage() {
 
       <main className="mx-auto w-full max-w-292.5 flex-1 px-4 pb-12 pt-6 sm:px-8 xl:px-0">
         <Link
-          href="/cari-rute"
+          href={backHref}
           className="inline-flex items-center gap-3 text-sm font-medium text-primary-600 transition-colors hover:text-primary-700"
         >
           <BackArrowIcon className="h-2.5 w-auto" />

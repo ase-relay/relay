@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { HiXMark } from 'react-icons/hi2';
 import L from 'leaflet';
-import { MapContainer, Marker, TileLayer, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, Marker, Polygon, TileLayer, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
 import SearchIcon from '@/components/icons/common/SearchIcon';
-import { MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM, OSM_ATTRIBUTION, OSM_TILE_URL } from '@/constants/mapConfig';
+import { MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM, MAP_MAX_BOUNDS, MAP_MIN_ZOOM, OSM_ATTRIBUTION, OSM_TILE_URL } from '@/constants/mapConfig';
+import { getServiceAreaOutline } from '@/lib/serviceArea';
 import 'leaflet/dist/leaflet.css';
 
 export interface PickedLocation {
@@ -53,6 +54,9 @@ function FlyToHandler({ target }: { target: [number, number] | null }) {
     }, [map, target]);
     return null;
 }
+
+/** Garis batas wilayah layanan (abu-abu). Dihitung sekali di level modul. */
+const SERVICE_AREA_OUTLINE = getServiceAreaOutline();
 
 export function LocationPickerModal({ isOpen, initial = null, onCancel, onPick }: LocationPickerModalProps) {
     const initialLat = initial?.lat;
@@ -264,10 +268,24 @@ export function LocationPickerModal({ isOpen, initial = null, onCancel, onPick }
                             center={center}
                             zoom={validInitial ? 16 : MAP_DEFAULT_ZOOM}
                             zoomControl={false}
+                            minZoom={MAP_MIN_ZOOM}
+                            maxBounds={MAP_MAX_BOUNDS}
+                            maxBoundsViscosity={0.8}
                             style={{ height: '100%', width: '100%' }}
                         >
                             <ZoomControl position="bottomright" />
                             <TileLayer url={OSM_TILE_URL} attribution={OSM_ATTRIBUTION} />
+                            <Polygon
+                                positions={SERVICE_AREA_OUTLINE}
+                                pathOptions={{
+                                    color: '#9ca3af',
+                                    weight: 2,
+                                    opacity: 0.9,
+                                    fillColor: '#9ca3af',
+                                    fillOpacity: 0.05,
+                                    interactive: false,
+                                }}
+                            />
                             <MapClickHandler onSelect={(lat, lng) => selectPoint(lat, lng)} />
                             <FlyToHandler target={flyTo} />
                             {picked && (

@@ -1,4 +1,5 @@
 import type { LocationSuggestion } from '@/services/locationSearch';
+import { isWithinServiceArea } from '@/lib/serviceArea';
 import type { RoutingSearchData } from '@/types/api/routing';
 
 // Task 1.3: membawa data lokasi lengkap (name + lat + lng) dari halaman Beranda ke halaman Cari Rute.
@@ -42,7 +43,12 @@ export function readRouteSearchLocations(): RouteSearchLocations | null {
       !!location &&
       typeof location.name === 'string' &&
       typeof location.lat === 'number' &&
-      typeof location.lng === 'number';
+      typeof location.lng === 'number' &&
+      // Koordinat di luar wilayah layanan (mis. sisa URL yang diedit manual lalu
+      // dicerminkan ke storage) dianggap rusak: tolak agar tidak dipakai fetch
+      // (backend 400) dan tidak dipulihkan ke form beranda. Aliran normal
+      // (saran geocoder + halte DB) selalu di dalam poligon sehingga tidak terdampak.
+      isWithinServiceArea(location.lat, location.lng);
 
     if (!isValid(parsed?.origin) || !isValid(parsed?.destination)) return null;
 

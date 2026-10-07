@@ -1,5 +1,6 @@
 import { stops } from '@/lib/mock/stops';
 import { distanceMeters } from '@/lib/utils';
+import { getServiceAreaBbox, isWithinServiceArea } from '@/lib/serviceArea';
 import api from '@/lib/api';
 
 // Service pencarian lokasi frontend.
@@ -76,22 +77,19 @@ export function isAbortError(error: unknown): boolean {
   );
 }
 
-/** Batas wilayah pencarian Bandung–Cimahi (format Photon: minLng,minLat,maxLng,maxLat). */
-export const BANDUNG_BBOX = { minLng: 107.45, minLat: -7.1, maxLng: 107.8, maxLat: -6.75 } as const;
+/**
+ * Parameter bbox untuk pencarian Photon (format: minLng,minLat,maxLng,maxLat).
+ * Diambil dari kotak pembatas poligon layanan (lihat lib/serviceArea) sebagai
+ * filter kasar sisi server — filter presisi (dalam/luar poligon) dilakukan di
+ * mapPhotonFeatures dengan isWithinServiceArea.
+ */
+function serviceAreaBboxParam(): string {
+  const [minLng, minLat, maxLng, maxLat] = getServiceAreaBbox();
+  return `${minLng},${minLat},${maxLng},${maxLat}`;
+}
 
 /** Pusat bias pencarian (Alun-Alun Bandung) agar hasil terdekat muncul lebih dulu. */
 export const BANDUNG_CENTER = { lat: -6.9175, lng: 107.6191 } as const;
-
-const BBOX_PARAM = `${BANDUNG_BBOX.minLng},${BANDUNG_BBOX.minLat},${BANDUNG_BBOX.maxLng},${BANDUNG_BBOX.maxLat}`;
-
-export function isWithinBandungBbox(lat: number, lng: number): boolean {
-  return (
-    lat >= BANDUNG_BBOX.minLat &&
-    lat <= BANDUNG_BBOX.maxLat &&
-    lng >= BANDUNG_BBOX.minLng &&
-    lng <= BANDUNG_BBOX.maxLng
-  );
-}
 
 function isSameLocation(a: LocationSuggestion, b: LocationSuggestion): boolean {
   return (
@@ -216,8 +214,8 @@ function mapPhotonFeatures(collection: PhotonFeatureCollection): LocationSuggest
     const [lng, lat] = coordinates;
     if (typeof lng !== 'number' || typeof lat !== 'number') continue;
     if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
-    // Buang hasil di luar bbox Bandung–Cimahi (double-check setelah server filter).
-    if (!isWithinBandungBbox(lat, lng)) continue;
+    // Buang hasil di luar poligon layanan (double-check setelah filter bbox server).
+    if (!isWithinServiceArea(lat, lng)) continue;
 
     const properties = feature.properties ?? {};
     const name = buildName(properties);
@@ -252,7 +250,7 @@ async function fetchPhotonResults(key: string, query: string): Promise<LocationS
   try {
     const params = new URLSearchParams({
       q: query,
-      bbox: BBOX_PARAM,
+      bbox: serviceAreaBboxParam(),
       lat: String(BANDUNG_CENTER.lat),
       lon: String(BANDUNG_CENTER.lng),
       limit: String(PHOTON_FETCH_LIMIT),

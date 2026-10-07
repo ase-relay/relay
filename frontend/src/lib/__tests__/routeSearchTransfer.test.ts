@@ -2,6 +2,11 @@ import assert from 'node:assert/strict';
 import { test, describe, beforeEach, afterEach } from 'node:test';
 
 import { saveRouteSearchResults, readRouteSearchResults } from '../routeSearchTransfer';
+import {
+  saveRouteSearchLocations,
+  readRouteSearchLocations,
+  consumeRouteSearchLocations,
+} from '../routeSearchTransfer';
 import { routingSearchResponseExample } from '../mappers/__tests__/fixtures/routingSearchExample';
 
 /**
@@ -103,5 +108,43 @@ describe('routeSearchTransfer: saveRouteSearchResults ↔ readRouteSearchResults
       }),
     );
     assert.equal(readRouteSearchResults(), null);
+  });
+});
+
+describe('routeSearchTransfer: lokasi di luar wilayah layanan ditolak', () => {
+  beforeEach(installSessionStorage);
+  afterEach(uninstallSessionStorage);
+
+  const bandungOrigin = {
+    id: 'db:1',
+    name: 'Terminal Leuwipanjang',
+    district: 'Kota Bandung',
+    lat: -6.9401,
+    lng: 107.5894,
+  };
+  const bandungDestination = {
+    id: 'db:2',
+    name: 'Halte UNPAD Dipatiukur',
+    district: 'Bandung',
+    lat: -6.893,
+    lng: 107.6179,
+  };
+
+  test('lokasi normal Bandung tersimpan & terbaca (tidak terdampak validasi bbox)', () => {
+    saveRouteSearchLocations(bandungOrigin, bandungDestination);
+    const read = readRouteSearchLocations();
+    assert.ok(read);
+    assert.equal(read.origin.name, 'Terminal Leuwipanjang');
+    assert.equal(read.destination.name, 'Halte UNPAD Dipatiukur');
+  });
+
+  test('koordinat rusak (mis. cerminan URL edit manual, olng 101) → ditolak → null', () => {
+    saveRouteSearchLocations(
+      { ...bandungOrigin, lat: -6.946152849890214, lng: 101.51474016816 },
+      bandungDestination,
+    );
+    assert.equal(readRouteSearchLocations(), null);
+    // consume (dipakai restore form beranda) ikut sembuh: tidak memulihkan data rusak.
+    assert.equal(consumeRouteSearchLocations(), null);
   });
 });
