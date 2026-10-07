@@ -27,9 +27,13 @@ export function parseClock(value: string): number | null {
   return Number(match[1]) * 60 + Number(match[2]);
 }
 
-/** Menit sejak tengah malam dari waktu saat ini (bila request tanpa departureTime). */
+/** Offset WIB dari UTC dalam menit (WIB tidak memakai daylight saving time). */
+export const WIB_OFFSET_MINUTES = 7 * 60;
+
+/** Menit sejak tengah malam WIB dari waktu saat ini (bila request tanpa departureTime). */
 export function currentClockMinutes(now: Date = new Date()): number {
-  return now.getHours() * 60 + now.getMinutes();
+  const wibTime = new Date(now.getTime() + WIB_OFFSET_MINUTES * 60 * 1000);
+  return wibTime.getUTCHours() * 60 + wibTime.getUTCMinutes();
 }
 
 /** Waktu tunggu (menit) untuk leg transit, sesuai kategori moda leg tersebut. */

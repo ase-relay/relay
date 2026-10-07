@@ -73,6 +73,13 @@ test('currentClockMinutes: berada di rentang 0..1439', () => {
   assert.ok(minutes >= 0 && minutes < 1440);
 });
 
+test('currentClockMinutes: selalu WIB walau zona waktu server UTC', () => {
+  // 2026-01-01T00:00:00Z = 07:00 WIB
+  assert.equal(currentClockMinutes(new Date('2026-01-01T00:00:00Z')), 7 * 60);
+  // 2026-01-01T12:47:00Z = 19:47 WIB
+  assert.equal(currentClockMinutes(new Date('2026-01-01T12:47:00Z')), 19 * 60 + 47);
+});
+
 test('applyRouteTimeline: jam kumulatif per leg konsisten dengan total durasi', () => {
   const legs: RouteLeg[] = [makeWalkLeg(5), makeBusLeg(31, makeStoppedStops())];
 
