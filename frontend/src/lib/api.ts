@@ -167,4 +167,40 @@ export async function googleLogin(payload: GoogleLoginRequest): Promise<GoogleLo
   return envelope.data;
 }
 
+// ---------------------------------------------------------------------------
+// Endpoint: GET /transport/halte/:id (publik)
+// ---------------------------------------------------------------------------
+
+interface HalteDetailData {
+  id: number;
+  namaHalte: string;
+  alamat?: string | null;
+  kota?: string | null;
+}
+
+interface HalteDetailResponse {
+  success: boolean;
+  message: string;
+  data: HalteDetailData;
+}
+
+/** Cache alamat halte per sesi (halaman detail rute bisa meminta halte yang sama). */
+const halteAddressCache = new Map<number, string>();
+
+/**
+ * Alamat lengkap halte (kolom `alamat` DB, fallback `kota`).
+ * Dipakai kartu lokasi transit di halaman detail rute. Gagal/‘’ → string kosong,
+ * pemanggil tidak me-render baris alamat.
+ */
+export async function fetchHalteAddress(id: number): Promise<string> {
+  const cached = halteAddressCache.get(id);
+  if (cached !== undefined) return cached;
+
+  const response = await api.get<HalteDetailResponse>(`/transport/halte/${id}`);
+  const data = response.data.data;
+  const address = data?.alamat?.trim() || data?.kota?.trim() || '';
+  halteAddressCache.set(id, address);
+  return address;
+}
+
 export default api;

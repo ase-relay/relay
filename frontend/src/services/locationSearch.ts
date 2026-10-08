@@ -389,3 +389,71 @@ export async function resolveTypedLocation(
 
   throw new LocationServiceError('not-found', LOCATION_NOT_FOUND_MESSAGE);
 }
+
+// ---------------------------------------------------------------------------
+// Reverse geocoding Photon — koordinat -> alamat jalan.
+// Dipakai kartu lokasi awal/tujuan yang tidak cocok database (mis. "Lokasi
+// saya" dari GPS): GET /reverse?lat=..&lon=.. mengembalikan satu fitur.
+// ---------------------------------------------------------------------------
+
+const PHOTON_REVERSE_ENDPOINT = 'https://photon.komoot.io/reverse/';
+
+/** Alamat jalan dari koordinat ("Jl. X No. Y, Kecamatan, Kota"). '' bila tak ada. */
+export async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return '';
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), PHOTON_TIMEOUT_MS);
+
+  try {
+    const params = new URLSearchParams({ lat: String(lat), lon: String(lng) });
+    const response = await fetch(`${PHOTON_REVERSE_ENDPOINT}?${params.toString()}`, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) return '';
+
+    const json = (await response.json()) as { features?: Array<{ properties?: PhotonProperties }> };
+    const properties = json.features?.[0]?.properties;
+    if (!properties) return '';
+
+    const street = [properties.street, properties.housenumber].filter(nonEmpty).join(' ');
+    const parts = [street || properties.name, properties.district, properties.city].filter(nonEmpty);
+    const unique = Array.from(new Set(parts.map((part) => part.trim())));
+    return unique.length > 0 ? truncateText(unique.join(', '), 120) : '';
+  } catch {
+    return '';
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Alamat lengkap untuk kartu lokasi awal/tujuan di halaman detail rute:
+ * 1. Nama cocok persis halte DB -> kolom `alamat` (kurasi, paling akurat).
+ * 2. Jika tidak (mis. "Lokasi saya" GPS / tempat umum) -> reverse-geocode.
+ * 3. Gagal semua -> null (pemanggil memakai district seperti sebelumnya).
+ */
+export async function resolveFullAddress(
+  name: string,
+  lat: number,
+  lng: number,
+  fetchDbAddress: (halteId: number) => Promise<string>,
+): Promise<string | null> {
+  const trimmed = name.trim();
+  if (trimmed.length === 0) return null;
+
+  try {
+    const dbResults = await fetchBackendStops(trimmed, 5);
+    const exact = dbResults.find((item) => item.name.toLowerCase() === trimmed.toLowerCase());
+    if (exact && exact.id.startsWith('db:')) {
+      const address = await fetchDbAddress(Number(exact.id.slice('db:'.length)));
+      if (address.trim() !== '') return address;
+    }
+  } catch {
+    // Lanjut ke reverse-geocode.
+  }
+
+  const reversed = await reverseGeocode(lat, lng);
+  return reversed !== '' ? reversed : null;
+}

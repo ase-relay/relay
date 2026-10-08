@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { VehicleIcon, type VehicleType } from '@/components/icons/vehicle/VehicleIcon';
 import WalkingGlyphIcon from '@/components/icons/cari-rute/WalkingIcon';
 import { getRouteBadgeColor } from '@/lib/routeBadgeColor';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { getNextDeparture, parseClockToMinutes } from '@/lib/schedule';
 
 export interface JourneyStop { time: string; stopName: string; lat?: number; lng?: number; }
@@ -17,6 +18,7 @@ export interface TransitSegment extends BaseSegment {
   routeCode: string;
   /** Tipe moda leg ini (dari `moda.nama` BE) — menentukan label halte/stasiun & ikon. */
   vehicleType: VehicleType;
+  boardingHalteId?: number | null;
   cost: number;
   duration: number;
   stopCount: number;
@@ -39,6 +41,12 @@ interface TripStepListProps {
   segments: JourneySegment[];
   /** Dipanggil saat nama halte di daftar perhentian diklik. Tanpa prop ini nama halte tetap teks biasa. */
   onStopSelect?: (stop: JourneyStopTarget) => void;
+  /** Alamat lengkap per ID halte naik (halteId -> alamat). Tanpa entri = baris alamat tidak tampil. */
+  boardingAddresses?: Record<number, string>;
+  /** Skeleton di baris alamat awal/tujuan selama alamat lengkap di-resolve. */
+  endpointLoading?: boolean;
+  /** Skeleton di baris alamat transit selama alamat halte di-fetch. */
+  boardingLoading?: boolean;
 }
 interface TimelineSegmentProps { item: JourneySegment; onStopSelect?: (stop: JourneyStopTarget) => void; }
 
@@ -258,7 +266,7 @@ function TimelineLine({ position }: { position: 'start' | 'middle' | 'end' }) {
   );
 }
 
-function PointCard({ point, type }: { point: JourneyPoint; type: 'start' | 'end' }) {
+function PointCard({ point, type, addressLoading }: { point: JourneyPoint; type: 'start' | 'end'; addressLoading?: boolean }) {
   const label = type === 'start' ? 'Berangkat dari' : 'Tiba di';
   return (
     <div className={`rounded-xl p-4 sm:p-5 ${type === 'start' ? 'bg-slate-50' : 'bg-orange-50/70'}`}>
@@ -267,12 +275,28 @@ function PointCard({ point, type }: { point: JourneyPoint; type: 'start' | 'end'
         <time className="font-bold text-neutral-900">{point.time}</time>
       </div>
       <p className="mt-2 text-base font-bold text-neutral-900 sm:text-lg">{point.name}</p>
-      {point.address && <p className="mt-2 text-xs leading-relaxed text-neutral-500 sm:text-sm">{point.address}</p>}
+      {addressLoading ? (
+        <Skeleton variant="text" className="mt-2 h-4 w-2/3" />
+      ) : (
+        point.address && <p className="mt-2 text-xs leading-relaxed text-neutral-500 sm:text-sm">{point.address}</p>
+      )}
     </div>
   );
 }
 
-export function TripStepList({ origin, destination, segments, onStopSelect }: TripStepListProps) {
+/** Baris alamat kartu transit: skeleton saat fetch, alamat bila ada, kosong bila tidak. */
+function TransitBoardingAddress({ halteId, addresses, loading }: { halteId?: number | null; addresses?: Record<number, string>; loading?: boolean }) {
+  const address = halteId != null ? addresses?.[halteId] : undefined;
+  if (address) {
+    return <p className="mt-2 text-xs leading-relaxed text-neutral-500 sm:text-sm">{address}</p>;
+  }
+  if (halteId != null && loading) {
+    return <Skeleton variant="text" className="mt-2 h-4 w-3/4" />;
+  }
+  return null;
+}
+
+export function TripStepList({ origin, destination, segments, onStopSelect, boardingAddresses, endpointLoading, boardingLoading }: TripStepListProps) {
   return (
     <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-8" aria-labelledby="journey-detail-title">
       <h2 id="journey-detail-title" className="text-lg font-bold text-neutral-900">Detail Perjalanan</h2>
@@ -280,7 +304,7 @@ export function TripStepList({ origin, destination, segments, onStopSelect }: Tr
         <div className="relative flex items-center gap-4 sm:gap-5">
           <TimelineLine position="start" />
           <div className="z-10 shrink-0"><TimelineNode type="start" /></div>
-          <div className="min-w-0 flex-1"><PointCard point={origin} type="start" /></div>
+          <div className="min-w-0 flex-1"><PointCard point={origin} type="start" addressLoading={endpointLoading} /></div>
         </div>
 
         {segments.map((segment) => segment.type === 'TRANSIT' ? (
@@ -296,6 +320,7 @@ export function TripStepList({ origin, destination, segments, onStopSelect }: Tr
                     <time className="font-bold text-neutral-900">{segment.startTime}</time>
                   </div>
                   <p className="mt-2 text-base font-bold text-neutral-900 sm:text-lg">{segment.stops[0]?.stopName ?? 'Halte keberangkatan'}</p>
+                  <TransitBoardingAddress halteId={segment.boardingHalteId} addresses={boardingAddresses} loading={boardingLoading} />
                 </div>
               </div>
             </div>
@@ -311,7 +336,7 @@ export function TripStepList({ origin, destination, segments, onStopSelect }: Tr
         <div className="relative flex items-center gap-4 sm:gap-5">
           <TimelineLine position="end" />
           <div className="z-10 shrink-0"><TimelineNode type="end" /></div>
-          <div className="min-w-0 flex-1"><PointCard point={destination} type="end" /></div>
+          <div className="min-w-0 flex-1"><PointCard point={destination} type="end" addressLoading={endpointLoading} /></div>
         </div>
       </div>
     </section>

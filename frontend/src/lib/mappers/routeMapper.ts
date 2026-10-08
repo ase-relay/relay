@@ -169,6 +169,7 @@ export function mapApiRouteToJourneySegments(apiRoute: ApiRoute): JourneySegment
       jamSelesaiOperasi: leg.rute?.jamSelesaiOperasi ?? null,
       intervalWaktu: leg.rute?.intervalWaktu ?? null,
       jadwalKeberangkatan,
+      boardingHalteId: leg.fromHalte?.id ?? null,
     };
   });
 }

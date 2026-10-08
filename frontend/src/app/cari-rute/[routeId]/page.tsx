@@ -12,8 +12,9 @@ import { JourneySegment, JourneyStopTarget, TripStepList } from '@/components/ro
 import { MapPlaceholder } from '@/components/map/MapPlaceholder';
 import { mapApiRouteToJourneySegments, mapApiRouteToRouteResultCard } from '@/lib/mappers/routeMapper';
 import { readRouteSearchLocations, readRouteSearchResults, saveRouteSearchLocations, saveRouteSearchResults, RouteSearchLocations } from '@/lib/routeSearchTransfer';
+import { resolveFullAddress } from '@/services/locationSearch';
 import { parseRouteSearchQuery, SORT_SLUG_TO_ENUM, isRouteSearchInServiceArea } from '@/lib/routeSearchParams';
-import { fetchRouteGeometry, searchRoutes } from '@/lib/api';
+import { fetchRouteGeometry, searchRoutes, fetchHalteAddress } from '@/lib/api';
 import {
   transformApiRouteToMapMarkers,
   transformApiRouteToMapPolylines,
@@ -311,6 +312,74 @@ function RouteDetailPageContent() {
     return mapApiRouteToJourneySegments(selectedRoute);
   }, [selectedRoute]);
 
+  // Alamat lengkap kartu awal/tujuan: DB (nama cocok persis) -> reverse-geocode
+  // (mis. "Lokasi saya") -> district (tampilan lama). Kesegaran hasil dilacak
+  // via kunci lokasi (tanpa setState sinkron di dalam effect): selama kunci
+  // belum cocok, kartu menampilkan skeleton.
+  const locationKey = searchLocations
+    ? `${searchLocations.origin.name}|${searchLocations.origin.lat}|${searchLocations.origin.lng}||${searchLocations.destination.name}|${searchLocations.destination.lat}|${searchLocations.destination.lng}`
+    : '';
+  const [resolvedEndpoints, setResolvedEndpoints] = useState<{ key: string; origin?: string; destination?: string }>({ key: '' });
+  const resolvedKey = resolvedEndpoints.key;
+  useEffect(() => {
+    if (!searchLocations || locationKey === '' || resolvedKey === locationKey) return;
+    let cancelled = false;
+    const { origin, destination } = searchLocations;
+    Promise.all([
+      resolveFullAddress(origin.name, origin.lat, origin.lng, fetchHalteAddress),
+      resolveFullAddress(destination.name, destination.lat, destination.lng, fetchHalteAddress),
+    ]).then(([originAddress, destinationAddress]) => {
+      if (cancelled) return;
+      setResolvedEndpoints({
+        key: locationKey,
+        ...(originAddress ? { origin: originAddress } : {}),
+        ...(destinationAddress ? { destination: destinationAddress } : {}),
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [searchLocations, locationKey, resolvedKey]);
+  const endpointLoading = !!searchLocations && resolvedKey !== locationKey;
+
+  // ID halte naik tiap leg TRANSIT (di-memo agar stabil per rute). Status loading
+  // diturunkan saat render (id belum ada di map = masih menunggu) — tanpa
+  // setState sinkron di dalam effect. ID gagal fetch dicatat '' agar tidak
+  // menunggu selamanya.
+  const transitBoardingIds = useMemo(() => {
+    if (!selectedRoute) return [];
+    return Array.from(
+      new Set(
+        selectedRoute.legs
+          .filter((leg) => leg.legType === 'TRANSIT')
+          .map((leg) => leg.fromHalte?.id)
+          .filter((id): id is number => typeof id === 'number'),
+      ),
+    );
+  }, [selectedRoute]);
+  const [boardingAddresses, setBoardingAddresses] = useState<Record<number, string>>({});
+  const boardingFetchedRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    const ids = transitBoardingIds.filter((id) => !boardingFetchedRef.current.has(id));
+    if (ids.length === 0) return;
+    ids.forEach((id) => boardingFetchedRef.current.add(id));
+    let cancelled = false;
+    Promise.allSettled(ids.map((id) => fetchHalteAddress(id))).then((results) => {
+      if (cancelled) return;
+      setBoardingAddresses((prev) => {
+        const next = { ...prev };
+        results.forEach((result, index) => {
+          next[ids[index]] = result.status === 'fulfilled' ? result.value : '';
+        });
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [transitBoardingIds]);
+  const boardingLoading = transitBoardingIds.some((id) => !(id in boardingAddresses));
+
   // Self-heal geometri (stale-while-revalidate): bila ada leg yang jatuh ke
   // fallback garis lurus (<= 2 titik) saat pencarian pertama (OSRM cold/429),
   // minta geometri sebenarnya ke endpoint /routing/geometry dan perbarui
@@ -425,8 +494,8 @@ function RouteDetailPageContent() {
   // Nama tempat (design) dari penyimpanan pencarian; fallback nama halte rute.
   const originName = searchLocations?.origin.name ?? originPoint?.name ?? 'Lokasi awal';
   const destinationName = searchLocations?.destination.name ?? destinationPoint?.name ?? 'Tujuan';
-  const originAddress = searchLocations?.origin.district ?? '';
-  const destinationAddress = searchLocations?.destination.district ?? '';
+  const originAddress = (!endpointLoading && resolvedEndpoints.origin) || searchLocations?.origin.district || '';
+  const destinationAddress = (!endpointLoading && resolvedEndpoints.destination) || searchLocations?.destination.district || '';
 
   return (
     <div className="flex min-h-screen flex-col text-neutral-900">
@@ -464,6 +533,9 @@ function RouteDetailPageContent() {
             }}
             segments={journeySegments}
             onStopSelect={handleStopSelect}
+            boardingAddresses={boardingAddresses}
+            endpointLoading={endpointLoading}
+            boardingLoading={boardingLoading}
           />
 
           <div className="order-first h-fit lg:sticky lg:top-32 lg:order-none">
