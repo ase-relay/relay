@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { RouteSummaryHeader } from '@/components/route-detail/RouteSummaryHeader';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { JourneySegment, JourneyStopTarget, TripStepList } from '@/components/route-detail/TripStepList';
 import { MapPlaceholder } from '@/components/map/MapPlaceholder';
 import { mapApiRouteToJourneySegments, mapApiRouteToRouteResultCard } from '@/lib/mappers/routeMapper';
@@ -108,9 +109,50 @@ function toRouteOption(
 export default function RouteDetailPage() {
   // useSearchParams wajib dibungkus Suspense saat prerender.
   return (
-    <Suspense fallback={<div className="min-h-screen" />}>
+    <Suspense fallback={<RouteDetailLoadingFallback />}>
       <RouteDetailPageContent />
     </Suspense>
+  );
+}
+
+// Rangka loading menyerupai layout akhir (navbar + ringkasan + detail + peta
+// + footer) agar tidak ada layar putih/kedip saat buka pertama atau refresh.
+function RouteDetailLoadingFallback() {
+  return (
+    <div className="flex min-h-screen flex-col text-neutral-900">
+      <Navbar />
+      <main className="mx-auto w-full max-w-292.5 flex-1 px-4 pb-12 pt-6 sm:px-8 xl:px-0">
+        <Skeleton variant="text" className="h-5 w-48 max-w-full" />
+        <div aria-hidden="true" className="mt-6 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-6">
+          <Skeleton variant="text" className="h-6 w-2/3 max-w-md" />
+          <Skeleton variant="text" className="mt-3 h-4 w-1/2 max-w-sm" />
+          <div className="mt-4 flex flex-wrap gap-6">
+            <Skeleton variant="text" className="h-5 w-24" />
+            <Skeleton variant="text" className="h-5 w-24" />
+            <Skeleton variant="text" className="h-5 w-32" />
+          </div>
+        </div>
+        <div aria-hidden="true" className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
+          <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-6">
+            <Skeleton variant="text" className="h-6 w-44 max-w-full" />
+            {[0, 1, 2].map((index) => (
+              <div key={`detail-loading-${index}`} className="mt-5 rounded-xl bg-neutral-50 p-4">
+                <Skeleton variant="text" className="h-4 w-24" />
+                <Skeleton variant="text" className="mt-2 h-5 w-3/4" />
+              </div>
+            ))}
+          </div>
+          <div className="h-fit rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-6">
+            <Skeleton variant="text" className="h-6 w-20" />
+            <Skeleton variant="rounded" className="mt-4 h-64 w-full sm:h-72" />
+          </div>
+        </div>
+      </main>
+      <Footer />
+      <span role="status" className="sr-only">
+        Memuat detail rute...
+      </span>
+    </div>
   );
 }
 
@@ -337,10 +379,10 @@ function RouteDetailPageContent() {
 
   // Handle route not found
   if (!selectedRoute) {
-    // Hindari kedip layar "rute tidak ditemukan" saat data belum dibaca /
-    // pencarian ulang dari query URL masih berjalan.
+    // Data belum dibaca / pencarian ulang dari query URL masih berjalan:
+    // tampilkan rangka loading, bukan layar putih maupun "tidak ditemukan".
     if (!hasLoaded || isSearching) {
-      return <div className="min-h-screen" />;
+      return <RouteDetailLoadingFallback />;
     }
 
     return (

@@ -1,5 +1,6 @@
-// Placeholder untuk MapViewer.tsx — akan diisi Google Maps JavaScript API + Directions Service saat tahap integrasi final. 
-// Saat itu terjadi, isolasi komponen ini penting agar re-render induk (misal saat form berubah) tidak memicu re-init instance Google Maps yang boros kuota.
+// Fallback loading untuk MapViewer (dynamic import, SSR dimatikan).
+// Hanya tampil sepersekian detik saat chunk Leaflet dimuat — berupa kotak
+// shimmer netral, tanpa teks (bukan lagi placeholder integrasi API).
 
 interface MapPlaceholderProps {
   originLabel?: string;
@@ -10,12 +11,14 @@ interface MapPlaceholderProps {
 export function MapPlaceholder({ originLabel, destinationLabel, className = '' }: MapPlaceholderProps) {
   return (
     <div className={`w-full ${className}`}>
-      <div className="aspect-video bg-neutral-100 border-2 border-dashed border-neutral-300 rounded-lg flex flex-col items-center justify-center">
-        <div className="text-6xl mb-4">🗺️</div>
-        <h3 className="text-lg font-semibold text-neutral-700 mb-2">Peta Interaktif</h3>
-        <p className="text-sm text-neutral-500">(Preview — integrasi Google Maps API menyusul)</p>
-      </div>
-      
+      <div
+        aria-hidden="true"
+        className="aspect-video animate-pulse rounded-xl bg-neutral-100"
+      />
+      <span role="status" className="sr-only">
+        Memuat peta...
+      </span>
+
       {(originLabel || destinationLabel) && (
         <div className="mt-3 text-sm text-neutral-600 text-center">
           {originLabel && `Dari: ${originLabel}`}

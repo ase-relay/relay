@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { VehicleIcon, type VehicleType } from '@/components/icons/vehicle/VehicleIcon';
 import WalkingGlyphIcon from '@/components/icons/cari-rute/WalkingIcon';
 import { getRouteBadgeColor } from '@/lib/routeBadgeColor';
+import { getNextDeparture, parseClockToMinutes } from '@/lib/schedule';
 
 export interface JourneyStop { time: string; stopName: string; lat?: number; lng?: number; }
 /** Halte yang dipilih user dari daftar perhentian (untuk zoom peta). */
@@ -61,8 +62,87 @@ function boardingLabel(vehicleType: VehicleType): string {
   }
 }
 
+/**
+ * Jadwal kereta: hanya keberangkatan terdekat yang tampil langsung
+ * ("[jam]" atau "[jam] (besok)" bila hari ini sudah habis). Daftar lengkap
+ * disembunyikan di balik toggle agar tidak membanjiri layout.
+ */
+function TrainScheduleBlock({ schedules, isOpen, onToggle }: { schedules: string[]; isOpen: boolean; onToggle: () => void }) {
+  const next = getNextDeparture(schedules);
+  if (!next) return null;
+
+  const sorted = schedules
+    .filter((entry) => parseClockToMinutes(entry) !== null)
+    .sort((a, b) => (parseClockToMinutes(a) as number) - (parseClockToMinutes(b) as number));
+
+  return (
+    <div className="mt-2 text-sm">
+      <p className="text-neutral-500">
+        Jadwal keberangkatan selanjutnya:{' '}
+        <span className="font-bold text-neutral-900">
+          {next.time}{next.isTomorrow ? ' (besok)' : ''}
+        </span>
+      </p>
+      {next.totalCount > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={isOpen}
+            className="mt-1.5 flex items-center gap-2 text-sm font-medium text-primary-600 transition-colors hover:text-primary-700"
+          >
+            <Chevron isOpen={isOpen} />
+            {isOpen ? 'Sembunyikan jadwal' : `Lihat semua ${next.totalCount} jadwal`}
+          </button>
+          <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'mt-2 grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+            <div className="overflow-hidden">
+              <div className="flex flex-wrap gap-1.5">
+                {sorted.map((time, index) => {
+                  const isNext = !next.isTomorrow && time === next.time;
+                  return (
+                    <span
+                      key={`${time}-${index}`}
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${isNext ? 'bg-primary-600 text-white' : 'bg-neutral-100 text-neutral-700'}`}
+                    >
+                      {time}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Jam operasi + interval bus/dll sebagai baris label-nilai yang rapi. */
+function OperatingHoursBlock({ jamMulai, jamSelesai, interval }: { jamMulai?: string | null; jamSelesai?: string | null; interval?: string | null }) {
+  const range = [jamMulai, jamSelesai].filter(Boolean).join(' – ');
+  if (!range && !interval) return null;
+
+  return (
+    <dl className="mt-2 space-y-1 text-sm">
+      {range && (
+        <div className="flex gap-2">
+          <dt className="w-24 shrink-0 text-neutral-500">Jam operasi</dt>
+          <dd className="font-medium text-neutral-900">{range} WIB</dd>
+        </div>
+      )}
+      {interval && (
+        <div className="flex gap-2">
+          <dt className="w-24 shrink-0 text-neutral-500">Interval</dt>
+          <dd className="font-medium text-neutral-900">{interval}</dd>
+        </div>
+      )}
+    </dl>
+  );
+}
+
 export function TimelineSegment({ item, onStopSelect }: TimelineSegmentProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const summary = item.type === 'WALK' ? `${item.duration} menit, ${item.distance} m` : `${item.duration} menit (${item.stopCount} perhentian)`;
 
   if (item.type === 'WALK') {
@@ -99,21 +179,9 @@ export function TimelineSegment({ item, onStopSelect }: TimelineSegmentProps) {
         <p className="font-semibold text-neutral-900">{item.operator}</p>
       </div>
       <p className="mt-2 text-sm text-neutral-500">Biaya: {formatCurrency(item.cost)}</p>
-      {/* Tampilkan info jadwal/operasional jika tersedia */}
-      {item.vehicleType === 'train' && item.jadwalKeberangkatan && item.jadwalKeberangkatan.length > 0 && (
-        <p className="mt-1 text-sm text-blue-600">
-          🚆 Jadwal keberangkatan: {item.jadwalKeberangkatan.join(', ')} WIB
-        </p>
-      )}
-      {item.vehicleType !== 'train' && (item.jamMulaiOperasi || item.intervalWaktu) && (
-        <p className="mt-1 text-sm text-neutral-500">
-          {item.jamMulaiOperasi && item.jamSelesaiOperasi
-            ? `🕐 Beroperasi: ${item.jamMulaiOperasi} – ${item.jamSelesaiOperasi} WIB`
-            : null}
-          {item.jamMulaiOperasi && item.jamSelesaiOperasi && item.intervalWaktu ? ' · ' : null}
-          {item.intervalWaktu ? `⏱ Interval: ${item.intervalWaktu}` : null}
-        </p>
-      )}
+      {item.vehicleType === 'train'
+        ? <TrainScheduleBlock schedules={item.jadwalKeberangkatan ?? []} isOpen={isScheduleOpen} onToggle={() => setIsScheduleOpen((open) => !open)} />
+        : <OperatingHoursBlock jamMulai={item.jamMulaiOperasi} jamSelesai={item.jamSelesaiOperasi} interval={item.intervalWaktu} />}
       <button
         type="button"
         onClick={() => setIsOpen((open) => !open)}

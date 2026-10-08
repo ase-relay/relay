@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx tsx --test src/lib/mappers/__tests__/routeMapper.test.ts src/lib/__tests__/routeSearchTransfer.test.ts src/lib/__tests__/routeSearchParams.test.ts src/lib/__tests__/serviceArea.test.ts",
+    "test": "npx tsx --test src/lib/mappers/__tests__/routeMapper.test.ts src/lib/__tests__/routeSearchTransfer.test.ts src/lib/__tests__/routeSearchParams.test.ts src/lib/__tests__/serviceArea.test.ts src/lib/__tests__/schedule.test.ts",
     "debug:contract": "npx tsx scripts/debug-routing-contract.ts"
   },
   "dependencies": {
