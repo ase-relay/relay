@@ -279,7 +279,7 @@ export function LocationInput({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         autoComplete="off"
-        className={`h-12 w-full rounded-2xl border bg-white px-4 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-primary-600 focus:ring-2 focus:ring-primary-100 sm:h-15 sm:px-5 sm:text-base ${error ? "border-red-500" : "border-neutral-300"}`}
+        className={`h-12 w-full rounded-2xl border bg-white px-4 text-base text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-primary-600 focus:ring-2 focus:ring-primary-100 sm:h-15 sm:px-5 ${error ? "border-red-500" : "border-neutral-300"}`}
       />
       {isActive && (
         <LocationSuggestions

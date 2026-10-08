@@ -292,7 +292,7 @@ export default function ProfilPage() {
                                 value={username}
                                 onChange={(event) => setUsername(event.target.value)}
                                 placeholder="Masukkan username baru"
-                                className={`w-full rounded-[20px] border bg-white px-4 py-3 sm:px-5 sm:py-3.5 text-sm sm:text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-primary-600 focus:ring-1 focus:ring-primary-600 ${usernameSubmitted && !usernameValid ? 'border-red-500' : 'border-neutral-300'}`}
+                                className={`w-full rounded-[20px] border bg-white px-4 py-3 sm:px-5 sm:py-3.5 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-primary-600 focus:ring-1 focus:ring-primary-600 ${usernameSubmitted && !usernameValid ? 'border-red-500' : 'border-neutral-300'}`}
                             />
                             <p className={`mt-2 text-xs ${usernameSubmitted && !usernameValid ? 'text-red-600' : 'text-neutral-400'}`}>3-30 karakter, hanya huruf, angka, dan underscore</p>
                             {usernameError && <p className="mt-2 text-xs text-red-600">{usernameError}</p>}
@@ -408,7 +408,7 @@ function PasswordInput({ label, name, placeholder, value, shown, onToggle, onCha
                     value={value}
                     onChange={(event) => onChange(event.target.value)}
                     placeholder={placeholder}
-                    className={`w-full rounded-[20px] border bg-white py-3 sm:py-3.5 pr-11 pl-12 text-sm sm:text-base outline-none placeholder:text-neutral-400 focus:border-primary-600 focus:ring-1 focus:ring-primary-600 ${error ? 'border-red-500' : 'border-neutral-300'}`}
+                    className={`w-full rounded-[20px] border bg-white py-3 sm:py-3.5 pr-11 pl-12 text-base outline-none placeholder:text-neutral-400 focus:border-primary-600 focus:ring-1 focus:ring-primary-600 ${error ? 'border-red-500' : 'border-neutral-300'}`}
                 />
                 <button type="button" onClick={onToggle} aria-label={shown ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'} className="absolute top-1/2 right-4 -translate-y-1/2 cursor-pointer text-neutral-400">
                     {shown ? <HiOutlineEyeSlash className="h-5 w-5 sm:h-6 sm:w-6" /> : <HiOutlineEye className="h-5 w-5 sm:h-6 sm:w-6" />}
