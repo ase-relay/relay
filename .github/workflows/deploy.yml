@@ -1,0 +1,32 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "deploy.sh"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy
+        env:
+          ENV_FILE: /opt/otewe/backend.env
+        run: bash ./deploy.sh
+
+      - name: Bersihkan sisa build lama
+        continue-on-error: true
+        run: |
+          docker image prune -f
+          docker builder prune -f --filter "until=72h"

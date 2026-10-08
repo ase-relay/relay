@@ -36,7 +36,4 @@ dev.db-journal
 dist/
 build/
 
-Software Requirements Specification Document_ASE LAB 2026 - RELAY (1).pdf
-routing_search_request.json
-routing_search_response.json
 .freebuff/
