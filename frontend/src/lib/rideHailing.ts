@@ -2,9 +2,10 @@
  * Deep link ke aplikasi ojek online (Gojek / Grab).
  *
  * Batasan jujur: tidak ada API publik resmi untuk membuka form order dengan
- * tujuan terisi — tombol ini membuka APLIKASI (skema `gojek://` / `grab://`),
- * bukan memesan langsung. Bila aplikasi tidak terinstal, fallback ke halaman
- * store (package Android & ID App Store iOS terverifikasi via Apple Search API).
+ * tujuan terisi — tombol ini membuka APLIKASI, bukan memesan langsung.
+ *
+ * Bila aplikasi tidak terinstal, fallback ke halaman store (package Android &
+ * ID App Store iOS terverifikasi via Apple Search API).
  */
 
 export type RideHailingId = 'gojek' | 'grab';
@@ -13,8 +14,8 @@ export type MobilePlatform = 'android' | 'ios' | 'desktop';
 export interface RideHailingProvider {
   id: RideHailingId;
   name: string;
-  /** Skema aplikasi (membuka app bila terinstal). */
-  schemeUrl: string;
+  /** URL pembuka aplikasi di mobile (skema aplikasi atau universal link). */
+  appUrl: string;
   /** Fallback bila aplikasi tidak ada. */
   playStoreUrl: string;
   appStoreUrl: string;
@@ -24,14 +25,14 @@ export const RIDE_HAILING_PROVIDERS: RideHailingProvider[] = [
   {
     id: 'gojek',
     name: 'Gojek',
-    schemeUrl: 'gojek://',
+    appUrl: 'gojek://',
     playStoreUrl: 'https://play.google.com/store/apps/details?id=com.gojek.app',
     appStoreUrl: 'https://apps.apple.com/id/app/gojek/id944875099',
   },
   {
     id: 'grab',
     name: 'Grab',
-    schemeUrl: 'grab://',
+    appUrl: 'https://applink.grab.com/open',
     playStoreUrl: 'https://play.google.com/store/apps/details?id=com.grabtaxi.passenger',
     appStoreUrl: 'https://apps.apple.com/id/app/grab-food-delivery-taxi-ride/id647268330',
   },
@@ -116,20 +117,20 @@ export function openRideHailingApp(id: RideHailingId, platform?: MobilePlatform)
     cancelFallback();
   };
 
-  if (current === 'android') {
-    // iframe tersembunyi: bila skema tak dikenal, halaman utama tidak rusak
-    // (tidak seperti direct navigation yang bisa mendarat di halaman error).
+  // Skema kustom di iframe tersembunyi (Android): bila tak dikenal, halaman
+  // utama tidak rusak. Universal link https selalu navigasi top-level.
+  const useHiddenIframe = current === 'android' && !provider.appUrl.startsWith('https://');
+  if (useHiddenIframe) {
     const frame = document.createElement('iframe');
     frame.style.display = 'none';
-    frame.src = provider.schemeUrl;
+    frame.src = provider.appUrl;
     document.body.appendChild(frame);
     window.setTimeout(() => {
       frame.remove();
       fallbackToStore();
     }, APP_OPEN_FALLBACK_MS);
   } else {
-    // iOS: skema di iframe tidak berpindah aplikasi — pakai navigasi langsung.
-    window.location.href = provider.schemeUrl;
+    window.location.href = provider.appUrl;
     window.setTimeout(fallbackToStore, APP_OPEN_FALLBACK_MS);
   }
 }
