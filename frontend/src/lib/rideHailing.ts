@@ -14,9 +14,8 @@ export type MobilePlatform = 'android' | 'ios' | 'desktop';
 export interface RideHailingProvider {
   id: RideHailingId;
   name: string;
-  /** URL pembuka aplikasi di mobile (skema aplikasi atau universal link). */
+  /** URL pembuka aplikasi bila koordinat trip tak tersedia (fallback). */
   appUrl: string;
-  androidAppUrl?: string;
   /** Fallback bila aplikasi tidak ada. */
   playStoreUrl: string;
   appStoreUrl: string;
@@ -36,13 +35,67 @@ export const RIDE_HAILING_PROVIDERS: RideHailingProvider[] = [
     id: 'grab',
     name: 'Grab',
     appUrl: 'https://applink.grab.com/open',
-    androidAppUrl:
-      'intent://open?service=bike#Intent;scheme=grab;package=com.grabtaxi.passenger;' +
-      `S.browser_fallback_url=${encodeURIComponent(GRAB_PLAY_STORE)};end`,
     playStoreUrl: GRAB_PLAY_STORE,
     appStoreUrl: 'https://apps.apple.com/id/app/grab-food-delivery-taxi-ride/id647268330',
   },
 ];
+
+/** Koordinat jemput & tujuan untuk prefill deep link (dari ujung leg ojek). */
+export interface TripCoords {
+  pickupLat: number;
+  pickupLng: number;
+  destLat: number;
+  destLng: number;
+}
+
+function hasValidTrip(trip?: TripCoords | null): trip is TripCoords {
+  return (
+    !!trip &&
+    [trip.pickupLat, trip.pickupLng, trip.destLat, trip.destLng].every((value) =>
+      Number.isFinite(value),
+    )
+  );
+}
+
+/** GoRide dengan prefill (format temuan user; perlu verifikasi device). */
+export function buildGojekUrl(trip?: TripCoords | null): string {
+  if (!hasValidTrip(trip)) return 'gojek://goride';
+  return `gojek://goride?pLat=${trip.pickupLat}&pLng=${trip.pickupLng}&dLat=${trip.destLat}&dLng=${trip.destLng}`;
+}
+
+/** GrabBike dengan prefill (format temuan user; perlu verifikasi device). */
+export function buildGrabSchemeUrl(trip?: TripCoords | null): string {
+  const base = 'grab://open?service=bike';
+  if (!hasValidTrip(trip)) return base;
+  return (
+    `${base}&pickup_lat=${trip.pickupLat}&pickup_lng=${trip.pickupLng}` +
+    `&dest_lat=${trip.destLat}&dest_lng=${trip.destLng}`
+  );
+}
+
+/** Varian intent:// Android: skema + package eksplisit + fallback native OS. */
+export function buildGrabIntentUrl(trip?: TripCoords | null): string {
+  const inner = buildGrabSchemeUrl(trip).replace(/^grab:\/\//, '');
+  return (
+    `intent://${inner}#Intent;scheme=grab;package=com.grabtaxi.passenger;` +
+    `S.browser_fallback_url=${encodeURIComponent(GRAB_PLAY_STORE)};end`
+  );
+}
+
+/** URL pembuka per provider + platform. `nativeFallback` = OS menangani fallback. */
+export function buildOpenUrl(
+  provider: RideHailingProvider,
+  platform: MobilePlatform,
+  trip?: TripCoords | null,
+): { url: string; nativeFallback: boolean } {
+  if (provider.id === 'gojek') {
+    return { url: buildGojekUrl(trip), nativeFallback: false };
+  }
+  if (platform === 'android') {
+    return { url: buildGrabIntentUrl(trip), nativeFallback: true };
+  }
+  return { url: trip ? buildGrabSchemeUrl(trip) : provider.appUrl, nativeFallback: false };
+}
 
 /** Deteksi platform dari user-agent (parameter agar bisa ditest). */
 export function detectMobilePlatform(userAgent: string): MobilePlatform {
@@ -97,7 +150,11 @@ const APP_OPEN_FALLBACK_MS = 1800;
  * user kembali ke web. Desktop: langsung buka halaman store di tab baru
  * (skema aplikasi tidak berguna di desktop).
  */
-export function openRideHailingApp(id: RideHailingId, platform?: MobilePlatform): void {
+export function openRideHailingApp(
+  id: RideHailingId,
+  trip?: TripCoords | null,
+  platform?: MobilePlatform,
+): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
   const provider = getProvider(id);
   const current = platform ?? detectMobilePlatform(window.navigator.userAgent);
@@ -107,6 +164,8 @@ export function openRideHailingApp(id: RideHailingId, platform?: MobilePlatform)
     window.open(storeUrl, '_blank', 'noopener,noreferrer');
     return;
   }
+
+  const { url: openUrl, nativeFallback } = buildOpenUrl(provider, current, trip);
 
   let settled = false;
   const cancelFallback = () => {
@@ -126,8 +185,7 @@ export function openRideHailingApp(id: RideHailingId, platform?: MobilePlatform)
   // Android + URL intent eksplisit: serahkan sepenuhnya ke Chrome (fallback
   // native, tanpa timer). Kasus lain: skema kustom via iframe tersembunyi,
   // universal link https via navigasi top-level — keduanya dengan timer fallback.
-  const openUrl = current === 'android' && provider.androidAppUrl ? provider.androidAppUrl : provider.appUrl;
-  const useNativeFallback = openUrl.startsWith('intent://');
+  const useNativeFallback = nativeFallback;
   if (useNativeFallback) {
     window.location.href = openUrl;
     cancelFallback();

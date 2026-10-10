@@ -170,6 +170,9 @@ export function mapApiRouteToJourneySegments(apiRoute: ApiRoute): JourneySegment
       intervalWaktu: leg.rute?.intervalWaktu ?? null,
       jadwalKeberangkatan,
       boardingHalteId: leg.fromHalte?.id ?? null,
+      // Koordinat ujung leg untuk deep link ojek (prefill jemput & tujuan).
+      from: leg.from ?? leg.fromHalte ?? null,
+      to: leg.to ?? leg.toHalte ?? null,
     };
   });
 }

@@ -6,7 +6,7 @@ import WalkingGlyphIcon from '@/components/icons/cari-rute/WalkingIcon';
 import { getRouteBadgeColor } from '@/lib/routeBadgeColor';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { getNextDeparture, parseClockToMinutes } from '@/lib/schedule';
-import { RIDE_HAILING_PROVIDERS, buildDropoffText, copyTripText, openRideHailingApp, type RideHailingId } from '@/lib/rideHailing';
+import { RIDE_HAILING_PROVIDERS, buildDropoffText, copyTripText, openRideHailingApp, type RideHailingId, type TripCoords } from '@/lib/rideHailing';
 import GojekIcon from '@/components/icons/ride/GojekIcon';
 import GrabIcon from '@/components/icons/ride/GrabIcon';
 
@@ -22,6 +22,9 @@ export interface TransitSegment extends BaseSegment {
   /** Tipe moda leg ini (dari `moda.nama` BE) — menentukan label halte/stasiun & ikon. */
   vehicleType: VehicleType;
   boardingHalteId?: number | null;
+  /** Koordinat titik naik / turun leg ini (untuk deep link ojek). Null bila tak ada. */
+  from?: { lat: number; lng: number } | null;
+  to?: { lat: number; lng: number } | null;
   cost: number;
   duration: number;
   stopCount: number;
@@ -152,8 +155,9 @@ function OperatingHoursBlock({ jamMulai, jamSelesai, interval }: { jamMulai?: st
 }
 
 /** Tombol "buka aplikasi" untuk segmen ojek online (Gojek / Grab). Menyalin
- * alamat tujuan dulu agar user tinggal tempel di aplikasi, lalu membuka app. */
-function RideHailingButtons({ dropoffText }: { dropoffText?: string }) {
+ * alamat tujuan dulu agar user tinggal tempel di aplikasi, lalu membuka app
+ * dengan prefill koordinat jemput & tujuan (bila tersedia). */
+function RideHailingButtons({ dropoffText, trip }: { dropoffText?: string; trip?: TripCoords | null }) {
   const [copiedId, setCopiedId] = useState<RideHailingId | null>(null);
 
   async function handleOpen(id: RideHailingId) {
@@ -166,7 +170,7 @@ function RideHailingButtons({ dropoffText }: { dropoffText?: string }) {
         }, 2000);
       }
     }
-    openRideHailingApp(id);
+    openRideHailingApp(id, trip);
   }
 
   return (
@@ -240,7 +244,16 @@ export function TimelineSegment({ item, onStopSelect, dropoffText }: TimelineSeg
         <p className="font-semibold text-neutral-900">{item.operator}</p>
       </div>
       <p className="mt-2 text-sm text-neutral-500">Biaya: {formatCurrency(item.cost)}</p>
-      {isOjekSegment(item.operator, item.vehicleType) && <RideHailingButtons dropoffText={dropoffText} />}
+      {isOjekSegment(item.operator, item.vehicleType) && (
+        <RideHailingButtons
+          dropoffText={dropoffText}
+          trip={
+            item.from && item.to
+              ? { pickupLat: item.from.lat, pickupLng: item.from.lng, destLat: item.to.lat, destLng: item.to.lng }
+              : null
+          }
+        />
+      )}
       {item.vehicleType === 'train'
         ? <TrainScheduleBlock schedules={item.jadwalKeberangkatan ?? []} isOpen={isScheduleOpen} onToggle={() => setIsScheduleOpen((open) => !open)} />
         : <OperatingHoursBlock jamMulai={item.jamMulaiOperasi} jamSelesai={item.jamSelesaiOperasi} interval={item.intervalWaktu} />}

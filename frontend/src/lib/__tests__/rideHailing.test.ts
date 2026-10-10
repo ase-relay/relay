@@ -4,11 +4,16 @@ import { test, describe } from 'node:test';
 import {
   RIDE_HAILING_PROVIDERS,
   buildDropoffText,
+  buildGojekUrl,
+  buildGrabIntentUrl,
+  buildGrabSchemeUrl,
+  buildOpenUrl,
   copyTripText,
   detectMobilePlatform,
   getProvider,
   getStoreUrl,
   openRideHailingApp,
+  type TripCoords,
 } from '../rideHailing';
 
 const ANDROID_UA =
@@ -23,7 +28,6 @@ describe('rideHailing: konfigurasi provider', () => {
     assert.equal(RIDE_HAILING_PROVIDERS.length, 2);
     const gojek = getProvider('gojek');
     assert.equal(gojek.appUrl, 'gojek://goride');
-    assert.equal(gojek.androidAppUrl, undefined);
     assert.ok(gojek.playStoreUrl.includes('com.gojek.app'));
     assert.ok(gojek.appStoreUrl.includes('/id944875099'));
     const grab = getProvider('grab');
@@ -35,12 +39,50 @@ describe('rideHailing: konfigurasi provider', () => {
   });
 
   test('intent Android Grab: skema + package + fallback native', () => {
+    const url = buildGrabIntentUrl();
+    assert.ok(url.startsWith('intent://open?service=bike#Intent;'));
+    assert.ok(url.includes('scheme=grab'));
+    assert.ok(url.includes('package=com.grabtaxi.passenger'));
+    assert.ok(url.includes('S.browser_fallback_url='));
+    assert.ok(url.endsWith(';end'));
+  });
+
+  test('prefill koordinat sesuai format temuan (rollback-safe, dikunci test)', () => {
+    const trip: TripCoords = { pickupLat: -6.97833228, pickupLng: 107.63013229, destLat: -6.89306624, destLng: 107.61799203 };
+    assert.equal(
+      buildGojekUrl(trip),
+      'gojek://goride?pLat=-6.97833228&pLng=107.63013229&dLat=-6.89306624&dLng=107.61799203',
+    );
+    assert.equal(
+      buildGrabSchemeUrl(trip),
+      'grab://open?service=bike&pickup_lat=-6.97833228&pickup_lng=107.63013229&dest_lat=-6.89306624&dest_lng=107.61799203',
+    );
+    const intent = buildGrabIntentUrl(trip);
+    assert.ok(intent.includes('pickup_lat=-6.97833228') && intent.includes('dest_lng=107.61799203'));
+  });
+
+  test('tanpa/koordinat rusak -> URL dasar (tanpa param)', () => {
+    assert.equal(buildGojekUrl(), 'gojek://goride');
+    assert.equal(buildGojekUrl(null), 'gojek://goride');
+    assert.equal(
+      buildGojekUrl({ pickupLat: NaN, pickupLng: 107.6, destLat: -6.9, destLng: 107.6 }),
+      'gojek://goride',
+    );
+    assert.equal(buildGrabSchemeUrl(), 'grab://open?service=bike');
+  });
+
+  test('buildOpenUrl: gojek semua platform param; grab android intent, ios skema', () => {
+    const trip: TripCoords = { pickupLat: -6.9, pickupLng: 107.6, destLat: -6.89, destLng: 107.61 };
+    const gojek = getProvider('gojek');
+    assert.ok(buildOpenUrl(gojek, 'android', trip).url.startsWith('gojek://goride?pLat='));
+    assert.equal(buildOpenUrl(gojek, 'ios', trip).nativeFallback, false);
     const grab = getProvider('grab');
-    assert.ok(grab.androidAppUrl?.startsWith('intent://open?service=bike#Intent;'));
-    assert.ok(grab.androidAppUrl?.includes('scheme=grab'));
-    assert.ok(grab.androidAppUrl?.includes('package=com.grabtaxi.passenger'));
-    assert.ok(grab.androidAppUrl?.includes('S.browser_fallback_url='));
-    assert.ok(grab.androidAppUrl?.endsWith(';end'));
+    const android = buildOpenUrl(grab, 'android', trip);
+    assert.ok(android.url.startsWith('intent://') && android.nativeFallback);
+    const ios = buildOpenUrl(grab, 'ios', trip);
+    assert.ok(ios.url.startsWith('grab://open?service=bike&') && !ios.nativeFallback);
+    const iosNoTrip = buildOpenUrl(grab, 'ios');
+    assert.equal(iosNoTrip.url, grab.appUrl);
   });
 
   test('provider tak dikenal melempar error jelas', () => {
