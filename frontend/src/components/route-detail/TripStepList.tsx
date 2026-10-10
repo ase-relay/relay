@@ -6,6 +6,9 @@ import WalkingGlyphIcon from '@/components/icons/cari-rute/WalkingIcon';
 import { getRouteBadgeColor } from '@/lib/routeBadgeColor';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { getNextDeparture, parseClockToMinutes } from '@/lib/schedule';
+import { RIDE_HAILING_PROVIDERS, openRideHailingApp, type RideHailingId } from '@/lib/rideHailing';
+import GojekIcon from '@/components/icons/ride/GojekIcon';
+import GrabIcon from '@/components/icons/ride/GrabIcon';
 
 export interface JourneyStop { time: string; stopName: string; lat?: number; lng?: number; }
 /** Halte yang dipilih user dari daftar perhentian (untuk zoom peta). */
@@ -148,6 +151,40 @@ function OperatingHoursBlock({ jamMulai, jamSelesai, interval }: { jamMulai?: st
   );
 }
 
+/** Tombol "buka aplikasi" untuk segmen ojek online (Gojek / Grab). */
+function RideHailingButtons() {
+  function handleOpen(id: RideHailingId) {
+    return () => openRideHailingApp(id);
+  }
+
+  return (
+    <div className="mt-3">
+      <p className="text-sm text-neutral-500">Lanjut pesan di aplikasi:</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {RIDE_HAILING_PROVIDERS.map((provider) => {
+          const ProviderIcon = provider.id === 'gojek' ? GojekIcon : GrabIcon;
+          return (
+            <button
+              key={provider.id}
+              type="button"
+              onClick={handleOpen(provider.id)}
+              className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 transition-colors hover:border-primary-600 hover:text-primary-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+            >
+              <ProviderIcon className="h-4 w-4 shrink-0" />
+              Buka {provider.name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** True bila segmen transit ini ojek online (bukan bus/kereta/angkot). */
+function isOjekSegment(operator: string, vehicleType: VehicleType): boolean {
+  return vehicleType === 'motorcycle' || operator.toLowerCase().includes('ojek');
+}
+
 export function TimelineSegment({ item, onStopSelect }: TimelineSegmentProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
@@ -183,10 +220,14 @@ export function TimelineSegment({ item, onStopSelect }: TimelineSegmentProps) {
     <div className="pb-1 pl-11 pt-3 sm:pl-12">
       <div className="flex flex-wrap items-center gap-2.5">
         <VehicleIcon type={item.vehicleType} className="h-8 w-8 shrink-0" />
-        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold text-white ${getRouteBadgeColor(item.routeCode)}`}>{item.routeCode}</span>
+        {/* Ojek tidak punya kode rute — badge disembunyikan agar tidak muncul pil kosong. */}
+        {!isOjekSegment(item.operator, item.vehicleType) && item.routeCode && (
+          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold text-white ${getRouteBadgeColor(item.routeCode)}`}>{item.routeCode}</span>
+        )}
         <p className="font-semibold text-neutral-900">{item.operator}</p>
       </div>
       <p className="mt-2 text-sm text-neutral-500">Biaya: {formatCurrency(item.cost)}</p>
+      {isOjekSegment(item.operator, item.vehicleType) && <RideHailingButtons />}
       {item.vehicleType === 'train'
         ? <TrainScheduleBlock schedules={item.jadwalKeberangkatan ?? []} isOpen={isScheduleOpen} onToggle={() => setIsScheduleOpen((open) => !open)} />
         : <OperatingHoursBlock jamMulai={item.jamMulaiOperasi} jamSelesai={item.jamSelesaiOperasi} interval={item.intervalWaktu} />}
@@ -307,10 +348,10 @@ export function TripStepList({ origin, destination, segments, onStopSelect, boar
           <div className="min-w-0 flex-1"><PointCard point={origin} type="start" addressLoading={endpointLoading} /></div>
         </div>
 
-        {segments.map((segment) => segment.type === 'TRANSIT' ? (
+        {segments.map((segment, segmentIndex) => segment.type === 'TRANSIT' ? (
           <div key={segment.id} className="relative">
             <TimelineLine position="middle" />
-            {/* Baris kartu hijau: node di-tengah-vertical terhadap kartu di sebelahnya */}
+            {segmentIndex !== 0 && (
             <div className="flex items-center gap-4 sm:gap-5">
               <div className="z-10 shrink-0"><TimelineNode type="transit" /></div>
               <div className="min-w-0 flex-1">
@@ -324,6 +365,7 @@ export function TripStepList({ origin, destination, segments, onStopSelect, boar
                 </div>
               </div>
             </div>
+            )}
             <div className="pl-13 sm:pl-14"><TimelineSegment item={segment} onStopSelect={onStopSelect} /></div>
           </div>
         ) : (
