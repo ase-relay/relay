@@ -55,12 +55,40 @@ export function getStoreUrl(provider: RideHailingProvider, platform: MobilePlatf
   return platform === 'ios' ? provider.appStoreUrl : provider.playStoreUrl;
 }
 
+/**
+ * Teks tujuan yang disalin ke clipboard: "Nama, Alamat lengkap" (atau salah
+ * satu bila yang lain kosong). Destinasi dipilih karena field inilah yang
+ * selalu diisi manual di aplikasi ojek (titik jemput biasanya terdeteksi).
+ */
+export function buildDropoffText(name: string, address: string): string {
+  const parts = [name.trim(), address.trim()].filter((part) => part !== '');
+  return parts.join(', ');
+}
+
+/**
+ * Salin teks ke clipboard. True bila berhasil. Aman di SSR / browser tanpa
+ * Clipboard API (false) — pemanggil tetap membuka aplikasi seperti biasa.
+ */
+export async function copyTripText(text: string): Promise<boolean> {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText || text.trim() === '') {
+      return false;
+    }
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const APP_OPEN_FALLBACK_MS = 1800;
 
 /**
  * Buka aplikasi ojek. Mobile: coba skema aplikasi, fallback ke store bila
- * halaman masih terlihat (aplikasi tidak terinstal). Desktop: langsung buka
- * halaman store di tab baru (skema aplikasi tidak berguna di desktop).
+ * aplikasi tidak terinstal. Fallback DIBATALKAN seketika halaman disembunyikan
+ * (bukti aplikasi sudah terbuka) — mencegah redirect nyasar ke store setelah
+ * user kembali ke web. Desktop: langsung buka halaman store di tab baru
+ * (skema aplikasi tidak berguna di desktop).
  */
 export function openRideHailingApp(id: RideHailingId, platform?: MobilePlatform): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
@@ -73,11 +101,19 @@ export function openRideHailingApp(id: RideHailingId, platform?: MobilePlatform)
     return;
   }
 
-  const start = Date.now();
-  const goStore = () => {
-    if (!document.hidden && Date.now() - start < APP_OPEN_FALLBACK_MS + 3000) {
-      window.location.href = storeUrl;
-    }
+  let settled = false;
+  const cancelFallback = () => {
+    settled = true;
+    document.removeEventListener('visibilitychange', onHidden);
+    window.removeEventListener('pagehide', onHidden);
+  };
+  const onHidden = () => cancelFallback();
+  document.addEventListener('visibilitychange', onHidden);
+  window.addEventListener('pagehide', onHidden);
+
+  const fallbackToStore = () => {
+    if (!settled && !document.hidden) window.location.href = storeUrl;
+    cancelFallback();
   };
 
   if (current === 'android') {
@@ -89,11 +125,11 @@ export function openRideHailingApp(id: RideHailingId, platform?: MobilePlatform)
     document.body.appendChild(frame);
     window.setTimeout(() => {
       frame.remove();
-      goStore();
+      fallbackToStore();
     }, APP_OPEN_FALLBACK_MS);
   } else {
     // iOS: skema di iframe tidak berpindah aplikasi — pakai navigasi langsung.
     window.location.href = provider.schemeUrl;
-    window.setTimeout(goStore, APP_OPEN_FALLBACK_MS);
+    window.setTimeout(fallbackToStore, APP_OPEN_FALLBACK_MS);
   }
 }

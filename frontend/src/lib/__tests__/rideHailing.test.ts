@@ -3,6 +3,8 @@ import { test, describe } from 'node:test';
 
 import {
   RIDE_HAILING_PROVIDERS,
+  buildDropoffText,
+  copyTripText,
   detectMobilePlatform,
   getProvider,
   getStoreUrl,
@@ -54,5 +56,19 @@ describe('rideHailing: platform & store URL', () => {
 
   test('tanpa window/document: aman dipanggil (no-op, tidak throw)', () => {
     assert.doesNotThrow(() => openRideHailingApp('gojek'));
+  });
+});
+
+describe('rideHailing: salin alamat tujuan', () => {
+  test('nama + alamat digabung koma; yang kosong dibuang', () => {
+    assert.equal(buildDropoffText('Stasiun Padalarang', 'Jl. Cikampek No. 1'), 'Stasiun Padalarang, Jl. Cikampek No. 1');
+    assert.equal(buildDropoffText('Stasiun Padalarang', ''), 'Stasiun Padalarang');
+    assert.equal(buildDropoffText('', 'Jl. Cikampek No. 1'), 'Jl. Cikampek No. 1');
+    assert.equal(buildDropoffText('', '  '), '');
+  });
+
+  test('tanpa Clipboard API: false (pemanggil tetap buka aplikasi)', async () => {
+    assert.equal(await copyTripText('Stasiun Padalarang'), false);
+    assert.equal(await copyTripText(''), false);
   });
 });
