@@ -2,9 +2,10 @@
  * Deep link ke aplikasi ojek online (Gojek / Grab).
  *
  * Batasan jujur: tidak ada API publik resmi untuk membuka form order dengan
- * tujuan terisi — tombol ini membuka APLIKASI (skema `gojek://` / `grab://`),
- * bukan memesan langsung. Bila aplikasi tidak terinstal, fallback ke halaman
- * store (package Android & ID App Store iOS terverifikasi via Apple Search API).
+ * tujuan terisi — tombol ini membuka APLIKASI, bukan memesan langsung.
+ *
+ * Bila aplikasi tidak terinstal, fallback ke halaman store (package Android &
+ * ID App Store iOS terverifikasi via Apple Search API).
  */
 
 export type RideHailingId = 'gojek' | 'grab';
@@ -13,26 +14,32 @@ export type MobilePlatform = 'android' | 'ios' | 'desktop';
 export interface RideHailingProvider {
   id: RideHailingId;
   name: string;
-  /** Skema aplikasi (membuka app bila terinstal). */
-  schemeUrl: string;
+  /** URL pembuka aplikasi di mobile (skema aplikasi atau universal link). */
+  appUrl: string;
+  androidAppUrl?: string;
   /** Fallback bila aplikasi tidak ada. */
   playStoreUrl: string;
   appStoreUrl: string;
 }
 
+const GRAB_PLAY_STORE = 'https://play.google.com/store/apps/details?id=com.grabtaxi.passenger';
+
 export const RIDE_HAILING_PROVIDERS: RideHailingProvider[] = [
   {
     id: 'gojek',
     name: 'Gojek',
-    schemeUrl: 'gojek://',
+    appUrl: 'gojek://goride',
     playStoreUrl: 'https://play.google.com/store/apps/details?id=com.gojek.app',
     appStoreUrl: 'https://apps.apple.com/id/app/gojek/id944875099',
   },
   {
     id: 'grab',
     name: 'Grab',
-    schemeUrl: 'grab://',
-    playStoreUrl: 'https://play.google.com/store/apps/details?id=com.grabtaxi.passenger',
+    appUrl: 'https://applink.grab.com/open',
+    androidAppUrl:
+      'intent://open?service=bike#Intent;scheme=grab;package=com.grabtaxi.passenger;' +
+      `S.browser_fallback_url=${encodeURIComponent(GRAB_PLAY_STORE)};end`,
+    playStoreUrl: GRAB_PLAY_STORE,
     appStoreUrl: 'https://apps.apple.com/id/app/grab-food-delivery-taxi-ride/id647268330',
   },
 ];
@@ -116,20 +123,29 @@ export function openRideHailingApp(id: RideHailingId, platform?: MobilePlatform)
     cancelFallback();
   };
 
-  if (current === 'android') {
-    // iframe tersembunyi: bila skema tak dikenal, halaman utama tidak rusak
-    // (tidak seperti direct navigation yang bisa mendarat di halaman error).
+  // Android + URL intent eksplisit: serahkan sepenuhnya ke Chrome (fallback
+  // native, tanpa timer). Kasus lain: skema kustom via iframe tersembunyi,
+  // universal link https via navigasi top-level — keduanya dengan timer fallback.
+  const openUrl = current === 'android' && provider.androidAppUrl ? provider.androidAppUrl : provider.appUrl;
+  const useNativeFallback = openUrl.startsWith('intent://');
+  if (useNativeFallback) {
+    window.location.href = openUrl;
+    cancelFallback();
+    return;
+  }
+
+  const useHiddenIframe = current === 'android' && !openUrl.startsWith('https://');
+  if (useHiddenIframe) {
     const frame = document.createElement('iframe');
     frame.style.display = 'none';
-    frame.src = provider.schemeUrl;
+    frame.src = openUrl;
     document.body.appendChild(frame);
     window.setTimeout(() => {
       frame.remove();
       fallbackToStore();
     }, APP_OPEN_FALLBACK_MS);
   } else {
-    // iOS: skema di iframe tidak berpindah aplikasi — pakai navigasi langsung.
-    window.location.href = provider.schemeUrl;
+    window.location.href = openUrl;
     window.setTimeout(fallbackToStore, APP_OPEN_FALLBACK_MS);
   }
 }

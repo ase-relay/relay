@@ -19,16 +19,28 @@ const DESKTOP_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 
 describe('rideHailing: konfigurasi provider', () => {
-  test('dua provider dengan skema + store terverifikasi', () => {
+  test('dua provider dengan URL pembuka + store terverifikasi', () => {
     assert.equal(RIDE_HAILING_PROVIDERS.length, 2);
     const gojek = getProvider('gojek');
-    assert.equal(gojek.schemeUrl, 'gojek://');
+    assert.equal(gojek.appUrl, 'gojek://goride');
+    assert.equal(gojek.androidAppUrl, undefined);
     assert.ok(gojek.playStoreUrl.includes('com.gojek.app'));
     assert.ok(gojek.appStoreUrl.includes('/id944875099'));
     const grab = getProvider('grab');
-    assert.equal(grab.schemeUrl, 'grab://');
+    // grab:// tidak didaftarkan app consumer -> pakai applink resmi Grab
+    // (terverifikasi di assetlinks + apple-app-site-association).
+    assert.equal(grab.appUrl, 'https://applink.grab.com/open');
     assert.ok(grab.playStoreUrl.includes('com.grabtaxi.passenger'));
     assert.ok(grab.appStoreUrl.includes('/id647268330'));
+  });
+
+  test('intent Android Grab: skema + package + fallback native', () => {
+    const grab = getProvider('grab');
+    assert.ok(grab.androidAppUrl?.startsWith('intent://open?service=bike#Intent;'));
+    assert.ok(grab.androidAppUrl?.includes('scheme=grab'));
+    assert.ok(grab.androidAppUrl?.includes('package=com.grabtaxi.passenger'));
+    assert.ok(grab.androidAppUrl?.includes('S.browser_fallback_url='));
+    assert.ok(grab.androidAppUrl?.endsWith(';end'));
   });
 
   test('provider tak dikenal melempar error jelas', () => {
