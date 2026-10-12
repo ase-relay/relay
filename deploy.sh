@@ -34,7 +34,7 @@ docker run -d \
   --name "$CONTAINER_NAME" \
   --restart unless-stopped \
   --env-file "$ENV_FILE" \
-  -p 8000:8000 \
+  -p 8010:8000 \
   "$IMAGE_NAME"
 
 echo "Menunggu backend healthy..."
