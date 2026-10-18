@@ -6,6 +6,7 @@ import {
   updateHalteSchema,
   nearbyHalteSchema,
 } from '../middlewares/transport-validate.middleware';
+import { HttpError } from '../utils/http-error';
 
 export class TransportController {
   // ================= HALTE CONTROLLERS =================
@@ -90,6 +91,10 @@ export class TransportController {
         data,
       });
     } catch (error: any) {
+      if (error instanceof HttpError) {
+        res.status(error.status).json({ success: false, message: error.message });
+        return;
+      }
       res.status(500).json({ success: false, message: error.message || 'Gagal menambahkan halte' });
     }
   }
@@ -127,6 +132,10 @@ export class TransportController {
         data,
       });
     } catch (error: any) {
+      if (error instanceof HttpError) {
+        res.status(error.status).json({ success: false, message: error.message });
+        return;
+      }
       if (error.message?.includes('tidak ditemukan')) {
         res.status(404).json({ success: false, message: error.message });
         return;

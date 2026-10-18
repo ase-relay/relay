@@ -8,6 +8,7 @@ import {
 } from '../types/transport.types';
 import { invalidateRoutingNetworkCache } from './routing-network';
 import { HttpError } from '../utils/http-error';
+import { normalizeName, checkDuplicateName } from '../utils/normalize';
 
 export const ruteStopPublicSelect = {
   id: true,
@@ -256,6 +257,14 @@ export class RuteService {
   static async create(data: CreateRuteDTO) {
     const { stops, ...ruteData } = data;
 
+    const isDuplicate = await checkDuplicateName(ruteData.namaRute, () =>
+      prisma.rute.findMany({ select: { id: true, namaRute: true } }),
+      (r) => r.namaRute
+    );
+    if (isDuplicate) {
+      throw new HttpError('Nama rute sudah terdaftar. Gunakan nama lain.', 409);
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       // Validasi moda
       await this.validateModa(Number(ruteData.modaId), tx);
@@ -298,6 +307,17 @@ export class RuteService {
    */
   static async update(id: number, data: UpdateRuteDTO) {
     const { stops, ...ruteData } = data;
+
+    if (ruteData.namaRute) {
+      const isDuplicate = await checkDuplicateName(ruteData.namaRute, () =>
+        prisma.rute.findMany({ select: { id: true, namaRute: true } }),
+        (r) => r.namaRute,
+        id
+      );
+      if (isDuplicate) {
+        throw new HttpError('Nama rute sudah terdaftar. Gunakan nama lain.', 409);
+      }
+    }
 
     const result = await prisma.$transaction(async (tx) => {
       const existing = await tx.rute.findUnique({

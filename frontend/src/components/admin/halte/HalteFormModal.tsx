@@ -13,6 +13,8 @@ export type HalteFormModalProps = {
     onCancel: () => void;
     onSave: (input: HalteInput) => void;
     disabled?: boolean;
+    apiError?: string | null;
+    existingHaltes?: Halte[];
 };
 
 type LokasiMode = 'peta' | 'manual';
@@ -28,7 +30,19 @@ const LocationPickerModalNoSSR = dynamic(
     { ssr: false },
 );
 
-export function HalteFormModal({ isOpen, initial = null, onCancel, onSave, disabled = false }: HalteFormModalProps) {
+/**
+ * Normalisasi nama halte untuk pengecekan duplikat di sisi klien.
+ * Harus cocok dengan logika backend di HalteService.normalizeNamaHalte.
+ */
+function normalizeNamaHalte(nama: string): string {
+    return nama
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .replace(/\s+(\d+)$/, '$1');
+}
+
+export function HalteFormModal({ isOpen, initial = null, onCancel, onSave, disabled = false, apiError = null, existingHaltes = [] }: HalteFormModalProps) {
     const [nama, setNama] = useState(initial?.namaHalte ?? '');
     const [alamat, setAlamat] = useState(initial?.alamat ?? '');
     const [latitude, setLatitude] = useState(initial ? String(initial.latitude) : '');
@@ -74,6 +88,10 @@ export function HalteFormModal({ isOpen, initial = null, onCancel, onSave, disab
 
     function clearErrors(key: string) {
         setErrors((prev) => ({ ...prev, [key]: '' }));
+        if (key === 'nama') {
+            // apiError is handled by parent, but we can't clear it from here
+            // Parent will clear it when modal reopens or on new save attempt
+        }
     }
 
     function applyPickedLocation(location: PickedLocation) {
@@ -107,6 +125,18 @@ export function HalteFormModal({ isOpen, initial = null, onCancel, onSave, disab
             nextErrors.longitude = 'Longitude harus berupa angka';
         } else if (longitudeValue < -180 || longitudeValue > 180) {
             nextErrors.longitude = 'Longitude harus di antara -180 dan 180';
+        }
+
+        // Client-side duplicate check (backend remains source of truth)
+        if (nama.trim() && existingHaltes.length > 0) {
+            const normalizedInput = normalizeNamaHalte(nama.trim());
+            const isDuplicate = existingHaltes.some((halte) => {
+                if (initial && halte.id === initial.id) return false; // exclude self on edit
+                return normalizeNamaHalte(halte.namaHalte) === normalizedInput;
+            });
+            if (isDuplicate) {
+                nextErrors.nama = 'Nama halte sudah terdaftar. Tambahkan angka (1/2) jika berada di jalur berbeda.';
+            }
         }
 
         if (Object.keys(nextErrors).length > 0) {
@@ -173,6 +203,7 @@ export function HalteFormModal({ isOpen, initial = null, onCancel, onSave, disab
                             className={inputClass}
                         />
                         {errors.nama && <p className={errorClass}>{errors.nama}</p>}
+                        {apiError && <p className={errorClass}>{apiError}</p>}
                     </div>
 
                     <div>

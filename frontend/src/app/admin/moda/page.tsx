@@ -76,6 +76,7 @@ export default function AdminModaPage() {
     const [deleting, setDeleting] = useState<Moda | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [alert, setAlert] = useState<{ title: string; description: string; type?: 'success' | 'error' } | null>(null);
+    const [apiError, setApiError] = useState<string | null>(null);
 
     const handleCloseAlert = useCallback(() => setAlert(null), []);
 
@@ -86,11 +87,13 @@ export default function AdminModaPage() {
     function handleAdd() {
         setEditing(null);
         setFormOpen(true);
+        setApiError(null);
     }
 
     function handleEdit(moda: Moda) {
         setEditing(moda);
         setFormOpen(true);
+        setApiError(null);
     }
 
     async function handleFormSave(input: ModaInput) {
@@ -101,6 +104,7 @@ export default function AdminModaPage() {
         }
         try {
             setSubmitting(true);
+            setApiError(null);
 
             // Create
             const response = await api.post<{ success: boolean; data: Moda; message: string }>(
@@ -126,11 +130,15 @@ export default function AdminModaPage() {
                 return;
             }
             const message = error.response?.data?.message || error.message || 'Gagal menyimpan data moda';
-            setAlert({
-                title: 'Gagal Menyimpan',
-                description: message,
-                type: 'error',
-            });
+            if (error.response?.status === 409) {
+                setApiError(message);
+            } else {
+                setAlert({
+                    title: 'Gagal Menyimpan',
+                    description: message,
+                    type: 'error',
+                });
+            }
         } finally {
             setSubmitting(false);
         }
@@ -140,6 +148,7 @@ export default function AdminModaPage() {
         if (!pendingEdit || !editing) return;
         try {
             setSubmitting(true);
+            setApiError(null);
 
             const response = await api.put<{ success: boolean; data: Moda; message: string }>(
                 `/transport/moda/${editing.id}`,
@@ -164,11 +173,15 @@ export default function AdminModaPage() {
                 return;
             }
             const message = error.response?.data?.message || error.message || 'Gagal memperbarui moda';
-            setAlert({
-                title: 'Gagal Memperbarui',
-                description: message,
-                type: 'error',
-            });
+            if (error.response?.status === 409) {
+                setApiError(message);
+            } else {
+                setAlert({
+                    title: 'Gagal Memperbarui',
+                    description: message,
+                    type: 'error',
+                });
+            }
         } finally {
             setSubmitting(false);
         }
@@ -393,9 +406,12 @@ export default function AdminModaPage() {
                     onCancel={() => {
                         setFormOpen(false);
                         setEditing(null);
+                        setApiError(null);
                     }}
                     onSave={handleFormSave}
                     disabled={submitting}
+                    apiError={apiError}
+                    existingModas={modas}
                 />
             )}
 

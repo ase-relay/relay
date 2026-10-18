@@ -1,5 +1,7 @@
 import { prisma } from '../config/db';
 import { invalidateRoutingNetworkCache } from './routing-network';
+import { HttpError } from '../utils/http-error';
+import { normalizeName, checkDuplicateName } from '../utils/normalize';
 
 /** Ikon otomatis per tipe moda (ditentukan server, tidak diterima dari klien). */
 export const MODA_IKON: Record<string, string> = {
@@ -50,20 +52,15 @@ export class ModaService {
     rataRataKecepatanKmh?: number | null;
     isActive?: boolean;
   }) {
+    const isDuplicate = await checkDuplicateName(data.namaModa, () =>
+      prisma.modaTransportasi.findMany({ select: { id: true, namaModa: true } }),
+      (m) => m.namaModa
+    );
+    if (isDuplicate) {
+      throw new HttpError('Nama moda sudah terdaftar. Gunakan nama lain.', 409);
+    }
+
     const newModa = await prisma.$transaction(async (tx) => {
-      const existing = await tx.modaTransportasi.findFirst({
-        where: {
-          namaModa: {
-            equals: data.namaModa,
-            mode: 'insensitive',
-          },
-        },
-      });
-
-      if (existing) {
-        throw new Error('Nama moda sudah ada (case-insensitive)');
-      }
-
       const trimmedDeskripsi = data.deskripsi?.trim() ?? '';
       const newModa = await tx.modaTransportasi.create({
         data: {
@@ -95,23 +92,18 @@ export class ModaService {
   ) {
     await this.getById(id);
 
-    const updated = await prisma.$transaction(async (tx) => {
-      if (data.namaModa) {
-        const existing = await tx.modaTransportasi.findFirst({
-          where: {
-            namaModa: {
-              equals: data.namaModa,
-              mode: 'insensitive',
-            },
-            id: { not: id },
-          },
-        });
-
-        if (existing) {
-          throw new Error('Nama moda sudah ada (case-insensitive)');
-        }
+    if (data.namaModa) {
+      const isDuplicate = await checkDuplicateName(data.namaModa, () =>
+        prisma.modaTransportasi.findMany({ select: { id: true, namaModa: true } }),
+        (m) => m.namaModa,
+        id
+      );
+      if (isDuplicate) {
+        throw new HttpError('Nama moda sudah terdaftar. Gunakan nama lain.', 409);
       }
+    }
 
+    const updated = await prisma.$transaction(async (tx) => {
       const updated = await tx.modaTransportasi.update({
         where: { id },
         data: {

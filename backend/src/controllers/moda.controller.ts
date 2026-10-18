@@ -4,6 +4,7 @@ import {
   createModaSchema,
   updateModaSchema,
 } from '../middlewares/moda-validate.middleware';
+import { HttpError } from '../utils/http-error';
 
 export class ModaController {
   static async getAllModa(req: Request, res: Response): Promise<void> {
@@ -57,8 +58,11 @@ export class ModaController {
         data,
       });
     } catch (error: any) {
-      const status = error.message?.includes('sudah ada') ? 400 : 500;
-      res.status(status).json({ success: false, message: error.message || 'Gagal menambahkan moda' });
+      if (error instanceof HttpError) {
+        res.status(error.status).json({ success: false, message: error.message });
+        return;
+      }
+      res.status(500).json({ success: false, message: error.message || 'Gagal menambahkan moda' });
     }
   }
 
@@ -82,7 +86,11 @@ export class ModaController {
         data,
       });
     } catch (error: any) {
-      const status = error.message?.includes('masih dipakai') ? 409 : (error.message?.includes('sudah ada') ? 400 : (error.message?.includes('tidak ditemukan') ? 404 : 400));
+      if (error instanceof HttpError) {
+        res.status(error.status).json({ success: false, message: error.message });
+        return;
+      }
+      const status = error.message?.includes('masih dipakai') ? 409 : (error.message?.includes('tidak ditemukan') ? 404 : 400);
       res.status(status).json({
         success: false,
         message: error.message || 'Gagal memperbarui moda',

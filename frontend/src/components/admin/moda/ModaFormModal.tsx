@@ -12,6 +12,8 @@ export type ModaFormModalProps = {
     onCancel: () => void;
     onSave: (input: ModaInput) => void;
     disabled?: boolean;
+    apiError?: string | null;
+    existingModas?: Moda[];
 };
 
 const TIPE_MODA_OPTIONS: TipeModa[] = ['BUS', 'KERETA', 'OJEK_ONLINE'];
@@ -46,7 +48,18 @@ function parseKecepatan(raw: string): Parsed {
     return { ok: true, value: num };
 }
 
-export function ModaFormModal({ isOpen, initial = null, onCancel, onSave, disabled = false }: ModaFormModalProps) {
+/**
+ * Normalisasi nama untuk perbandingan duplikat (mirip backend).
+ */
+function normalizeName(name: string): string {
+    return name
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .replace(/\s+(\d+)$/, '$1');
+}
+
+export function ModaFormModal({ isOpen, initial = null, onCancel, onSave, disabled = false, apiError = null, existingModas = [] }: ModaFormModalProps) {
     const [nama, setNama] = useState(initial?.namaModa ?? '');
     const [tipeModa, setTipeModa] = useState<TipeModa | ''>(() => tipeAwal(initial?.tipeModa));
     const [kecepatan, setKecepatan] = useState(
@@ -91,6 +104,18 @@ export function ModaFormModal({ isOpen, initial = null, onCancel, onSave, disabl
             }
         } else if (parsedKecepatan.reason === 'invalid') {
             nextErrors.kecepatan = 'Kecepatan harus berupa angka lebih dari 0 dan maksimal 200 (contoh: 20 atau 22,5)';
+        }
+
+        // Client-side duplicate check (backend remains source of truth)
+        if (nama.trim() && existingModas.length > 0) {
+            const normalizedInput = normalizeName(nama.trim());
+            const isDuplicate = existingModas.some((moda) => {
+                if (initial && moda.id === initial.id) return false; // exclude self on edit
+                return normalizeName(moda.namaModa) === normalizedInput;
+            });
+            if (isDuplicate) {
+                nextErrors.nama = 'Nama moda sudah terdaftar. Gunakan nama lain.';
+            }
         }
 
         if (Object.keys(nextErrors).length > 0) {
@@ -158,6 +183,7 @@ export function ModaFormModal({ isOpen, initial = null, onCancel, onSave, disabl
                             className={inputClass}
                         />
                         {errors.nama && <p className={errorClass}>{errors.nama}</p>}
+                        {apiError && <p className={errorClass}>{apiError}</p>}
                     </div>
 
                     <div>

@@ -17,7 +17,20 @@ export type RuteFormModalProps = {
     onSubmit: (input: RuteInput) => void;
     submitting: boolean;
     detailLoading?: boolean;
+    apiError?: string | null;
+    existingRutes?: Rute[];
 };
+
+/**
+ * Normalisasi nama untuk perbandingan duplikat (mirip backend).
+ */
+function normalizeName(name: string): string {
+    return name
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .replace(/\s+(\d+)$/, '$1');
+}
 
 export function RuteFormModal({
     isOpen,
@@ -28,6 +41,8 @@ export function RuteFormModal({
     onSubmit,
     submitting,
     detailLoading = false,
+    apiError = null,
+    existingRutes = [],
 }: RuteFormModalProps) {
     const isEdit = initial != null;
 
@@ -317,6 +332,19 @@ export function RuteFormModal({
             if (modaId === 0) {
                 nextErrors.modaId = 'Moda wajib dipilih';
             }
+
+            // Client-side duplicate check (backend remains source of truth)
+            if (trimmedNama && existingRutes.length > 0) {
+                const normalizedInput = normalizeName(trimmedNama);
+                const isDuplicate = existingRutes.some((rute) => {
+                    if (initial && rute.id === initial.id) return false; // exclude self on edit
+                    return normalizeName(rute.namaRute) === normalizedInput;
+                });
+                if (isDuplicate) {
+                    nextErrors.namaRute = 'Nama rute sudah terdaftar. Gunakan nama lain.';
+                }
+            }
+
             if (Object.keys(nextErrors).length > 0) {
                 setErrors(nextErrors);
                 return;
@@ -471,6 +499,7 @@ export function RuteFormModal({
                                     className={inputClass}
                                 />
                                 {errors.namaRute && <p className={errorClass}>{errors.namaRute}</p>}
+                                {apiError && <p className={errorClass}>{apiError}</p>}
                             </div>
 
                             <div>

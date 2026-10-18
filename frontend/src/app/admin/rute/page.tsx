@@ -56,6 +56,7 @@ export default function AdminRutePage() {
     const [submitting, setSubmitting] = useState(false);
     const [alert, setAlert] = useState<{ title: string; description: string; type?: 'success' | 'error' } | null>(null);
     const [loadingDetail, setLoadingDetail] = useState(false);
+    const [apiError, setApiError] = useState<string | null>(null);
 
     const handleCloseAlert = useCallback(() => setAlert(null), []);
 
@@ -70,6 +71,7 @@ export default function AdminRutePage() {
     function handleAdd() {
         setEditing(null);
         setFormOpen(true);
+        setApiError(null);
     }
 
     function handleEdit(rute: Rute) {
@@ -77,6 +79,7 @@ export default function AdminRutePage() {
         // halte + segmen) menyusul di background selagi admin di langkah 1.
         setEditing(rute);
         setFormOpen(true);
+        setApiError(null);
         setLoadingDetail(true);
         api.get<{ success: boolean; data: Rute; message: string }>(
             `/transport/rute/${rute.id}`,
@@ -108,6 +111,7 @@ export default function AdminRutePage() {
     async function handleFormSave(input: RuteInput) {
         try {
             setSubmitting(true);
+            setApiError(null);
 
             if (editing) {
                 setPendingEdit(input);
@@ -134,12 +138,17 @@ export default function AdminRutePage() {
             if ((err as { response?: { status?: number } }).response?.status === 401) {
                 return;
             }
+            const error = err as { response?: { status?: number; data?: { message?: string } }; message?: string };
             const message = getApiErrorMessage(err, 'Gagal menyimpan data rute');
-            setAlert({
-                title: 'Gagal Menyimpan',
-                description: message,
-                type: 'error',
-            });
+            if (error.response?.status === 409) {
+                setApiError(message);
+            } else {
+                setAlert({
+                    title: 'Gagal Menyimpan',
+                    description: message,
+                    type: 'error',
+                });
+            }
         } finally {
             setSubmitting(false);
         }
@@ -149,6 +158,7 @@ export default function AdminRutePage() {
         if (!pendingEdit || !editing) return;
         try {
             setSubmitting(true);
+            setApiError(null);
 
             const response = await api.put<{ success: boolean; data: Rute; message: string }>(
                 `/transport/rute/${editing.id}`,
@@ -170,12 +180,17 @@ export default function AdminRutePage() {
             if ((err as { response?: { status?: number } }).response?.status === 401) {
                 return;
             }
+            const error = err as { response?: { status?: number; data?: { message?: string } }; message?: string };
             const message = getApiErrorMessage(err, 'Gagal memperbarui rute');
-            setAlert({
-                title: 'Gagal Memperbarui',
-                description: message,
-                type: 'error',
-            });
+            if (error.response?.status === 409) {
+                setApiError(message);
+            } else {
+                setAlert({
+                    title: 'Gagal Memperbarui',
+                    description: message,
+                    type: 'error',
+                });
+            }
         } finally {
             setSubmitting(false);
         }
@@ -396,10 +411,15 @@ export default function AdminRutePage() {
                     haltes={haltes}
                     modas={modas}
                     initial={editing}
-                    onCancel={handleCloseForm}
+                    onCancel={() => {
+                        handleCloseForm();
+                        setApiError(null);
+                    }}
                     onSubmit={handleFormSave}
                     submitting={submitting}
                     detailLoading={loadingDetail}
+                    apiError={apiError}
+                    existingRutes={rutes}
                 />
             )}
 

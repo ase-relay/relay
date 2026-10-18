@@ -60,6 +60,7 @@ export default function AdminHaltePage() {
     const [deleting, setDeleting] = useState<Halte | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [alert, setAlert] = useState<{ title: string; description: string; type?: 'success' | 'error' } | null>(null);
+    const [apiError, setApiError] = useState<string | null>(null);
 
     const handleCloseAlert = useCallback(() => setAlert(null), []);
 
@@ -83,11 +84,13 @@ export default function AdminHaltePage() {
     function handleCloseForm() {
         setFormOpen(false);
         setEditing(null);
+        setApiError(null);
     }
 
     async function handleFormSave(input: HalteInput) {
         try {
             setSubmitting(true);
+            setApiError(null);
 
             if (editing) {
                 setPendingEdit(input);
@@ -116,11 +119,15 @@ export default function AdminHaltePage() {
                 return;
             }
             const message = error.response?.data?.message || error.message || 'Gagal menyimpan data halte';
-            setAlert({
-                title: 'Gagal Menyimpan',
-                description: message,
-                type: 'error',
-            });
+            if (error.response?.status === 409) {
+                setApiError(message);
+            } else {
+                setAlert({
+                    title: 'Gagal Menyimpan',
+                    description: message,
+                    type: 'error',
+                });
+            }
         } finally {
             setSubmitting(false);
         }
@@ -130,6 +137,7 @@ export default function AdminHaltePage() {
         if (!pendingEdit || !editing) return;
         try {
             setSubmitting(true);
+            setApiError(null);
 
             const response = await api.put<{ success: boolean; data: Halte; message: string }>(
                 `/transport/halte/${editing.id}`,
@@ -153,11 +161,15 @@ export default function AdminHaltePage() {
                 return;
             }
             const message = error.response?.data?.message || error.message || 'Gagal memperbarui halte';
-            setAlert({
-                title: 'Gagal Memperbarui',
-                description: message,
-                type: 'error',
-            });
+            if (error.response?.status === 409) {
+                setApiError(message);
+            } else {
+                setAlert({
+                    title: 'Gagal Memperbarui',
+                    description: message,
+                    type: 'error',
+                });
+            }
         } finally {
             setSubmitting(false);
         }
@@ -371,6 +383,8 @@ export default function AdminHaltePage() {
                     onCancel={handleCloseForm}
                     onSave={handleFormSave}
                     disabled={submitting}
+                    apiError={apiError}
+                    existingHaltes={haltes}
                 />
             )}
 

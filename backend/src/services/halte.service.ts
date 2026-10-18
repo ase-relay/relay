@@ -6,6 +6,8 @@ import {
   CreateHalteDTO,
   UpdateHalteDTO,
 } from '../types/transport.types';
+import { HttpError } from '../utils/http-error';
+import { normalizeName, checkDuplicateName } from '../utils/normalize';
 
 /**
  * Menghitung jarak antar 2 koordinat (lat, lng) menggunakan Formula Haversine.
@@ -33,6 +35,21 @@ export const calculateHaversineDistance = (
 };
 
 export class HalteService {
+  /**
+   * Normalisasi nama halte untuk perbandingan duplikat (menggunakan shared utility).
+   */
+  static normalizeNamaHalte(nama: string): string {
+    return normalizeName(nama);
+  }
+
+  /**
+   * Cek apakah nama halte sudah digunakan (setelah normalisasi).
+   * Kecualikan ID tertentu (untuk update).
+   */
+  static async checkDuplicateNama(nama: string, excludeId?: number): Promise<boolean> {
+    return checkDuplicateName(nama, () => prisma.halte.findMany({ select: { id: true, namaHalte: true } }), (h) => h.namaHalte, excludeId);
+  }
+
   /**
    * Mengambil semua halte dengan opsi filter pencarian, kota, dan status transit
    */
@@ -130,6 +147,14 @@ export class HalteService {
    * Menambahkan data halte baru
    */
   static async create(data: CreateHalteDTO) {
+    const isDuplicate = await this.checkDuplicateNama(data.namaHalte);
+    if (isDuplicate) {
+      throw new HttpError(
+        'Nama halte sudah terdaftar. Gunakan nama lain, atau tambahkan angka (1/2) jika halte berada di jalur berbeda.',
+        409
+      );
+    }
+
     const created = await prisma.halte.create({
       data: {
         namaHalte: data.namaHalte,
@@ -151,6 +176,16 @@ export class HalteService {
    */
   static async update(id: number, data: UpdateHalteDTO) {
     await this.getById(id);
+
+    if (data.namaHalte !== undefined) {
+      const isDuplicate = await this.checkDuplicateNama(data.namaHalte, id);
+      if (isDuplicate) {
+        throw new HttpError(
+          'Nama halte sudah terdaftar. Gunakan nama lain, atau tambahkan angka (1/2) jika halte berada di jalur berbeda.',
+          409
+        );
+      }
+    }
 
     const updated = await prisma.halte.update({
       where: { id },
